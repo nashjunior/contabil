@@ -57,7 +57,7 @@ create table fato_contabil (
   data_competencia     date not null,                               -- fato gerador (Lei 4.320 art. 35)
   data_hora_registro   timestamptz not null default clock_timestamp(),  -- relógio do SERVIDOR (anti-backdating)
   periodo_id           uuid not null,
-  tipo_evento          text not null,                               -- empenho|liquidacao|pagamento|receita|estorno|abertura
+  tipo_evento          text not null check (tipo_evento in ('empenho','liquidacao','pagamento','receita','estorno','abertura')),
   historico            text not null,
   origem               text not null,                               -- módulo/integração de origem
   fato_estornado_id    uuid,                                        -- vínculo do estorno ao original
@@ -144,6 +144,21 @@ create trigger trg_periodo_aberto before insert on fato_contabil
   for each row execute function checa_periodo_aberto();
 ```
 
+## Trava 3b — anti-backdating (data_hora_registro é sempre o relógio do servidor)
+
+O `default clock_timestamp()` na coluna só vale quando ela é **omitida** do `insert` — um `insert` explícito poderia informar qualquer `timestamptz` passado. Um trigger `before insert` **sobrescreve sempre**, fechando essa brecha (a garantia fica no banco, não só no default):
+
+```sql
+create or replace function forca_data_hora_registro() returns trigger as $$
+begin
+  new.data_hora_registro := clock_timestamp();
+  return new;
+end; $$ language plpgsql;
+
+create trigger trg_anti_backdating before insert on fato_contabil
+  for each row execute function forca_data_hora_registro();
+```
+
 ## Trava 4 — isolamento multi-ente (RLS deny-by-default)
 
 RLS **forçada** em todas as tabelas com `ente_id`; a aplicação faz `set local app.ente_id` por transação. Sem a variável, **nada é visível** (deny-by-default).
@@ -177,16 +192,34 @@ Correção: **PK/unique composta `(ente_id, id)`** em toda tabela referenciada p
 
 ## Numeração sequencial cronológica (gapless)
 
-Sequences do PostgreSQL deixam **buracos** em rollback; a lei pede numeração cronológica sem lacuna. Usa-se um contador por ente com trava de linha na mesma transação:
+Sequences do PostgreSQL deixam **buracos** em rollback; a lei pede numeração cronológica sem lacuna. Usa-se um contador por ente com trava de linha na mesma transação, via função **`security definer`** (o `app_role` não tem acesso direto a `contador_fato`):
 
 ```sql
 create table contador_fato (
   ente_id  uuid primary key references ente(id),
   proximo  bigint not null default 1
 );
--- ao inserir o fato (dentro da tx):
---   update contador_fato set proximo = proximo + 1
---   where ente_id = :ente returning proximo - 1  ->  numero_seq
+
+-- SEM parâmetro de ente: o ente é derivado de current_setting('app.ente_id'),
+-- a MESMA variável de sessão que a RLS usa — nunca de um argumento passado
+-- pelo chamador. Sendo security definer, a função roda como dono da tabela e
+-- ignora RLS; se aceitasse p_ente_id como argumento, um app_login logado como
+-- ente A poderia incrementar a sequência do ente B só passando o UUID de B
+-- (RAZ-14).
+create function proximo_numero_seq() returns bigint
+language plpgsql security definer set search_path = pg_catalog, public as $$
+declare
+  v_ente_id uuid := current_setting('app.ente_id', true)::uuid;
+  v_numero  bigint;
+begin
+  update contador_fato set proximo = proximo + 1
+   where ente_id = v_ente_id
+  returning proximo - 1 into v_numero;
+  if not found then
+    raise exception 'Ente % sem contador de fato inicializado', v_ente_id;
+  end if;
+  return v_numero;
+end; $$;
 ```
 
 ## Saldos (derivados, nunca gravados como verdade)
@@ -211,10 +244,13 @@ Cada trava tem um **teste de integração** que tenta violá-la e **espera rejei
 | Inserir fato com Σdébito ≠ Σcrédito | Exceção no commit (trava 1) |
 | `update`/`delete` em fato/lançamento consolidado | Exceção (trava 2) |
 | Inserir fato em período encerrado | Exceção (trava 3) |
+| Inserir fato com `data_hora_registro` explícita no passado/futuro | Coluna sobrescrita com `clock_timestamp()` do servidor (trava 3b) |
 | Consultar sem `app.ente_id` ou de outro ente | Zero linhas / negado (trava 4) |
 | Inserir fato/lançamento referenciando período/fato/conta de **outro ente** (`periodo_id`, `fato_id`, `conta_id`, `conta_pai_id`, `fato_estornado_id`) | Violação de FK composta (trava 4b), não silêncio via RLS |
 | `numero_seq` duplicado / com buraco | Violação de unique / detecção |
+| Chamar `proximo_numero_seq()` como ente A tentando numerar para o ente B | Ignorado — sempre incrementa o contador do `app.ente_id` da sessão, nunca um ente arbitrário |
 | Persistir `valor` com mais de 2 casas ou negativo | Violação de check |
+| Persistir `tipo_evento` fora do domínio (`empenho\|liquidacao\|pagamento\|receita\|estorno\|abertura`) | Violação de check |
 
 ## Notas e pontos abertos
 

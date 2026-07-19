@@ -8,6 +8,8 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
+import java.time.Instant;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -26,8 +28,10 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  *   <li>Trava 1 — partidas dobradas (Σdébito = Σcrédito no commit)</li>
  *   <li>Trava 2 — imutabilidade (grant ausente + trigger, defesa em profundidade)</li>
  *   <li>Trava 3 — período encerrado</li>
+ *   <li>Trava 3b — anti-backdating ({@code data_hora_registro} sempre do relógio do servidor, RAZ-14)</li>
  *   <li>Trava 4 — RLS deny-by-default (sem {@code app.ente_id} / ente errado)</li>
- *   <li>{@code numero_seq} único por ente e {@code valor} com check/escala</li>
+ *   <li>{@code proximo_numero_seq()} deriva o ente de {@code app.ente_id} da sessão, nunca de argumento (RAZ-14)</li>
+ *   <li>{@code numero_seq} único por ente, {@code tipo_evento} fechado por check (RAZ-14) e {@code valor} com check/escala</li>
  * </ul>
  */
 @Testcontainers(disabledWithoutDocker = true)
@@ -186,6 +190,36 @@ class RazaoContabilTravasTest {
     }
 
     // ------------------------------------------------------------------
+    // Trava 3b — anti-backdating (data_hora_registro é sempre o relógio do
+    // SERVIDOR, mesmo se o INSERT informar um valor explícito no passado)
+    // ------------------------------------------------------------------
+
+    @Test
+    void triggerSobrescreveDataHoraRegistroInformadaExplicitamenteNoPassado() throws SQLException {
+        String fatoId = "ffffffff-3333-3333-3333-ffffffffffff";
+        executarComoAppLogin(ENTE_A,
+                """
+                insert into fato_contabil (id, ente_id, numero_seq, data_competencia, data_hora_registro, periodo_id, tipo_evento, historico, origem)
+                values ('%s', '%s', 13, current_date, '2000-01-01T00:00:00Z', '%s', 'empenho', 'tentativa de backdating', 'test')
+                """.formatted(fatoId, ENTE_A, PERIODO_ABERTO));
+
+        try (Connection conn = DriverManager.getConnection(POSTGRES.getJdbcUrl(), "app_login", "app_login")) {
+            conn.setAutoCommit(false);
+            try (Statement st = conn.createStatement()) {
+                st.execute("set local app.ente_id = '" + ENTE_A + "'");
+                try (ResultSet rs = st.executeQuery(
+                        "select data_hora_registro from fato_contabil where id = '" + fatoId + "'")) {
+                    assertThat(rs.next()).isTrue();
+                    assertThat(rs.getTimestamp("data_hora_registro").toInstant())
+                            .as("trigger deve sobrescrever data_hora_registro informada, nunca aceitar valor do chamador (anti-backdating)")
+                            .isAfter(Instant.now().minus(Duration.ofMinutes(1)));
+                }
+            }
+            conn.commit();
+        }
+    }
+
+    // ------------------------------------------------------------------
     // Trava 4 — RLS deny-by-default (base; a variante FK/4b está em RAZ-13)
     // ------------------------------------------------------------------
 
@@ -215,6 +249,61 @@ class RazaoContabilTravasTest {
             }
             conn.commit();
         }
+    }
+
+    // ------------------------------------------------------------------
+    // proximo_numero_seq() — sem parâmetro; deriva o ente de app.ente_id da
+    // sessão (a mesma variável da RLS), nunca de um argumento do chamador
+    // (RAZ-14)
+    // ------------------------------------------------------------------
+
+    @Test
+    void proximoNumeroSeqIncrementaSomenteOContadorDoEnteDaSessao() throws SQLException {
+        long antesA = lerContadorComoAdmin(ENTE_A);
+        long antesB = lerContadorComoAdmin(ENTE_B);
+
+        try (Connection conn = DriverManager.getConnection(POSTGRES.getJdbcUrl(), "app_login", "app_login")) {
+            conn.setAutoCommit(false);
+            try (Statement st = conn.createStatement()) {
+                st.execute("set local app.ente_id = '" + ENTE_A + "'");
+                st.execute("select proximo_numero_seq()");
+            }
+            conn.commit();
+        }
+
+        assertThat(lerContadorComoAdmin(ENTE_A)).isEqualTo(antesA + 1);
+        assertThat(lerContadorComoAdmin(ENTE_B))
+                .as("proximo_numero_seq() não pode mexer no contador de um ente que não é o da sessão")
+                .isEqualTo(antesB);
+    }
+
+    @Test
+    void proximoNumeroSeqSemAppEnteIdLevantaExcecaoEmVezDeVazarOuAdivinhar() {
+        assertThatThrownBy(() -> {
+            try (Connection conn = DriverManager.getConnection(POSTGRES.getJdbcUrl(), "app_login", "app_login")) {
+                conn.setAutoCommit(false);
+                try (Statement st = conn.createStatement()) {
+                    st.execute("select proximo_numero_seq()");
+                }
+                conn.commit();
+            }
+        }).isInstanceOf(SQLException.class)
+                .hasMessageContaining("sem contador de fato inicializado");
+    }
+
+    // ------------------------------------------------------------------
+    // tipo_evento — domínio fechado por check
+    // ------------------------------------------------------------------
+
+    @Test
+    void rejeitaTipoEventoForaDoDominio() {
+        assertThatThrownBy(() -> executarComoAppLogin(ENTE_A,
+                """
+                insert into fato_contabil (ente_id, numero_seq, data_competencia, periodo_id, tipo_evento, historico, origem)
+                values ('%s', 21, current_date, '%s', 'tipo_invalido', 'tipo_evento fora do dominio', 'test')
+                """.formatted(ENTE_A, PERIODO_ABERTO)))
+                .isInstanceOf(SQLException.class)
+                .hasMessageContaining("check constraint");
     }
 
     // ------------------------------------------------------------------
@@ -281,6 +370,15 @@ class RazaoContabilTravasTest {
 
     private static Connection adminConnection() throws SQLException {
         return DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+    }
+
+    private static long lerContadorComoAdmin(String enteId) throws SQLException {
+        try (Connection conn = adminConnection();
+                Statement st = conn.createStatement();
+                ResultSet rs = st.executeQuery("select proximo from contador_fato where ente_id = '" + enteId + "'")) {
+            rs.next();
+            return rs.getLong(1);
+        }
     }
 
     private static void executarComoAppLogin(String enteId, String... sqls) throws SQLException {

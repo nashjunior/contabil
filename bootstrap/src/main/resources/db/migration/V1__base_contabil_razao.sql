@@ -2,10 +2,11 @@
 -- Ref.: docs/arquitetura-tecnica/razao-contabil-schema.md, ADR-0001 (base única PostgreSQL),
 -- ADR-0003 (multi-tenant RLS deny-by-default), ADR-0006 (dinheiro em decimal).
 --
--- 4 travas impostas pelo BANCO (defesa em profundidade, não confiar só na aplicação):
+-- 4 travas (+3b) impostas pelo BANCO (defesa em profundidade, não confiar só na aplicação):
 --   1. Partidas dobradas   — Σdébito = Σcrédito por fato (constraint trigger diferida)
 --   2. Imutabilidade       — append-only: trigger de bloqueio + sem GRANT update/delete
 --   3. Período encerrado   — bloqueia registro de fato em período fechado
+--   3b. Anti-backdating    — trigger força data_hora_registro = clock_timestamp() do servidor
 --   4. Isolamento multi-ente — RLS forçada, deny-by-default, em toda tabela com ente_id
 
 create extension if not exists "uuid-ossp";
@@ -84,7 +85,7 @@ create table fato_contabil (
   data_competencia     date not null,                                -- fato gerador (Lei 4.320 art. 35)
   data_hora_registro   timestamptz not null default clock_timestamp(),  -- relógio do SERVIDOR (anti-backdating)
   periodo_id           uuid not null,
-  tipo_evento          text not null,                                -- empenho|liquidacao|pagamento|receita|estorno|abertura
+  tipo_evento          text not null check (tipo_evento in ('empenho','liquidacao','pagamento','receita','estorno','abertura')),
   historico            text not null,
   origem               text not null,                                -- módulo/integração de origem
   fato_estornado_id    uuid,                                         -- vínculo do estorno ao original
@@ -175,6 +176,23 @@ create trigger trg_periodo_aberto before insert on fato_contabil
   for each row execute function checa_periodo_aberto();
 
 -- ============================================================================
+-- Trava 3b — anti-backdating (data_hora_registro é sempre o relógio do
+-- SERVIDOR). O DEFAULT clock_timestamp() só vale quando a coluna é omitida;
+-- um INSERT explícito poderia informar qualquer timestamptz passado. Este
+-- trigger sobrescreve SEMPRE com clock_timestamp(), fechando essa brecha —
+-- defesa no banco, não só o default (RAZ-14).
+-- ============================================================================
+create function forca_data_hora_registro() returns trigger as $$
+begin
+  new.data_hora_registro := clock_timestamp();
+  return new;
+end;
+$$ language plpgsql;
+
+create trigger trg_anti_backdating before insert on fato_contabil
+  for each row execute function forca_data_hora_registro();
+
+-- ============================================================================
 -- Trava 4 — isolamento multi-ente (RLS forçada, deny-by-default)
 -- Em TODA tabela com ente_id — a aplicação faz `set local app.ente_id` por
 -- transação; sem a variável, nada é visível.
@@ -209,22 +227,30 @@ create policy tenant_isolation on lancamento
 -- Numeração sequencial cronológica gapless — incremento atômico via UPDATE
 -- (lock de linha na mesma transação), SECURITY DEFINER porque app_role não
 -- tem acesso direto a contador_fato (só via esta função).
+--
+-- SEM parâmetro de ente: o ente é derivado de current_setting('app.ente_id'),
+-- a MESMA variável de sessão que a RLS usa — nunca de argumento passado pelo
+-- chamador. Sendo SECURITY DEFINER, a função roda como dono da tabela e
+-- ignora RLS; se aceitasse um p_ente_id como argumento, um app_login logado
+-- como ente A poderia incrementar/consumir a sequência do ente B só passando
+-- o UUID de B, quebrando o isolamento multi-ente na numeração (RAZ-14).
 -- ============================================================================
-create function proximo_numero_seq(p_ente_id uuid) returns bigint
+create function proximo_numero_seq() returns bigint
 language plpgsql
 security definer
 set search_path = pg_catalog, public
 as $$
 declare
-  v_numero bigint;
+  v_ente_id uuid := current_setting('app.ente_id', true)::uuid;
+  v_numero  bigint;
 begin
   update contador_fato
      set proximo = proximo + 1
-   where ente_id = p_ente_id
+   where ente_id = v_ente_id
   returning proximo - 1 into v_numero;
 
   if not found then
-    raise exception 'Ente % sem contador de fato inicializado', p_ente_id;
+    raise exception 'Ente % sem contador de fato inicializado', v_ente_id;
   end if;
 
   return v_numero;
@@ -262,10 +288,10 @@ select ente_id, conta_id,
 -- fato_contabil/lancamento: sem UPDATE/DELETE (trava 2).
 -- ============================================================================
 revoke all on ente, conta_pcasp, periodo_contabil, contador_fato, fato_contabil, lancamento from public;
-revoke all on function proximo_numero_seq(uuid), inicializa_contador_fato() from public;
+revoke all on function proximo_numero_seq(), inicializa_contador_fato() from public;
 
 grant select, insert                on ente                        to app_role;
 grant select, insert, update        on conta_pcasp, periodo_contabil to app_role;
 grant select, insert                on fato_contabil, lancamento     to app_role;
 grant select                        on saldo_conta                   to app_role;
-grant execute                       on function proximo_numero_seq(uuid) to app_role;
+grant execute                       on function proximo_numero_seq() to app_role;

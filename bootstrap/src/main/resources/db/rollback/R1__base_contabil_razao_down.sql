@@ -11,9 +11,12 @@
 
 drop view if exists saldo_conta;
 
-drop function if exists proximo_numero_seq(uuid);
+drop function if exists proximo_numero_seq();
 drop trigger if exists trg_inicializa_contador_fato on ente;
 drop function if exists inicializa_contador_fato();
+
+drop trigger if exists trg_anti_backdating on fato_contabil;
+drop function if exists forca_data_hora_registro();
 
 drop trigger if exists trg_periodo_aberto on fato_contabil;
 drop function if exists checa_periodo_aberto();
