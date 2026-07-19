@@ -1,12 +1,12 @@
 # Configuração base do sistema contábil (Razão / SIAFIC).
-# Valores sensíveis vêm de variáveis de ambiente; defaults servem só para dev local.
+# Segredos vêm do cofre/KMS/HSM e são injetados via ambiente no runtime.
 spring:
   application:
     name: razao
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/razao}
-    username: ${DB_USER:razao}
-    password: ${DB_PASSWORD:razao}
+    url: ${DB_RUNTIME_URL}
+    username: ${DB_RUNTIME_USER}
+    password-ref: ${DB_RUNTIME_PASSWORD_REF:cofre://siafic/f0/db/runtime/password}
     driver-class-name: org.postgresql.Driver
     hikari:
       pool-name: razao-pool
@@ -22,9 +22,10 @@ spring:
           time_zone: UTC
   flyway:
     enabled: true
+    url: ${DB_MIGRATION_URL}
+    user: ${DB_MIGRATION_USER}
+    password-ref: ${DB_MIGRATION_PASSWORD_REF:cofre://siafic/f0/db/migration/password}
     locations: classpath:db/migration
-    default-schema: contabil
-    schemas: contabil
     create-schemas: true
     baseline-on-migrate: false
 
@@ -46,3 +47,17 @@ logging:
     root: INFO
     br.contabil: INFO
     org.flywaydb: INFO
+
+siafic:
+  assinatura:
+    govbr:
+      oauth:
+        authorization-uri: ${GOVBR_ASSINATURA_OAUTH_AUTHORIZATION_URI:https://cas.staging.iti.br/oauth2.0/authorize}
+        token-uri: ${GOVBR_ASSINATURA_OAUTH_TOKEN_URI:https://cas.staging.iti.br/oauth2.0/accessToken}
+        client-id: ${GOVBR_ASSINATURA_OAUTH_CLIENT_ID:}
+        client-secret-ref: ${GOVBR_ASSINATURA_OAUTH_CLIENT_SECRET_REF:cofre://siafic/f0/assinatura/govbr/oauth/client-secret}
+        redirect-uri: ${GOVBR_ASSINATURA_OAUTH_REDIRECT_URI:http://localhost:8080/assinatura/oauth/callback}
+        scopes:
+          - sign
+          - signature_session
+        state-ttl: ${GOVBR_ASSINATURA_OAUTH_STATE_TTL:PT10M}
