@@ -1,14 +1,15 @@
 package br.contabil.razao.application;
 
 import br.contabil.plataforma.domain.TenantId;
+import br.contabil.razao.domain.repository.ContadorFatoPort;
 import br.contabil.razao.domain.FatoContabil;
+import br.contabil.razao.domain.repository.FatoContabilRepository;
 import br.contabil.razao.domain.Lancamento;
+import br.contabil.razao.domain.repository.PeriodoContabilPort;
 import br.contabil.razao.domain.TipoEvento;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Caso de uso: registra um novo fato contábil (motor-razao-partidas-dobradas.md).
@@ -21,7 +22,6 @@ import org.springframework.transaction.annotation.Transactional;
  * agregado (revalida Σ=Σ, defesa em profundidade); (5) persiste fato +
  * lançamentos atomicamente.
  */
-@Service
 public class RegistrarFatoContabil {
 
     private final FatoContabilRepository repositorio;
@@ -40,7 +40,6 @@ public class RegistrarFatoContabil {
         this.clock = clock;
     }
 
-    @Transactional
     public FatoContabil executar(
             TenantId enteId,
             LocalDate dataCompetencia,

@@ -1,7 +1,7 @@
 package br.contabil.razao.infra;
 
 import br.contabil.plataforma.domain.TenantId;
-import br.contabil.razao.application.ContadorFatoPort;
+import br.contabil.razao.domain.repository.ContadorFatoPort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 

@@ -1,7 +1,7 @@
 package br.contabil.razao.infra;
 
 import br.contabil.plataforma.domain.TenantId;
-import br.contabil.razao.application.PeriodoContabilPort;
+import br.contabil.razao.domain.repository.PeriodoContabilPort;
 import br.contabil.razao.domain.PeriodoEncerradoException;
 import java.time.LocalDate;
 import java.util.List;

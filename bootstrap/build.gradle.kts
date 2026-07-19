@@ -24,6 +24,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+    // AOP (aspectjweaver): transação declarativa nos use cases sem anotar a application.
+    implementation("org.springframework.boot:spring-boot-starter-aop")
 
     implementation(libs.flyway.core)
     implementation(libs.flyway.postgresql)

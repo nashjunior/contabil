@@ -1,4 +1,4 @@
-package br.contabil.razao.application;
+package br.contabil.razao.domain.repository;
 
 import br.contabil.plataforma.domain.TenantId;
 import br.contabil.razao.domain.FatoContabil;

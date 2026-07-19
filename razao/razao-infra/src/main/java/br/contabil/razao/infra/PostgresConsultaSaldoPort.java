@@ -2,7 +2,7 @@ package br.contabil.razao.infra;
 
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
-import br.contabil.razao.application.ConsultaSaldoPort;
+import br.contabil.razao.domain.repository.ConsultaSaldoPort;
 import java.math.BigDecimal;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;

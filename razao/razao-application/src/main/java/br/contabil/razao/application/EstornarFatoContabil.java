@@ -2,12 +2,13 @@ package br.contabil.razao.application;
 
 import br.contabil.plataforma.domain.TenantId;
 import br.contabil.razao.domain.FatoContabil;
+import br.contabil.razao.domain.repository.ContadorFatoPort;
+import br.contabil.razao.domain.repository.FatoContabilRepository;
+import br.contabil.razao.domain.repository.PeriodoContabilPort;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.NoSuchElementException;
 import java.util.UUID;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Caso de uso: corrige um fato consolidado por ESTORNO (Regra 3/4) — nunca por
@@ -15,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
  * (D↔C) que neutralizam o efeito líquido do original; o original permanece
  * intocado (motor-razao-partidas-dobradas.md).
  */
-@Service
 public class EstornarFatoContabil {
 
     private final FatoContabilRepository repositorio;
@@ -34,7 +34,6 @@ public class EstornarFatoContabil {
         this.clock = clock;
     }
 
-    @Transactional
     public FatoContabil executar(
             TenantId enteId, UUID fatoOriginalId, LocalDate dataCompetencia, String historico, String origem) {
         FatoContabil original = repositorio

@@ -2,7 +2,7 @@ package br.contabil.razao.infra;
 
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
-import br.contabil.razao.application.FatoContabilRepository;
+import br.contabil.razao.domain.repository.FatoContabilRepository;
 import br.contabil.razao.domain.FatoContabil;
 import br.contabil.razao.domain.Lancamento;
 import br.contabil.razao.domain.Natureza;
