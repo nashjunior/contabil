@@ -6,6 +6,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
 import static com.tngtech.archunit.library.Architectures.layeredArchitecture;
+import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaMethod;
@@ -233,6 +234,31 @@ class GuardrailsArquiteturaTest {
           .should()
           .callMethod("jakarta.persistence.EntityManager", "remove", "java.lang.Object")
           .because("append-only: proibida a remoção física de registros do razão");
+
+  // ---------------------------------------------------------------------------
+  // TRAVA 4 (RAZ-17) — isolamento cross-módulo: execução/razão/plataforma são
+  // módulos-irmãos do monólito modular (ADR-0002) — só compartilham o shared
+  // kernel (plataforma), nunca dependem um do outro diretamente. slices()
+  // trava isso no bytecode real (defesa em profundidade além do que
+  // build.gradle.kts já impede em tempo de compilação por módulo).
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Módulos de negócio (execução, razão, plataforma) não formam ciclo de dependência.
+   * Hoje só razão tem classes de domínio (execução ainda é só package-info) — a regra já
+   * protege a fronteira antes de execução ganhar as suas primeiras classes, em vez de
+   * nascer com uma violação já acomodada.
+   */
+  @ArchTest
+  static final ArchRule modulos_de_negocio_sao_livres_de_ciclo =
+      slices()
+          .matching("br.contabil.(*)..")
+          .should()
+          .beFreeOfCycles()
+          .because(
+              "ADR-0002: monólito modular com fronteiras internas explícitas (execução, razão, "
+                  + "plataforma) — módulos podem depender do shared kernel, mas dependência circular "
+                  + "entre módulos de negócio quebra a fronteira que permite extração futura");
 
   // Guard extra: garante que o import realmente analisou classes (evita "regra que passa vazia").
   // Idioma ArchUnit: método @ArchTest recebendo JavaClasses.

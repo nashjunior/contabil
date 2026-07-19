@@ -83,6 +83,12 @@ create index on lancamento (fato_id);
 create index on lancamento (ente_id, conta_id);
 ```
 
+### `ente` — cadastro é operação administrativa, fora do `app_role` (RAZ-17)
+
+`ente` é a **raiz** multi-tenant: ao contrário das demais tabelas, não tem coluna `ente_id` própria para a trava 4 filtrar — o próprio `id` é o tenant. Por isso `app_role` **não recebe grant nenhum** nela (nem `select`, nem `insert`): um `select` sem RLS vazaria o catálogo inteiro de entes (nome/CNPJ/esfera de todo tenant) para qualquer sessão autenticada como `app_login`, e um `insert` deixaria o login de runtime — que só deveria agir dentro do ente da sessão (`app.ente_id`) — cadastrar novo tenant sem controle administrativo algum.
+
+Mesmo padrão já usado em `contador_fato`: sem grant direto ao papel de runtime, acesso mediado fora dele. O cadastro do primeiro ente é feito hoje pela credencial de migration/administração (ver seed de teste em `RazaoContabilTravasTest`/`VazamentoCrossTenantRlsTest`); um fluxo de onboarding self-service, se vier a existir, é uma decisão de produto separada (novo papel/rota administrativa), não uma extensão do `app_role`.
+
 ## Trava 1 — partidas dobradas (Σdébito = Σcrédito por fato)
 
 Constraint trigger **diferida**: os lançamentos de um fato são inseridos na mesma transação e a soma é conferida **no commit**.

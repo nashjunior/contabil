@@ -287,11 +287,21 @@ select ente_id, conta_id,
 -- Grants — least-privilege / deny-by-default. app_role nunca recebe DELETE
 -- (nada se apaga) nem acesso direto a contador_fato (só via função acima).
 -- fato_contabil/lancamento: sem UPDATE/DELETE (trava 2).
+--
+-- ente: SEM grant nenhum para app_role (RAZ-17). app_role roda por-transação
+-- sob RLS de UM ente (app.ente_id) — mas a tabela ente é a RAIZ multi-tenant,
+-- sem ente_id próprio para a trava 4 filtrar; um `select` aqui vazaria o
+-- catálogo inteiro de entes (nome/cnpj/esfera de todo tenant) para qualquer
+-- sessão de app_login, e um `insert` deixaria o login de runtime multi-tenant
+-- cadastrar novo ente sem controle administrativo. Cadastro de ente é
+-- operação ADMINISTRATIVA separada (mesmo padrão de contador_fato: sem grant
+-- direto, mediada fora do papel de runtime) — hoje feita pela credencial de
+-- migration/administração (ver seed de teste em RazaoContabilTravasTest), até
+-- que um fluxo de onboarding dedicado seja desenhado.
 -- ============================================================================
 revoke all on ente, conta_pcasp, periodo_contabil, contador_fato, fato_contabil, lancamento from public;
 revoke all on function proximo_numero_seq(), inicializa_contador_fato() from public;
 
-grant select, insert                on ente                        to app_role;
 grant select, insert, update        on conta_pcasp, periodo_contabil to app_role;
 grant select, insert                on fato_contabil, lancamento     to app_role;
 grant select                        on saldo_conta                   to app_role;
