@@ -19,6 +19,7 @@
 | [0011](./0011-idempotencia-ponta-a-ponta.md) | Idempotência ponta a ponta | Aceita |
 | [0012](./0012-stack-jvm.md) | Stack primária = **JVM (Java/Kotlin, Spring Boot)** | Aceita |
 | [0013](./0013-persistencia-lote-fail-soft.md) | Persistência em lote com fail-soft e agregação de erros (`toInsert`/`toUpdate`/`toDelete`/`errors`) | Aceita |
+| [0014](./0014-contratos-plataforma-ports.md) | Contratos dos serviços de plataforma como ports no `plataforma-domain` (taxonomia de erros estável) | Aceita |
 
 ## Como adicionar/mudar uma decisão
 

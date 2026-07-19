@@ -95,6 +95,8 @@ Piso do desacoplamento que o documento defende (**definir a interface agora**). 
 | **Ingestão** | `receber(mensagem, origem)` → verifica **origem/assinatura** + **deduplica** por chave de idempotência | `origem_nao_confiavel`, `assinatura_invalida`, `duplicado` |
 | **Cofre de segredos** | `obter(conta, segredo) -> valor`; `rotacionar(segredo)` | `sem_escopo`, `expirado`; evento `uso`/`rotacao` |
 
+> **Materializado em código (RAZ-8, [ADR-0014](./arquitetura-tecnica/adr/0014-contratos-plataforma-ports.md)):** os sete contratos acima são **ports** em `plataforma-domain` (`br.contabil.plataforma.domain.<contrato>`) — POJO puro, fiscalizado pelos guardrails. Os erros têm **código estável** (`ErroContrato#codigo`, ex. `nao_autenticado`), travado por teste de contrato. Auditoria é segregada em escrita/leitura; ingestão e entrega compartilham `ChaveIdempotencia`. As **implementações** (adapters) vêm à parte: identidade (RAZ-5), auditoria (RAZ-6), entrega/outbox (RAZ-9), assinatura (RAZ-11), mascaramento (RAZ-12).
+
 ## Escopo do produto: núcleo × estruturantes
 
 Mapa das categorias de edital (padrão CE) contra o nosso produto:
