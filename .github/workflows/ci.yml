@@ -1,0 +1,60 @@
+name: CI
+
+# Guardrail de CI bloqueante (ADR-0003, RAZ-16): build/testes E o teste de
+# vazamento cross-tenant (VazamentoCrossTenantRlsTest) rodam aqui — falha
+# vermelha nesta pipeline é reprovação, não aviso. gitleaks bloqueia segredo
+# no repo (AGENTS.md §Segurança/LGPD).
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build + testes (ArchUnit, travas do razão, cross-tenant RLS)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configura JDK 21 (ADR-0012)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Cache Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # ./gradlew check roda: testes unitários de todos os módulos, os
+      # guardrails ArchUnit (GuardrailsArquiteturaTest) e os guardrails de
+      # integração com Postgres real via Testcontainers (RazaoContabilTravasTest,
+      # RazaoRlsCrossTenantForeignKeyTest, VazamentoCrossTenantRlsTest) — o
+      # runner do GitHub Actions já vem com Docker disponível.
+      - name: ./gradlew check
+        run: ./gradlew check --no-daemon
+
+      - name: Publica relatórios de teste em caso de falha
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: "**/build/reports/tests/"
+          retention-days: 7
+
+  gitleaks:
+    name: gitleaks (segredo no repositório)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml

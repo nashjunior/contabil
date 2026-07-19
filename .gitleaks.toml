@@ -1,0 +1,18 @@
+title = "gitleaks config — SIAFIC (Oberware)"
+
+# Guardrail de CI bloqueante (ADR-0003 / RAZ-16): segredo real nunca entra no
+# repositório (AGENTS.md §Segurança/LGPD — "segredo só no cofre"). Estende o
+# conjunto padrão de regras do gitleaks; o allowlist abaixo cobre só as
+# credenciais fixas de FIXTURE usadas pelos guardrails de Testcontainers
+# (Postgres efêmero, descartado ao fim do teste) — não são segredos reais.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Credenciais fixas de teste (Testcontainers) — Postgres efêmero, não é segredo real"
+paths = [
+  '''.*/src/test/.*''',
+]
+regexes = [
+  '''app_login''',
+]
