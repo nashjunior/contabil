@@ -276,7 +276,8 @@ create trigger trg_inicializa_contador_fato
 -- Saldos (derivados, nunca gravados como verdade) — a base é a fonte única;
 -- saldos materializados, se houver, são cache reconstruível (ADR-0007).
 -- ============================================================================
-create view saldo_conta as
+create view saldo_conta
+with (security_invoker = true) as
 select ente_id, conta_id,
        sum(case when natureza = 'D' then valor else -valor end) as saldo_devedor_liquido
   from lancamento
