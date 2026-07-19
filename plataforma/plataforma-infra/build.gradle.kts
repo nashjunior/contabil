@@ -5,6 +5,7 @@ dependencies {
 
     implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    implementation("com.fasterxml.jackson.core:jackson-databind")
     // Incorporação PAdES do PKCS#7 no PDF (ServicoAssinaturaGovBrAvancada) — RAZ-34.
     implementation(libs.pdfbox)
     // Object store S3-compatível (ADR-0018, RAZ-32). BOM fixa as versões do SDK.
