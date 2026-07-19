@@ -1,0 +1,21 @@
+# Catálogo de versões centralizado — fonte única de verdade das dependências.
+# Alterações de versão de framework/persistência devem referenciar uma ADR.
+
+[versions]
+springBoot = "3.3.4"
+springDependencyManagement = "1.1.6"
+flyway = "10.17.3"
+postgresql = "42.7.4"
+archunit = "1.3.0"
+
+[libraries]
+# Persistência / migração (Flyway 10 exige módulo específico por banco).
+flyway-core = { module = "org.flywaydb:flyway-core" }
+flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql" }
+postgresql = { module = "org.postgresql:postgresql" }
+# Guardrails de arquitetura (fitness functions) — RAZ-2, arquitetura-tecnica §8.
+archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
+
+[plugins]
+spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }
+spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "springDependencyManagement" }
