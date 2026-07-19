@@ -1,5 +1,6 @@
 package br.contabil.plataforma.domain;
 
+import java.io.Serializable;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -13,7 +14,9 @@ import java.util.UUID;
  * domínio: avaliar renomear para {@code EnteId} junto com esse trabalho, não
  * isoladamente (evita renomear duas vezes).
  */
-public record TenantId(UUID valor) {
+public record TenantId(UUID valor) implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     public TenantId {
         Objects.requireNonNull(valor, "TenantId não pode ser nulo");
