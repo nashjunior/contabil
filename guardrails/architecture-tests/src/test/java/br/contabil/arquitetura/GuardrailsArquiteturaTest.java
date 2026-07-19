@@ -1,16 +1,21 @@
 package br.contabil.arquitetura;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.fields;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
 import static com.tngtech.archunit.library.Architectures.layeredArchitecture;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.domain.JavaMethod;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
+import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ArchRule;
+import com.tngtech.archunit.lang.ConditionEvents;
+import com.tngtech.archunit.lang.SimpleConditionEvent;
 
 /**
  * Guardrails estruturais que FALHAM o build (arquitetura-tecnica §8).
@@ -152,6 +157,41 @@ class GuardrailsArquiteturaTest {
           .because(
               "ADR-0002/AGENTS.md: os use cases são POJO; a infra faz o wiring (@Bean) e detém a "
                   + "transação (advisor na borda) — a application não anota nem importa framework");
+
+  /**
+   * RAZ-21: todo {@code executar(..)} da application declara {@link
+   * br.contabil.plataforma.domain.TenantId} como parâmetro. O advisor AOP em
+   * {@code bootstrap/TenantContextUseCasesConfiguration} extrai o {@code TenantId} desse
+   * argumento para setar {@code app.ente_id} (RLS forçada) antes de chamar o use case — sem
+   * esse parâmetro, o advisor falha com {@code IllegalStateException} só em RUNTIME. Esta
+   * regra torna a exigência estática (falha no build, não na primeira chamada em produção).
+   */
+  @ArchTest
+  static final ArchRule executar_da_application_declara_tenant_id =
+      methods()
+          .that()
+          .haveName("executar")
+          .and()
+          .areDeclaredInClassesThat()
+          .resideInAPackage(PKG_APPLICATION)
+          .should(declararTenantIdComoParametro())
+          .because(
+              "RAZ-21/ADR-0003: o advisor que seta app.ente_id (RLS forçada) deriva o tenant do "
+                  + "primeiro argumento TenantId de executar(..) — sem ele, RLS deny-by-default "
+                  + "nega tudo em runtime");
+
+  private static ArchCondition<JavaMethod> declararTenantIdComoParametro() {
+    return new ArchCondition<>("declarar um parâmetro do tipo TenantId") {
+      @Override
+      public void check(JavaMethod method, ConditionEvents events) {
+        boolean temTenantId = method.getRawParameterTypes().stream()
+            .anyMatch(tipo -> tipo.getFullName().equals("br.contabil.plataforma.domain.TenantId"));
+        String mensagem = method.getFullName()
+            + (temTenantId ? " declara TenantId como parâmetro" : " NÃO declara TenantId como parâmetro");
+        events.add(new SimpleConditionEvent(method, temTenantId, mensagem));
+      }
+    };
+  }
 
   // ---------------------------------------------------------------------------
   // TRAVA 3 — Repositório do razão é append-only (sem update/delete).

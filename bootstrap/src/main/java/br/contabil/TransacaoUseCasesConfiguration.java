@@ -24,6 +24,16 @@ import org.springframework.transaction.interceptor.TransactionInterceptor;
 @EnableAspectJAutoProxy
 public class TransacaoUseCasesConfiguration {
 
+    /**
+     * Ordem do advisor de transação — precisa ser o mais EXTERNO da cadeia (menor
+     * valor = maior precedência) para que a transação já esteja aberta, com a
+     * conexão vinculada, quando {@code TenantContextUseCasesConfiguration} rodar
+     * {@code SET LOCAL app.ente_id} (RAZ-21): sem transação aberta antes, o
+     * {@code set_config(..., true)} setaria a variável fora de qualquer escopo
+     * transacional útil.
+     */
+    static final int TRANSACTION_ADVISOR_ORDER = 0;
+
     /** Aplica transação a todo {@code executar(..)} dos use cases da application. */
     @Bean
     public Advisor transacaoUseCasesAdvisor(TransactionManager transactionManager) {
@@ -31,6 +41,8 @@ public class TransacaoUseCasesConfiguration {
         pointcut.setExpression("execution(* br.contabil..application..*.executar(..))");
         TransactionInterceptor interceptor =
                 new TransactionInterceptor(transactionManager, new MatchAlwaysTransactionAttributeSource());
-        return new DefaultPointcutAdvisor(pointcut, interceptor);
+        DefaultPointcutAdvisor advisor = new DefaultPointcutAdvisor(pointcut, interceptor);
+        advisor.setOrder(TRANSACTION_ADVISOR_ORDER);
+        return advisor;
     }
 }
