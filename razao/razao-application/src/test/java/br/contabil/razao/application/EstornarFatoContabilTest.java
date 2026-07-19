@@ -2,10 +2,21 @@ package br.contabil.razao.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.iam.ControleAcesso;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade.Acao;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade.MfaRequeridoException;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade.SemPermissaoException;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
 import br.contabil.razao.domain.FatoContabil;
 import br.contabil.razao.domain.Lancamento;
 import br.contabil.razao.domain.Natureza;
@@ -32,6 +43,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class EstornarFatoContabilTest {
 
     @Mock
+    private ServicoIdentidade servicoIdentidade;
+
+    @Mock
     private FatoContabilRepository repositorio;
 
     @Mock
@@ -46,14 +60,29 @@ class EstornarFatoContabilTest {
     private final UUID periodoId = UUID.randomUUID();
     private final Clock relogioFixo = Clock.fixed(Instant.parse("2026-07-19T12:00:00Z"), ZoneOffset.UTC);
 
+    private Sessao sessaoComMfa() {
+        return new Sessao(
+                UUID.randomUUID(), new Cpf("12345678901"), enteId, Optional.empty(), true, Instant.parse("2030-01-01T00:00:00Z"));
+    }
+
+    private Sessao sessaoSemMfa() {
+        return new Sessao(
+                UUID.randomUUID(), new Cpf("12345678901"), enteId, Optional.empty(), false, Instant.parse("2030-01-01T00:00:00Z"));
+    }
+
     @BeforeEach
     void setUp() {
-        useCase = new EstornarFatoContabil(repositorio, contadorFato, periodoContabil, relogioFixo);
+        useCase = new EstornarFatoContabil(
+                new ControleAcesso(servicoIdentidade), repositorio, contadorFato, periodoContabil, relogioFixo);
     }
 
     @Test
     @DisplayName("estorna um fato existente criando um NOVO fato com lançamentos invertidos")
     void estornaFatoExistente() {
+        Sessao sessao = sessaoComMfa();
+        when(servicoIdentidade.autorizar(sessao, new ServicoIdentidade.Recurso("razao:fato_contabil"), Acao.ESTORNAR))
+                .thenReturn(true);
+
         FatoContabil original = FatoContabil.registrar(
                 enteId,
                 1L,
@@ -71,8 +100,8 @@ class EstornarFatoContabilTest {
         when(periodoContabil.periodoAbertoPara(enteId, LocalDate.of(2026, 7, 19))).thenReturn(periodoId);
         when(contadorFato.proximoNumeroSeq(enteId)).thenReturn(2L);
 
-        FatoContabil estorno = useCase.executar(
-                enteId, original.id(), LocalDate.of(2026, 7, 19), "correção", "origem");
+        FatoContabil estorno =
+                useCase.executar(sessao, enteId, original.id(), LocalDate.of(2026, 7, 19), "correção", "origem");
 
         assertThat(estorno.isEstorno()).isTrue();
         assertThat(estorno.fatoEstornadoId()).isEqualTo(original.id());
@@ -82,11 +111,62 @@ class EstornarFatoContabilTest {
     @Test
     @DisplayName("rejeita estorno de fato inexistente")
     void rejeitaFatoInexistente() {
+        Sessao sessao = sessaoComMfa();
+        when(servicoIdentidade.autorizar(sessao, new ServicoIdentidade.Recurso("razao:fato_contabil"), Acao.ESTORNAR))
+                .thenReturn(true);
+
         UUID idInexistente = UUID.randomUUID();
         when(repositorio.buscarPorId(enteId, idInexistente)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() ->
-                        useCase.executar(enteId, idInexistente, LocalDate.of(2026, 7, 19), "correção", "origem"))
+        assertThatThrownBy(() -> useCase.executar(
+                        sessao, enteId, idInexistente, LocalDate.of(2026, 7, 19), "correção", "origem"))
                 .isInstanceOf(NoSuchElementException.class);
+    }
+
+    @Test
+    @DisplayName("RAZ-33 deny: RBAC nega o estorno — SemPermissaoException sem tocar no repositório")
+    void negaSemAutorizacaoDoRbac() {
+        Sessao sessao = sessaoComMfa();
+        when(servicoIdentidade.autorizar(sessao, new ServicoIdentidade.Recurso("razao:fato_contabil"), Acao.ESTORNAR))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> useCase.executar(
+                        sessao, enteId, UUID.randomUUID(), LocalDate.of(2026, 7, 19), "correção", "origem"))
+                .isInstanceOf(SemPermissaoException.class);
+
+        verifyNoInteractions(repositorio, contadorFato, periodoContabil);
+    }
+
+    @Test
+    @DisplayName("RAZ-33: ESTORNAR movimenta recurso — MFA ausente falha antes de buscar o fato original")
+    void negaSemMfa() {
+        Sessao sessao = sessaoSemMfa();
+        when(servicoIdentidade.autorizar(sessao, new ServicoIdentidade.Recurso("razao:fato_contabil"), Acao.ESTORNAR))
+                .thenReturn(true);
+
+        assertThatThrownBy(() -> useCase.executar(
+                        sessao, enteId, UUID.randomUUID(), LocalDate.of(2026, 7, 19), "correção", "origem"))
+                .isInstanceOf(MfaRequeridoException.class);
+
+        verifyNoInteractions(repositorio, contadorFato, periodoContabil);
+    }
+
+    @Test
+    @DisplayName("RAZ-33: tenant da requisição divergente da sessão nunca consulta o RBAC nem o repositório")
+    void negaTenantDivergente() {
+        Sessao sessaoDeOutroEnte = new Sessao(
+                UUID.randomUUID(),
+                new Cpf("12345678901"),
+                TenantId.de(UUID.randomUUID().toString()),
+                Optional.empty(),
+                true,
+                Instant.parse("2030-01-01T00:00:00Z"));
+
+        assertThatThrownBy(() -> useCase.executar(
+                        sessaoDeOutroEnte, enteId, UUID.randomUUID(), LocalDate.of(2026, 7, 19), "correção", "origem"))
+                .isInstanceOf(SemPermissaoException.class);
+
+        verify(servicoIdentidade, never()).autorizar(any(), any(), any());
+        verifyNoInteractions(repositorio, contadorFato, periodoContabil);
     }
 }

@@ -1,5 +1,6 @@
 package br.contabil.razao.infra;
 
+import br.contabil.plataforma.domain.iam.ControleAcesso;
 import br.contabil.razao.application.EstornarFatoContabil;
 import br.contabil.razao.application.RegistrarFatoContabil;
 import br.contabil.razao.domain.repository.ContadorFatoPort;
@@ -16,7 +17,8 @@ import org.springframework.context.annotation.Configuration;
  * infra (composition root do contexto) que os declara como beans, injetando os
  * adapters — implementações das interfaces de {@code domain.repository}
  * ({@link FatoContabilRepository}, {@link ContadorFatoPort},
- * {@link PeriodoContabilPort}) — e o {@link Clock}.
+ * {@link PeriodoContabilPort}), o {@link ControleAcesso} (RAZ-33, wiring em
+ * {@code plataforma-infra.iam.IdentidadeConfiguracao}) — e o {@link Clock}.
  *
  * <p>A <b>transação</b> é aplicada na borda por {@code TransacaoUseCasesConfiguration}
  * (bootstrap) sobre todo {@code executar(..)} de {@code ..application..}, não por
@@ -27,19 +29,21 @@ public class RazaoConfiguracao {
 
     @Bean
     public RegistrarFatoContabil registrarFatoContabil(
+            ControleAcesso controleAcesso,
             FatoContabilRepository repositorio,
             ContadorFatoPort contadorFato,
             PeriodoContabilPort periodoContabil,
             Clock clock) {
-        return new RegistrarFatoContabil(repositorio, contadorFato, periodoContabil, clock);
+        return new RegistrarFatoContabil(controleAcesso, repositorio, contadorFato, periodoContabil, clock);
     }
 
     @Bean
     public EstornarFatoContabil estornarFatoContabil(
+            ControleAcesso controleAcesso,
             FatoContabilRepository repositorio,
             ContadorFatoPort contadorFato,
             PeriodoContabilPort periodoContabil,
             Clock clock) {
-        return new EstornarFatoContabil(repositorio, contadorFato, periodoContabil, clock);
+        return new EstornarFatoContabil(controleAcesso, repositorio, contadorFato, periodoContabil, clock);
     }
 }

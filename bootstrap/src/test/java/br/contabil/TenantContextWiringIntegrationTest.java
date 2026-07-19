@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
 import br.contabil.razao.application.RegistrarFatoContabil;
 import br.contabil.razao.domain.FatoContabil;
 import br.contabil.razao.domain.Lancamento;
@@ -15,14 +18,20 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -44,10 +53,47 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  */
 @SpringBootTest(classes = RazaoApplication.class, webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @Testcontainers(disabledWithoutDocker = true)
+@Import(TenantContextWiringIntegrationTest.ServicoIdentidadePermissivoParaTeste.class)
 class TenantContextWiringIntegrationTest {
 
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16");
+
+    /**
+     * RAZ-33: em produção {@code ServicoIdentidadeIndisponivel} nega tudo
+     * (RAZ-5 ainda não plugado). Este teste prova o pipeline de RLS/tenant
+     * (RAZ-21), não RBAC/MFA — substitui o bean por um duplo permissivo, igual
+     * a qualquer outro adapter de teste (Postgres real, identidade fake).
+     */
+    @TestConfiguration
+    static class ServicoIdentidadePermissivoParaTeste {
+        @Bean
+        @Primary
+        ServicoIdentidade servicoIdentidadePermissivoDeTeste() {
+            return new ServicoIdentidade() {
+                @Override
+                public Sessao autenticar(Credencial credencial) {
+                    throw new UnsupportedOperationException("fake de teste: só autorizar() é usado");
+                }
+
+                @Override
+                public boolean autorizar(Sessao sessao, Recurso recurso, Acao acao) {
+                    return true;
+                }
+
+                @Override
+                public Sessao completarMfa(DesafioMfa desafio, RespostaMfa resposta) {
+                    throw new UnsupportedOperationException("fake de teste: só autorizar() é usado");
+                }
+            };
+        }
+    }
+
+    private static Sessao sessaoAutenticada(TenantId ente) {
+        return new Sessao(
+                UUID.randomUUID(), new Cpf("12345678901"), ente, Optional.empty(), true,
+                Instant.parse("2030-01-01T00:00:00Z"));
+    }
 
     private static final String ENTE_A = "77777777-7777-7777-7777-777777777777";
     private static final String ENTE_B = "88888888-8888-8888-8888-888888888888";
@@ -101,6 +147,7 @@ class TenantContextWiringIntegrationTest {
     @Test
     void registrarFatoContabilFuncionaFimAFimContraRlsForcadaSemSetLocalManual() {
         FatoContabil fato = registrarFatoContabil.executar(
+                sessaoAutenticada(TenantId.de(ENTE_A)),
                 TenantId.de(ENTE_A),
                 LocalDate.now(),
                 TipoEvento.EMPENHO,
@@ -117,6 +164,7 @@ class TenantContextWiringIntegrationTest {
     @Test
     void numeracaoPorEnteFicaIsoladaMesmoPassandoPeloPipelineRealDaAplicacao() {
         FatoContabil fatoA = registrarFatoContabil.executar(
+                sessaoAutenticada(TenantId.de(ENTE_A)),
                 TenantId.de(ENTE_A),
                 LocalDate.now(),
                 TipoEvento.EMPENHO,
@@ -126,6 +174,7 @@ class TenantContextWiringIntegrationTest {
                         Lancamento.de(UUID.fromString(CONTA_A), Natureza.DEBITO, Dinheiro.de("10.00")),
                         Lancamento.de(UUID.fromString(CONTA_A), Natureza.CREDITO, Dinheiro.de("10.00"))));
         FatoContabil fatoB = registrarFatoContabil.executar(
+                sessaoAutenticada(TenantId.de(ENTE_B)),
                 TenantId.de(ENTE_B),
                 LocalDate.now(),
                 TipoEvento.EMPENHO,

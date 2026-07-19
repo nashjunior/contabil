@@ -53,12 +53,17 @@ public interface ServicoMascaramento {
         TITULAR
     }
 
-    /** Base legal do tratamento (LGPD art. 7º/11) — subconjunto pertinente ao setor público. */
+    /**
+     * Base legal do tratamento (LGPD art. 7º/11) — subconjunto pertinente ao setor
+     * público. Não inclui {@code CONSENTIMENTO}: no setor público a base é sempre
+     * obrigação legal/política pública/interesse público (transversais/04-lgpd
+     * §Base legal; guardiao-seguranca regra 7) — consentimento como base padrão é
+     * erro jurídico, não uma opção de configuração.
+     */
     enum BaseLegalLgpd {
         OBRIGACAO_LEGAL,
         EXECUCAO_POLITICAS_PUBLICAS,
-        INTERESSE_PUBLICO,
-        CONSENTIMENTO
+        INTERESSE_PUBLICO
     }
 
     /** Contexto do acesso: ente, quem solicita, finalidade e base legal invocada. */

@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
 import br.contabil.razao.application.EstornarFatoContabil;
 import br.contabil.razao.application.RegistrarFatoContabil;
 import br.contabil.razao.domain.FatoContabil;
@@ -19,14 +22,20 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -51,10 +60,47 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  */
 @SpringBootTest(classes = RazaoApplication.class, webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @Testcontainers(disabledWithoutDocker = true)
+@Import(RegistrarEstornarFatoContabilIntegrationTest.ServicoIdentidadePermissivoParaTeste.class)
 class RegistrarEstornarFatoContabilIntegrationTest {
 
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16");
+
+    /**
+     * RAZ-33: em produção {@code ServicoIdentidadeIndisponivel} nega tudo
+     * (RAZ-5 ainda não plugado). Este teste prova o pipeline real de
+     * registrar/estornar (RAZ-27), não RBAC/MFA — substitui o bean por um
+     * duplo permissivo, igual a qualquer outro adapter de teste.
+     */
+    @TestConfiguration
+    static class ServicoIdentidadePermissivoParaTeste {
+        @Bean
+        @Primary
+        ServicoIdentidade servicoIdentidadePermissivoDeTeste() {
+            return new ServicoIdentidade() {
+                @Override
+                public Sessao autenticar(Credencial credencial) {
+                    throw new UnsupportedOperationException("fake de teste: só autorizar() é usado");
+                }
+
+                @Override
+                public boolean autorizar(Sessao sessao, Recurso recurso, Acao acao) {
+                    return true;
+                }
+
+                @Override
+                public Sessao completarMfa(DesafioMfa desafio, RespostaMfa resposta) {
+                    throw new UnsupportedOperationException("fake de teste: só autorizar() é usado");
+                }
+            };
+        }
+    }
+
+    private static Sessao sessaoAutenticada(TenantId ente) {
+        return new Sessao(
+                UUID.randomUUID(), new Cpf("12345678901"), ente, Optional.empty(), true,
+                Instant.parse("2030-01-01T00:00:00Z"));
+    }
 
     private static final String ENTE = "99999999-9999-9999-9999-999999999999";
     private static final String PERIODO_JANEIRO = "aaaaaaaa-0001-0001-0001-aaaaaaaaaaaa";
@@ -115,6 +161,7 @@ class RegistrarEstornarFatoContabilIntegrationTest {
         UUID contaCredito = criarConta("RAZ27-2");
 
         FatoContabil empenho = registrarFatoContabil.executar(
+                sessaoAutenticada(enteId),
                 enteId,
                 LocalDate.of(2026, 1, 15),
                 TipoEvento.EMPENHO,
@@ -129,7 +176,12 @@ class RegistrarEstornarFatoContabilIntegrationTest {
                 .isEqualByComparingTo("1000.00");
 
         FatoContabil estorno = estornarFatoContabil.executar(
-                enteId, empenho.id(), LocalDate.of(2026, 1, 20), "estorno via pipeline real (RAZ-27)", "test");
+                sessaoAutenticada(enteId),
+                enteId,
+                empenho.id(),
+                LocalDate.of(2026, 1, 20),
+                "estorno via pipeline real (RAZ-27)",
+                "test");
 
         assertThat(estorno.isEstorno()).isTrue();
         assertThat(estorno.fatoEstornadoId()).isEqualTo(empenho.id());
@@ -151,6 +203,7 @@ class RegistrarEstornarFatoContabilIntegrationTest {
         UUID contaCredito = criarConta("RAZ27-4");
 
         FatoContabil fatoJaneiro = registrarFatoContabil.executar(
+                sessaoAutenticada(enteId),
                 enteId,
                 LocalDate.of(2026, 1, 10),
                 TipoEvento.RECEITA,
@@ -160,6 +213,7 @@ class RegistrarEstornarFatoContabilIntegrationTest {
                         Lancamento.de(contaDebito, Natureza.DEBITO, Dinheiro.de("50.00")),
                         Lancamento.de(contaCredito, Natureza.CREDITO, Dinheiro.de("50.00"))));
         FatoContabil fatoFevereiro = registrarFatoContabil.executar(
+                sessaoAutenticada(enteId),
                 enteId,
                 LocalDate.of(2026, 2, 10),
                 TipoEvento.RECEITA,
@@ -190,7 +244,8 @@ class RegistrarEstornarFatoContabilIntegrationTest {
                 Lancamento.de(UUID.randomUUID(), Natureza.CREDITO, Dinheiro.de("40.00")));
 
         assertThatThrownBy(() -> registrarFatoContabil.executar(
-                        enteId, LocalDate.of(2026, 1, 12), TipoEvento.EMPENHO, "desbalanceado", "test", desbalanceado))
+                        sessaoAutenticada(enteId), enteId, LocalDate.of(2026, 1, 12), TipoEvento.EMPENHO,
+                        "desbalanceado", "test", desbalanceado))
                 .as("o pipeline real rejeita ANTES de qualquer I/O - excecao de dominio, nao um SQLException da trigger")
                 .isInstanceOf(PartidasNaoBalanceadasException.class)
                 .isNotInstanceOf(SQLException.class);
@@ -201,6 +256,7 @@ class RegistrarEstornarFatoContabilIntegrationTest {
         TenantId enteId = TenantId.de(ENTE);
 
         assertThatThrownBy(() -> registrarFatoContabil.executar(
+                        sessaoAutenticada(enteId),
                         enteId,
                         LocalDate.of(2026, 3, 5),
                         TipoEvento.EMPENHO,

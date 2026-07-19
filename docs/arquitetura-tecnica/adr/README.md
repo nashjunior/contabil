@@ -21,6 +21,7 @@
 | [0013](./0013-persistencia-lote-fail-soft.md) | Persistência em lote com fail-soft e agregação de erros (`toInsert`/`toUpdate`/`toDelete`/`errors`) | Aceita |
 | [0014](./0014-contratos-plataforma-ports.md) | Contratos dos serviços de plataforma como ports no `plataforma-domain` (taxonomia de erros estável) | Aceita |
 | [0015](./0015-atribuicao-tenant-explicita-no-contrato.md) | Atribuição de tenant explícita no contrato de domínio; campo é `ente` (não `tenantId`) | Aceita |
+| [0016](./0016-controle-acesso-mfa-movimentacao-recurso.md) | `ControleAcesso` na application: RBAC + MFA obrigatório para ações que movimentam recurso | Aceita |
 
 ## Como adicionar/mudar uma decisão
 
