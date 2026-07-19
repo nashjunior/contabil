@@ -37,11 +37,11 @@ import org.mockito.ArgumentCaptor;
 class ServicoAssinaturaGovBrAvancadaTest {
 
     private static final ReferenciaDocumento ORIGEM = new ReferenciaDocumento(URI.create("s3://ged/empenho-1.pdf"));
-    private static final DocumentoParaAssinar DOCUMENTO = new DocumentoParaAssinar(ORIGEM, "empenho");
+    private static final TenantId ENTE = new TenantId(UUID.fromString("11111111-1111-1111-1111-111111111111"));
+    private static final DocumentoParaAssinar DOCUMENTO = new DocumentoParaAssinar(ENTE, ORIGEM, "empenho");
     private static final Signatario SIGNATARIO = new Signatario("11122233344", "Fulana de Tal");
     private static final byte[] CONTEUDO = "conteudo do pdf".getBytes();
     private static final byte[] PKCS7_FALSO = "pkcs7-fake-bytes".getBytes();
-    private static final TenantId ENTE = new TenantId(UUID.fromString("11111111-1111-1111-1111-111111111111"));
 
     private ProvedorAssinaturaGovBr provedor;
     private VerificadorRevogacaoCertificado verificadorRevogacao;

@@ -1,6 +1,7 @@
 package br.contabil.plataforma.domain.assinatura;
 
 import br.contabil.plataforma.domain.ErroContrato;
+import br.contabil.plataforma.domain.TenantId;
 import java.net.URI;
 import java.util.List;
 import java.util.Objects;
@@ -48,9 +49,15 @@ public interface ServicoAssinatura {
         }
     }
 
-    /** Documento a assinar: origem no object store + o tipo de negócio (empenho, contrato, OB). */
-    record DocumentoParaAssinar(ReferenciaDocumento origem, String tipoDocumento) {
+    /**
+     * Documento a assinar: o <b>ente</b> dono do dado (atribuição de tenant explícita
+     * no contrato — ADR-0015; convenção da casa: o campo é {@code ente}, tipado
+     * {@link TenantId}), a origem no object store e o tipo de negócio (empenho,
+     * contrato, OB).
+     */
+    record DocumentoParaAssinar(TenantId ente, ReferenciaDocumento origem, String tipoDocumento) {
         public DocumentoParaAssinar {
+            Objects.requireNonNull(ente, "ente do documento");
             Objects.requireNonNull(origem, "origem do documento");
             Objects.requireNonNull(tipoDocumento, "tipo do documento");
         }

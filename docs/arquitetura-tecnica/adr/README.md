@@ -20,6 +20,7 @@
 | [0012](./0012-stack-jvm.md) | Stack primária = **JVM (Java/Kotlin, Spring Boot)** | Aceita |
 | [0013](./0013-persistencia-lote-fail-soft.md) | Persistência em lote com fail-soft e agregação de erros (`toInsert`/`toUpdate`/`toDelete`/`errors`) | Aceita |
 | [0014](./0014-contratos-plataforma-ports.md) | Contratos dos serviços de plataforma como ports no `plataforma-domain` (taxonomia de erros estável) | Aceita |
+| [0015](./0015-atribuicao-tenant-explicita-no-contrato.md) | Atribuição de tenant explícita no contrato de domínio; campo é `ente` (não `tenantId`) | Aceita |
 
 ## Como adicionar/mudar uma decisão
 
