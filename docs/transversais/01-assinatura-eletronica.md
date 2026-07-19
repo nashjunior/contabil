@@ -24,7 +24,7 @@
 
 1. Geração do documento em **PDF/A** + cálculo de **hash SHA-256** do conteúdo a assinar. **[F0]**
 2. Integração com **pelo menos um provedor** (mínimo: **API de Assinatura gov.br** — avançada). **[F0]**
-3. Formato **PAdES** (assinatura embarcada no PDF) como principal; suporte a `.p7s`/**CAdES** destacado quando necessário. **[F2]**
+3. Formato **PAdES** (assinatura embarcada no PDF) como principal; suporte a `.p7s`/**CAdES** destacado quando necessário. **[F0]** (coerente com a tabela de Faseamento e o javadoc de `DocumentoAssinado`; RAZ-34 implementa a incorporação PAdES do PKCS#7 via byte-range + dicionário `/Sig`, ISO 32000)
 4. Suporte à **qualificada ICP-Brasil** (via `icp_brasil` do gov.br / A1/A3) para o subconjunto obrigatório. **[F1]**
 5. **Parametrização do nível mínimo por ente × tipo de documento** (não "chumbar" um nível único). **[F0]**
 6. **Verificação de elegibilidade** antes de assinar (rejeitar conta Bronze quando se exige avançada; validar cadeia do certificado) **e checagem do status de revogação do certificado (OCSP e/ou LCR/CRL) no ato da assinatura**, registrando o resultado na trilha. **[F0]**

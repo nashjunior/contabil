@@ -11,26 +11,23 @@
  *   <li>{@link br.contabil.plataforma.infra.assinatura.VerificadorRevogacaoCertificadoPkix} —
  *       checagem OCSP/CRL via {@code CertPathValidator("PKIX")} padrão do JDK,
  *       deny-by-default (falha ou indeterminação = não seguro para assinar).</li>
+ *   <li>{@link br.contabil.plataforma.infra.assinatura.PreparadorAssinaturaPades} —
+ *       incorporação PAdES do PKCS#7 no PDF (RAZ-34): reserva o placeholder de
+ *       assinatura (byte-range + dicionário {@code /Sig}, ISO 32000 §12.8) via
+ *       Apache PDFBox, calcula o hash sobre esse byte-range (input real de
+ *       {@code assinarPkcs7}) e, só depois, embute o CMS/PKCS#7 devolvido.</li>
  *   <li>{@link br.contabil.plataforma.infra.assinatura.ServicoAssinaturaGovBrAvancada} —
- *       orquestra elegibilidade (via 403 do provedor), hash SHA-256, assinatura,
- *       revogação, manifesto e trilha ({@code AuditoriaEscrita}, RAZ-8).</li>
+ *       orquestra elegibilidade (via 403 do provedor), preparo PAdES + hash SHA-256,
+ *       assinatura, revogação, incorporação do CMS no PDF, manifesto e trilha
+ *       ({@code AuditoriaEscrita}, RAZ-8).</li>
  * </ul>
  *
  * <h2>Lacunas conhecidas — não implementadas nesta issue</h2>
  * <ul>
- *   <li><b>Fluxo OAuth2 interativo</b> (authorization_code, redirect do signatário
- *       ao gov.br) — exige camada web/BFF que ainda não existe no projeto (só há
- *       domínio/infra de backend). {@code ProvedorAssinaturaGovBrHttp} recebe um
- *       token já obtido via {@code Supplier<String>}.</li>
  *   <li><b>Leitura/gravação do documento no object store</b> (ADR-0009) — recebidas
  *       como colaboradores injetados ({@code Function}/{@code BiFunction}) em vez de
  *       um adapter concreto, porque o serviço de object store/GED ainda não tem
  *       issue própria implementada.</li>
- *   <li><b>Incorporação PAdES no PDF</b> — a API gov.br devolve PKCS#7 destacado
- *       (.p7s); embutir isso como assinatura PAdES no PDF (byte-range, dicionário
- *       de assinatura ISO 32000) exige uma biblioteca de PDF (ex.: PDFBox/iText)
- *       que ainda não é dependência do projeto. {@code publicadorDocumentoAssinado}
- *       recebe o PKCS#7 bruto; quem o injetar decide como/se embute no PDF.</li>
  *   <li><b>Propagação do tenant corrente</b> — resolvida: o {@code TenantId ente}
  *       vem explícito no {@code DocumentoParaAssinar} (ADR-0015), não de um
  *       {@code TenantContext} ambiente; o seam {@code resolvedorDeEnte} (RAZ-11)
@@ -41,6 +38,10 @@
  *       multi-assinatura, validação completa via Validador do ITI, PAdES-LTV +
  *       carimbo de tempo.</li>
  * </ul>
+ *
+ * <p>O fluxo OAuth2 interativo do signatário (authorization_code + PKCE) fica na
+ * borda web do {@code bootstrap}, conforme ADR-0017. Este pacote continua
+ * recebendo apenas o {@code Supplier<String>} do token de acesso.
  *
  * <p>Fonte: Roteiro de Integração API Assinatura avançada gov.br —
  * https://manual-integracao-assinatura-eletronica.servicos.gov.br/

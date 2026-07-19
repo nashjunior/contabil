@@ -3,8 +3,6 @@ package br.contabil.plataforma.infra.assinatura;
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura;
 import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
 import br.contabil.plataforma.domain.auditoria.EventoAuditoria;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
 import java.time.Instant;
@@ -19,15 +17,15 @@ import java.util.function.Function;
 /**
  * {@link ServicoAssinatura} F0: provedor único gov.br avançada
  * (transversais/01-assinatura-eletronica.md §Faseamento). Orquestra: elegibilidade
- * (delegada ao 403 do próprio provedor — ver {@link ProvedorAssinaturaGovBr}),
- * hash SHA-256, assinatura, checagem de revogação (item 6), manifesto (item 8)
- * e trilha (item 9).
+ * (delegada ao 403 do próprio provedor — ver {@link ProvedorAssinaturaGovBr}), preparo
+ * do placeholder PAdES + hash SHA-256 sobre o byte-range (ver
+ * {@link PreparadorAssinaturaPades}), assinatura, checagem de revogação (item 6),
+ * incorporação do CMS/PKCS#7 no PDF (item 3), manifesto (item 8) e trilha (item 9).
  *
  * <p><b>Fora do F0 desta classe</b> (ver package-info): fluxo interativo OAuth2
  * de autorização do signatário; leitura/gravação real do documento no object
- * store (ADR-0009) — recebidos como colaboradores injetados; incorporação
- * PAdES do PKCS#7 no PDF (biblioteca de PDF ainda não é dependência do
- * projeto); workflow multi-assinatura e validação completa via ITI (F1).
+ * store (ADR-0009) — recebidos como colaboradores injetados; workflow
+ * multi-assinatura e validação completa via ITI (F1).
  */
 public final class ServicoAssinaturaGovBrAvancada implements ServicoAssinatura {
 
@@ -37,6 +35,7 @@ public final class ServicoAssinaturaGovBrAvancada implements ServicoAssinatura {
     private final Function<ReferenciaDocumento, byte[]> leitorDocumento;
     private final BiFunction<byte[], ReferenciaDocumento, ReferenciaDocumento> publicadorDocumentoAssinado;
     private final Function<byte[], X509Certificate> extratorCertificado;
+    private final PreparadorAssinaturaPades preparadorPades = new PreparadorAssinaturaPades();
     private final Clock clock;
 
     public ServicoAssinaturaGovBrAvancada(
@@ -92,42 +91,64 @@ public final class ServicoAssinaturaGovBrAvancada implements ServicoAssinatura {
         Signatario signatario = signatarios.get(0);
 
         byte[] conteudo = leitorDocumento.apply(documento.origem());
-        byte[] hash = sha256(conteudo);
         UUID idTransacao = UUID.randomUUID();
         Instant momento = clock.instant();
+
+        // Fase 1 (ISO 32000 §12.8): reserva o placeholder de assinatura (/Sig, /ByteRange)
+        // no PDF e calcula o hash sobre esse byte-range JÁ preparado. É esse hash — não o
+        // do documento bruto — que precisa virar o input de assinarPkcs7: se o provedor
+        // assinasse o hash do PDF sem placeholder, o /ByteRange do dicionário de assinatura
+        // não bateria com o que foi realmente assinado (PAdES inválido).
+        PreparadorAssinaturaPades.PreparoAssinaturaPades preparo =
+                preparadorPades.preparar(conteudo, signatario.nome(), momento);
+        byte[] hash = preparo.hashSha256();
         String hashBase64 = Base64.getEncoder().encodeToString(hash);
 
+        // O bloco abaixo é o que pode falhar antes da fase 2 (provedor, extração do
+        // certificado, checagem de revogação) — QUALQUER RuntimeException daqui precisa
+        // descartar o placeholder (fecha o PDDocument aberto por preparadorPades). Não dá
+        // para confiar só nas exceções nomeadas: um provedor real (ex.: falha de rede/HTTP
+        // inesperado em ProvedorAssinaturaGovBrHttp) lança IllegalStateException, não
+        // ContaGovBrNaoElegivelException, e vazaria o handle se só a nomeada fosse capturada.
         byte[] pkcs7;
         try {
-            pkcs7 = provedor.assinarPkcs7(hash);
-        } catch (ProvedorAssinaturaGovBr.ContaGovBrNaoElegivelException e) {
-            registrarNaTrilha(documento, signatario, nivel, hashBase64, idTransacao, momento, true, "conta não elegível: " + e.getMessage());
-            throw new CertificadoInvalidoException(e.getMessage());
+            try {
+                pkcs7 = provedor.assinarPkcs7(hash);
+            } catch (ProvedorAssinaturaGovBr.ContaGovBrNaoElegivelException e) {
+                registrarNaTrilha(documento, signatario, nivel, hashBase64, idTransacao, momento, true, "conta não elegível: " + e.getMessage());
+                throw new CertificadoInvalidoException(e.getMessage());
+            }
+
+            X509Certificate certificado;
+            try {
+                certificado = extratorCertificado.apply(pkcs7);
+            } catch (ExtratorCertificadoPkcs7.CertificadoPkcs7InvalidoException e) {
+                String detalhe = "PKCS#7 devolvido pelo gov.br sem certificado legível: " + e.getMessage();
+                registrarNaTrilha(documento, signatario, nivel, hashBase64, idTransacao, momento, true, detalhe);
+                throw new CertificadoInvalidoException(detalhe);
+            }
+
+            VerificadorRevogacaoCertificado.ResultadoRevogacao resultadoRevogacao = verificadorRevogacao.verificar(certificado);
+            registrarNaTrilha(
+                    documento, signatario, nivel, hashBase64, idTransacao, momento,
+                    resultadoRevogacao.revogado(), resultadoRevogacao.detalhe());
+
+            if (resultadoRevogacao.revogado()) {
+                throw new CertificadoInvalidoException(
+                        "certificado do signatário reprovado na checagem de revogação: " + resultadoRevogacao.detalhe());
+            }
+        } catch (RuntimeException e) {
+            preparo.descartar();
+            throw e;
         }
 
-        X509Certificate certificado;
-        try {
-            certificado = extratorCertificado.apply(pkcs7);
-        } catch (ExtratorCertificadoPkcs7.CertificadoPkcs7InvalidoException e) {
-            String detalhe = "PKCS#7 devolvido pelo gov.br sem certificado legível: " + e.getMessage();
-            registrarNaTrilha(documento, signatario, nivel, hashBase64, idTransacao, momento, true, detalhe);
-            throw new CertificadoInvalidoException(detalhe);
-        }
-
-        VerificadorRevogacaoCertificado.ResultadoRevogacao resultadoRevogacao = verificadorRevogacao.verificar(certificado);
-        registrarNaTrilha(
-                documento, signatario, nivel, hashBase64, idTransacao, momento,
-                resultadoRevogacao.revogado(), resultadoRevogacao.detalhe());
-
-        if (resultadoRevogacao.revogado()) {
-            throw new CertificadoInvalidoException(
-                    "certificado do signatário reprovado na checagem de revogação: " + resultadoRevogacao.detalhe());
-        }
-
-        ReferenciaDocumento pdfAssinado = publicadorDocumentoAssinado.apply(pkcs7, documento.origem());
+        // Fase 2: só agora, com o PKCS#7 assinado sobre o hash correto, embute o CMS no
+        // placeholder reservado (incremental save) — o PDF final PAdES só existe aqui.
+        byte[] pdfAssinado = preparo.embutir(pkcs7);
+        ReferenciaDocumento referenciaPublicada = publicadorDocumentoAssinado.apply(pdfAssinado, documento.origem());
         String manifesto = construirManifesto(documento, signatario, nivel, hashBase64, idTransacao, momento);
 
-        return new DocumentoAssinado(pdfAssinado, manifesto, hashBase64, idTransacao);
+        return new DocumentoAssinado(referenciaPublicada, manifesto, hashBase64, idTransacao);
     }
 
     @Override
@@ -182,13 +203,5 @@ public final class ServicoAssinaturaGovBrAvancada implements ServicoAssinatura {
             Instant momento) {
         return "signatario=%s (CPF %s); tipo=%s; nivel=%s; momento=%s; hash_sha256=%s; id_transacao=%s"
                 .formatted(signatario.nome(), signatario.cpf(), documento.tipoDocumento(), nivel, momento, hashBase64, idTransacao);
-    }
-
-    private static byte[] sha256(byte[] conteudo) {
-        try {
-            return MessageDigest.getInstance("SHA-256").digest(conteudo);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 indisponível na JVM", e);
-        }
     }
 }

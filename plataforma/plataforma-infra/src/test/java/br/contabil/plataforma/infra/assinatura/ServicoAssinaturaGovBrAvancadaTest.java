@@ -21,14 +21,19 @@ import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.ResultadoVerif
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.Signatario;
 import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
 import br.contabil.plataforma.domain.auditoria.EventoAuditoria;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.net.URI;
-import java.security.MessageDigest;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -40,7 +45,9 @@ class ServicoAssinaturaGovBrAvancadaTest {
     private static final TenantId ENTE = new TenantId(UUID.fromString("11111111-1111-1111-1111-111111111111"));
     private static final DocumentoParaAssinar DOCUMENTO = new DocumentoParaAssinar(ENTE, ORIGEM, "empenho");
     private static final Signatario SIGNATARIO = new Signatario("11122233344", "Fulana de Tal");
-    private static final byte[] CONTEUDO = "conteudo do pdf".getBytes();
+    // PAdES exige um PDF de verdade: o preparo do placeholder de assinatura (RAZ-34) carrega
+    // esse conteúdo via PDFBox antes de calcular o hash — não é mais um SHA-256 sobre bytes crus.
+    private static final byte[] CONTEUDO = pdfMinimo();
     private static final byte[] PKCS7_FALSO = "pkcs7-fake-bytes".getBytes();
 
     private ProvedorAssinaturaGovBr provedor;
@@ -49,6 +56,7 @@ class ServicoAssinaturaGovBrAvancadaTest {
     private X509Certificate certificadoFake;
     private ServicoAssinaturaGovBrAvancada servico;
     private ReferenciaDocumento referenciaPublicada;
+    private byte[] pdfPublicado;
 
     @BeforeEach
     void montaServico() {
@@ -57,6 +65,7 @@ class ServicoAssinaturaGovBrAvancadaTest {
         trilha = mock(AuditoriaEscrita.class);
         certificadoFake = mock(X509Certificate.class);
         referenciaPublicada = new ReferenciaDocumento(URI.create("s3://ged/empenho-1-assinado.pdf"));
+        pdfPublicado = null;
 
         when(trilha.append(any())).thenReturn(new AuditoriaEscrita.EntradaTrilha(UUID.randomUUID(), "hash", null, 1));
 
@@ -65,9 +74,23 @@ class ServicoAssinaturaGovBrAvancadaTest {
                 verificadorRevogacao,
                 trilha,
                 ref -> CONTEUDO,
-                (bytes, ref) -> referenciaPublicada,
+                (bytes, ref) -> {
+                    pdfPublicado = bytes;
+                    return referenciaPublicada;
+                },
                 bytes -> certificadoFake,
                 Clock.fixed(Instant.parse("2026-07-19T12:00:00Z"), ZoneOffset.UTC));
+    }
+
+    private static byte[] pdfMinimo() {
+        try (PDDocument documento = new PDDocument()) {
+            documento.addPage(new PDPage());
+            ByteArrayOutputStream saida = new ByteArrayOutputStream();
+            documento.save(saida);
+            return saida.toByteArray();
+        } catch (IOException e) {
+            throw new IllegalStateException("falha ao gerar PDF mínimo de teste", e);
+        }
     }
 
     @Test
@@ -79,11 +102,23 @@ class ServicoAssinaturaGovBrAvancadaTest {
 
         DocumentoAssinado resultado = servico.assinar(DOCUMENTO, NivelAssinatura.AVANCADA_GOVBR, List.of(SIGNATARIO));
 
-        String hashEsperado = java.util.Base64.getEncoder().encodeToString(MessageDigest.getInstance("SHA-256").digest(CONTEUDO));
-        assertThat(resultado.hash()).isEqualTo(hashEsperado);
+        // Hash agora é sobre o byte-range PAdES preparado (RAZ-34), não sobre o PDF bruto —
+        // a estrutura exata é coberta em PreparadorAssinaturaPadesTest; aqui só confere que é
+        // um SHA-256 válido e que foi o mesmo hash publicado na trilha (ver captor abaixo).
+        byte[] hashDecodificado = java.util.Base64.getDecoder().decode(resultado.hash());
+        assertThat(hashDecodificado).hasSize(32);
         assertThat(resultado.pdfAssinado()).isEqualTo(referenciaPublicada);
         assertThat(resultado.manifesto()).contains("Fulana de Tal").contains("11122233344").contains("empenho");
         assertThat(resultado.idTransacao()).isNotNull();
+
+        assertThat(pdfPublicado).isNotNull();
+        try (PDDocument documentoAssinado = Loader.loadPDF(pdfPublicado)) {
+            PDSignature assinatura = documentoAssinado.getLastSignatureDictionary();
+            assertThat(assinatura).isNotNull();
+            assertThat(assinatura.getFilter()).isEqualTo(PDSignature.FILTER_ADOBE_PPKLITE.getName());
+            assertThat(assinatura.getSubFilter()).isEqualTo(PDSignature.SUBFILTER_ADBE_PKCS7_DETACHED.getName());
+            assertThat(assinatura.getContents()).startsWith(PKCS7_FALSO);
+        }
 
         ArgumentCaptor<EventoAuditoria> captor = ArgumentCaptor.forClass(EventoAuditoria.class);
         verify(trilha, times(1)).append(captor.capture());
@@ -129,6 +164,19 @@ class ServicoAssinaturaGovBrAvancadaTest {
         ArgumentCaptor<EventoAuditoria> captor = ArgumentCaptor.forClass(EventoAuditoria.class);
         verify(trilha, times(1)).append(captor.capture());
         assertThat(captor.getValue().detalhes()).containsEntry("bloqueado", "true");
+    }
+
+    @Test
+    @DisplayName("falha inesperada do provedor (ex.: rede/HTTP, não a exceção nomeada de inelegibilidade) propaga sem mascarar")
+    void falhaInesperadaDoProvedorPropagaSemMascarar() {
+        when(provedor.assinarPkcs7(any()))
+                .thenThrow(new IllegalStateException("Falha de rede ao chamar assinarPKCS7 (gov.br)"));
+
+        assertThatThrownBy(() -> servico.assinar(DOCUMENTO, NivelAssinatura.AVANCADA_GOVBR, List.of(SIGNATARIO)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Falha de rede");
+
+        verify(trilha, never()).append(any());
     }
 
     @Test

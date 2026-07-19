@@ -8,12 +8,16 @@ flyway = "10.17.3"
 postgresql = "42.7.4"
 archunit = "1.3.0"
 testcontainers = "1.20.1"
+pdfbox = "3.0.8"
 
 [libraries]
 # Persistência / migração (Flyway 10 exige módulo específico por banco).
 flyway-core = { module = "org.flywaydb:flyway-core" }
 flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql" }
 postgresql = { module = "org.postgresql:postgresql" }
+# Incorporação PAdES (byte-range + dicionário /Sig, ISO 32000) do PKCS#7 do gov.br — RAZ-34.
+# Apache 2.0 (licenciamento adequado a software público); evitar iText (AGPL/comercial).
+pdfbox = { module = "org.apache.pdfbox:pdfbox", version.ref = "pdfbox" }
 # Guardrails de arquitetura (fitness functions) — RAZ-2, arquitetura-tecnica §8.
 archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
 # Guardrail de CI contra bypass de RLS via FK — RAZ-13 (versão gerenciada pelo BOM do Spring Boot).
