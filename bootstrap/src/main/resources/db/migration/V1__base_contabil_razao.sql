@@ -39,26 +39,31 @@ create table ente (
 
 -- 2. Plano de contas (PCASP)
 create table conta_pcasp (
-  id                   uuid primary key default uuid_generate_v4(),
+  id                   uuid not null default uuid_generate_v4(),
   ente_id              uuid not null references ente(id),
   codigo               varchar(20) not null,
   descricao            text not null,
   natureza_informacao  text not null check (natureza_informacao in ('patrimonial','orcamentaria','controle')),
   natureza_saldo       char(1) not null check (natureza_saldo in ('D','C')),
   escrituravel         boolean not null default true,   -- só conta analítica recebe lançamento (RAZ-4 valida na aplicação)
-  conta_pai_id         uuid references conta_pcasp(id),
-  unique (ente_id, codigo)
+  conta_pai_id         uuid,
+  primary key (id),
+  unique (ente_id, id),                                 -- ancora a FK composta abaixo (RAZ-13: FK simples roda como dono e ignora RLS)
+  unique (ente_id, codigo),
+  foreign key (ente_id, conta_pai_id) references conta_pcasp (ente_id, id)
 );
 create index ix_conta_pcasp_pai on conta_pcasp (conta_pai_id);
 
 -- 3. Período contábil (controla o fechamento)
 create table periodo_contabil (
-  id            uuid primary key default uuid_generate_v4(),
+  id            uuid not null default uuid_generate_v4(),
   ente_id       uuid not null references ente(id),
   exercicio     int not null,
   mes           int not null check (mes between 1 and 13),  -- 13 = encerramento do exercício
   status        text not null default 'aberto' check (status in ('aberto','encerrado')),
   encerrado_em  timestamptz,
+  primary key (id),
+  unique (ente_id, id),                                 -- ancora a FK composta de fato_contabil.periodo_id (RAZ-13)
   unique (ente_id, exercicio, mes)
 );
 
@@ -73,17 +78,21 @@ create table contador_fato (
 
 -- 5. Fato contábil (o evento; imutável após consolidado)
 create table fato_contabil (
-  id                   uuid primary key default uuid_generate_v4(),
+  id                   uuid not null default uuid_generate_v4(),
   ente_id              uuid not null references ente(id),
   numero_seq           bigint not null,                              -- sequencial cronológico gapless por ente
   data_competencia     date not null,                                -- fato gerador (Lei 4.320 art. 35)
   data_hora_registro   timestamptz not null default clock_timestamp(),  -- relógio do SERVIDOR (anti-backdating)
-  periodo_id           uuid not null references periodo_contabil(id),
+  periodo_id           uuid not null,
   tipo_evento          text not null,                                -- empenho|liquidacao|pagamento|receita|estorno|abertura
   historico            text not null,
   origem               text not null,                                -- módulo/integração de origem
-  fato_estornado_id    uuid references fato_contabil(id),            -- vínculo do estorno ao original
-  unique (ente_id, numero_seq)
+  fato_estornado_id    uuid,                                         -- vínculo do estorno ao original
+  primary key (id),
+  unique (ente_id, id),                                              -- ancora a FK composta de lancamento.fato_id (RAZ-13)
+  unique (ente_id, numero_seq),
+  foreign key (ente_id, periodo_id) references periodo_contabil (ente_id, id),
+  foreign key (ente_id, fato_estornado_id) references fato_contabil (ente_id, id)
 );
 create index ix_fato_contabil_periodo on fato_contabil (periodo_id);
 create index ix_fato_contabil_ente_data on fato_contabil (ente_id, data_competencia);
@@ -92,10 +101,12 @@ create index ix_fato_contabil_ente_data on fato_contabil (ente_id, data_competen
 create table lancamento (
   id         uuid primary key default uuid_generate_v4(),
   ente_id    uuid not null references ente(id),
-  fato_id    uuid not null references fato_contabil(id),
-  conta_id   uuid not null references conta_pcasp(id),
+  fato_id    uuid not null,
+  conta_id   uuid not null,
   natureza   char(1) not null check (natureza in ('D','C')),
-  valor      numeric(18,2) not null check (valor > 0)                -- dinheiro em DECIMAL, nunca float (ADR-0006)
+  valor      numeric(18,2) not null check (valor > 0),               -- dinheiro em DECIMAL, nunca float (ADR-0006)
+  foreign key (ente_id, fato_id) references fato_contabil (ente_id, id),
+  foreign key (ente_id, conta_id) references conta_pcasp (ente_id, id)
 );
 create index ix_lancamento_fato on lancamento (fato_id);
 create index ix_lancamento_ente_conta on lancamento (ente_id, conta_id);
@@ -150,7 +161,10 @@ create trigger trg_imutavel_lancamento before update or delete on lancamento
 -- ============================================================================
 create function checa_periodo_aberto() returns trigger as $$
 begin
-  if (select status from periodo_contabil where id = new.periodo_id) = 'encerrado' then
+  -- filtro por ente_id é defesa em profundidade: a FK composta de periodo_id
+  -- (ver tabela fato_contabil) já impede referenciar período de outro ente;
+  -- sem o filtro, a linha de outro ente seria invisível sob RLS (NULL != 'encerrado').
+  if (select status from periodo_contabil where id = new.periodo_id and ente_id = new.ente_id) = 'encerrado' then
     raise exception 'Periodo encerrado: registro vedado (corrija por estorno no periodo aberto).';
   end if;
   return new;

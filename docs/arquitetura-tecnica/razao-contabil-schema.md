@@ -22,51 +22,62 @@ create table ente (
 
 -- 2. Plano de contas (PCASP)
 create table conta_pcasp (
-  id                   uuid primary key default uuid_generate_v4(),
+  id                   uuid not null default uuid_generate_v4(),
   ente_id              uuid not null references ente(id),
   codigo               varchar(20) not null,
   descricao            text not null,
   natureza_informacao  text not null check (natureza_informacao in ('patrimonial','orcamentaria','controle')),
   natureza_saldo       char(1) not null check (natureza_saldo in ('D','C')),
   escrituravel         boolean not null default true,   -- só conta analítica recebe lançamento
-  conta_pai_id         uuid references conta_pcasp(id),
-  unique (ente_id, codigo)
+  conta_pai_id         uuid,
+  primary key (id),
+  unique (ente_id, id),                                 -- ancora a FK composta abaixo (trava 4b)
+  unique (ente_id, codigo),
+  foreign key (ente_id, conta_pai_id) references conta_pcasp (ente_id, id)
 );
 
 -- 3. Período contábil (controla o fechamento)
 create table periodo_contabil (
-  id            uuid primary key default uuid_generate_v4(),
+  id            uuid not null default uuid_generate_v4(),
   ente_id       uuid not null references ente(id),
   exercicio     int not null,
   mes           int not null check (mes between 1 and 13),  -- 13 = encerramento do exercício
   status        text not null default 'aberto' check (status in ('aberto','encerrado')),
   encerrado_em  timestamptz,
+  primary key (id),
+  unique (ente_id, id),                                 -- ancora a FK composta de fato_contabil.periodo_id (trava 4b)
   unique (ente_id, exercicio, mes)
 );
 
 -- 4. Fato contábil (o evento; imutável após consolidado)
 create table fato_contabil (
-  id                   uuid primary key default uuid_generate_v4(),
+  id                   uuid not null default uuid_generate_v4(),
   ente_id              uuid not null references ente(id),
   numero_seq           bigint not null,                              -- sequencial cronológico gapless por ente
   data_competencia     date not null,                               -- fato gerador (Lei 4.320 art. 35)
   data_hora_registro   timestamptz not null default clock_timestamp(),  -- relógio do SERVIDOR (anti-backdating)
-  periodo_id           uuid not null references periodo_contabil(id),
+  periodo_id           uuid not null,
   tipo_evento          text not null,                               -- empenho|liquidacao|pagamento|receita|estorno|abertura
   historico            text not null,
   origem               text not null,                               -- módulo/integração de origem
-  fato_estornado_id    uuid references fato_contabil(id),           -- vínculo do estorno ao original
-  unique (ente_id, numero_seq)
+  fato_estornado_id    uuid,                                        -- vínculo do estorno ao original
+  primary key (id),
+  unique (ente_id, id),                                             -- ancora a FK composta de lancamento.fato_id (trava 4b)
+  unique (ente_id, numero_seq),
+  foreign key (ente_id, periodo_id) references periodo_contabil (ente_id, id),
+  foreign key (ente_id, fato_estornado_id) references fato_contabil (ente_id, id)
 );
 
 -- 5. Lançamento (partida: débito/crédito)
 create table lancamento (
   id         uuid primary key default uuid_generate_v4(),
   ente_id    uuid not null references ente(id),
-  fato_id    uuid not null references fato_contabil(id),
-  conta_id   uuid not null references conta_pcasp(id),
+  fato_id    uuid not null,
+  conta_id   uuid not null,
   natureza   char(1) not null check (natureza in ('D','C')),
-  valor      numeric(18,2) not null check (valor > 0)               -- dinheiro em DECIMAL, nunca float
+  valor      numeric(18,2) not null check (valor > 0),              -- dinheiro em DECIMAL, nunca float
+  foreign key (ente_id, fato_id) references fato_contabil (ente_id, id),
+  foreign key (ente_id, conta_id) references conta_pcasp (ente_id, id)
 );
 create index on lancamento (fato_id);
 create index on lancamento (ente_id, conta_id);
@@ -121,7 +132,9 @@ grant  insert, select on fato_contabil, lancamento to   app_role;
 ```sql
 create or replace function checa_periodo_aberto() returns trigger as $$
 begin
-  if (select status from periodo_contabil where id = new.periodo_id) = 'encerrado' then
+  -- filtro por ente_id é defesa em profundidade (trava 4b já impede via FK
+  -- composta referenciar período de outro ente).
+  if (select status from periodo_contabil where id = new.periodo_id and ente_id = new.ente_id) = 'encerrado' then
     raise exception 'Periodo encerrado: registro vedado (corrija por estorno no periodo aberto).';
   end if;
   return new;
@@ -148,6 +161,19 @@ create policy tenant_isolation on fato_contabil
 
 -- por requisição/transação:  set local app.ente_id = '<uuid-do-ente>';
 ```
+
+### Trava 4b — FK composta (fecha o bypass de RLS via constraint)
+
+FK do Postgres roda **como dono da tabela** (`checa fk` interno), então **ignora RLS** mesmo com `force row level security`. Uma FK simples (`fato_contabil.periodo_id references periodo_contabil(id)`) deixa o app_role referenciar a **PK de outro ente** — a violação só apareceria depois, de forma indireta (ex.: `checa_periodo_aberto` lendo uma linha invisível sob RLS como `NULL`, nunca `'encerrado'`).
+
+Correção: **PK/unique composta `(ente_id, id)`** em toda tabela referenciada por FK entre tabelas com `ente_id`, e a **FK também composta** `(ente_id, coluna_id)`. Assim o próprio banco (não a aplicação, não o trigger) rejeita a referência cross-tenant no `insert`/`update`, antes de qualquer trigger rodar:
+
+- `conta_pcasp.conta_pai_id` → `(ente_id, conta_pai_id) references conta_pcasp (ente_id, id)`
+- `periodo_contabil` / `fato_contabil` / `conta_pcasp` ganham `unique (ente_id, id)` para ancorar as FKs acima
+- `fato_contabil.periodo_id` → `(ente_id, periodo_id) references periodo_contabil (ente_id, id)`
+- `fato_contabil.fato_estornado_id` → `(ente_id, fato_estornado_id) references fato_contabil (ente_id, id)`
+- `lancamento.fato_id` → `(ente_id, fato_id) references fato_contabil (ente_id, id)`
+- `lancamento.conta_id` → `(ente_id, conta_id) references conta_pcasp (ente_id, id)`
 
 ## Numeração sequencial cronológica (gapless)
 
@@ -186,6 +212,7 @@ Cada trava tem um **teste de integração** que tenta violá-la e **espera rejei
 | `update`/`delete` em fato/lançamento consolidado | Exceção (trava 2) |
 | Inserir fato em período encerrado | Exceção (trava 3) |
 | Consultar sem `app.ente_id` ou de outro ente | Zero linhas / negado (trava 4) |
+| Inserir fato/lançamento referenciando período/fato/conta de **outro ente** (`periodo_id`, `fato_id`, `conta_id`, `conta_pai_id`, `fato_estornado_id`) | Violação de FK composta (trava 4b), não silêncio via RLS |
 | `numero_seq` duplicado / com buraco | Violação de unique / detecção |
 | Persistir `valor` com mais de 2 casas ou negativo | Violação de check |
 

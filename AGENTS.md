@@ -4,7 +4,7 @@ Fonte **canônica** das convenções e do ferramental de IA deste projeto. `CLAU
 
 ## O que é
 
-SIAFIC — Sistema Único e Integrado de Execução Orçamentária, Administração Financeira e Controle (Decreto 10.540/2020), para estados e municípios. **Núcleo** contábil-orçamentário-financeiro + transparência + saída SICONFI; **licitações/patrimônio/folha/arrecadação são estruturantes** (integram por fora). Fase atual: **documentação** (sem código de app ainda). Índice: [docs/README.md](docs/README.md).
+SIAFIC — Sistema Único e Integrado de Execução Orçamentária, Administração Financeira e Controle (Decreto 10.540/2020), para estados e municípios. **Núcleo** contábil-orçamentário-financeiro + transparência + saída SICONFI; **licitações/patrimônio/folha/arrecadação são estruturantes** (integram por fora). Fase atual: **F0** — scaffold JVM + guardrails entregues; motor de razão (partidas dobradas) em implementação. Índice: [docs/README.md](docs/README.md).
 
 ## Convenções de código (JVM)
 
