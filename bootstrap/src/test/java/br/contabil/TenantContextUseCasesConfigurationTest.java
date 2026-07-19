@@ -2,6 +2,7 @@ package br.contabil;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
@@ -10,7 +11,12 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import br.contabil.plataforma.domain.Dinheiro;
+import br.contabil.plataforma.domain.TenantContext;
 import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.iam.ControleAcesso;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
 import br.contabil.razao.application.RegistrarFatoContabil;
 import br.contabil.razao.domain.Lancamento;
 import br.contabil.razao.domain.Natureza;
@@ -23,8 +29,10 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
@@ -59,13 +67,27 @@ class TenantContextUseCasesConfigurationTest {
         TenantId enteId = TenantId.de(UUID.randomUUID().toString());
         UUID periodoId = UUID.randomUUID();
         LocalDate dataCompetencia = LocalDate.of(2026, 7, 1);
-        when(periodoContabil.periodoAbertoPara(enteId, dataCompetencia)).thenReturn(periodoId);
+        AtomicReference<Optional<TenantId>> tenantContextDuranteAChamada = new AtomicReference<>();
+        when(periodoContabil.periodoAbertoPara(enteId, dataCompetencia)).thenAnswer(invocacao -> {
+            tenantContextDuranteAChamada.set(TenantContext.atual());
+            return periodoId;
+        });
         when(contadorFato.proximoNumeroSeq(enteId)).thenReturn(1L);
 
-        RegistrarFatoContabil alvo = new RegistrarFatoContabil(repositorio, contadorFato, periodoContabil, relogioFixo);
+        assertThat(TenantContext.atual()).isEmpty();
+
+        ServicoIdentidade servicoIdentidadePermissivo = mock(ServicoIdentidade.class);
+        when(servicoIdentidadePermissivo.autorizar(any(), any(), any())).thenReturn(true);
+        Sessao sessao = new Sessao(
+                UUID.randomUUID(), new Cpf("12345678901"), enteId, Optional.empty(), true,
+                Instant.parse("2030-01-01T00:00:00Z"));
+
+        RegistrarFatoContabil alvo = new RegistrarFatoContabil(
+                new ControleAcesso(servicoIdentidadePermissivo), repositorio, contadorFato, periodoContabil, relogioFixo);
         RegistrarFatoContabil proxy = comAdvisorAplicado(alvo, jdbcTemplate);
 
         proxy.executar(
+                sessao,
                 enteId,
                 dataCompetencia,
                 TipoEvento.EMPENHO,
@@ -80,6 +102,13 @@ class TenantContextUseCasesConfigurationTest {
                 .queryForObject(eq(SQL_SET_TENANT), eq(String.class), eq(enteId.valor().toString()));
         ordem.verify(periodoContabil).periodoAbertoPara(enteId, dataCompetencia);
         ordem.verify(repositorio).inserir(any());
+
+        assertThat(tenantContextDuranteAChamada.get())
+                .as("RAZ-23: TenantContext precisa estar ativo quando o use case toca as ports, não só o GUC do banco")
+                .contains(enteId);
+        assertThat(TenantContext.atual())
+                .as("o escopo fecha quando invocation.proceed() retorna — não pode vazar para fora da chamada advisada")
+                .isEmpty();
     }
 
     @Test
@@ -95,10 +124,36 @@ class TenantContextUseCasesConfigurationTest {
 
         verifyNoInteractions(jdbcTemplate);
         assertThat(chamouOAlvo.get()).isFalse();
+        assertThat(TenantContext.atual())
+                .as("falha antes de extrair o TenantId não deve deixar o TenantContext ativo")
+                .isEmpty();
+    }
+
+    @Test
+    void useCaseQueLancaExcecaoNaoDeixaTenantContextVazado() {
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+        TenantId enteId = TenantId.de(UUID.randomUUID().toString());
+        UseCaseQueLanca alvo = semUso -> {
+            throw new IllegalStateException("falha simulada dentro do use case, depois do escopo já ativo");
+        };
+        UseCaseQueLanca proxy = comAdvisorAplicado(alvo, jdbcTemplate, UseCaseQueLanca.class);
+
+        assertThatThrownBy(() -> proxy.executar(enteId))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("falha simulada dentro do use case, depois do escopo já ativo");
+
+        assertThat(TenantContext.atual())
+                .as("try-with-resources fecha o escopo mesmo quando invocation.proceed() lança — sem isso, "
+                        + "o tenant do use case que falhou vazaria para a próxima chamada na mesma thread (pool)")
+                .isEmpty();
     }
 
     interface UseCaseSemTenant {
         void executar(String semTenant);
+    }
+
+    interface UseCaseQueLanca {
+        void executar(TenantId enteId);
     }
 
     /** Aplica só o {@link MethodInterceptor} do advisor — dispensa casar o pointcut AspectJ por pacote. */

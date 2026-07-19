@@ -1,5 +1,6 @@
 package br.contabil;
 
+import br.contabil.plataforma.domain.TenantContext;
 import br.contabil.plataforma.domain.TenantId;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
@@ -23,6 +24,12 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * pipeline de escrita do razão não roda contra um Postgres real com a trava 4
  * forçada — só os testes de migration setavam a variável, manualmente, via JDBC
  * cru.
+ *
+ * <p>RAZ-23: o mesmo {@link TenantId} extraído também ativa {@link
+ * TenantContext} para a duração da chamada — não só o razão precisa do ente
+ * corrente; qualquer código chamado de dentro do {@code executar(..)} advisado
+ * (ex.: {@code ServicoAssinaturaGovBrAvancada}, RAZ-11) pode ler {@link
+ * TenantContext#atual()} sem receber o tenant como costura própria.
  */
 @Configuration
 public class TenantContextUseCasesConfiguration {
@@ -65,7 +72,9 @@ public class TenantContextUseCasesConfiguration {
         public Object invoke(MethodInvocation invocation) throws Throwable {
             TenantId enteId = extrairTenantId(invocation);
             jdbcTemplate.queryForObject(SQL_SET_TENANT, String.class, enteId.valor().toString());
-            return invocation.proceed();
+            try (AutoCloseable escopoTenant = TenantContext.ativarPara(enteId)) {
+                return invocation.proceed();
+            }
         }
 
         /**
