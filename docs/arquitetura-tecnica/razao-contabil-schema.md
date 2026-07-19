@@ -264,6 +264,7 @@ Cada trava tem um **teste de integração** que tenta violá-la e **espera rejei
 - **Trilha de auditoria** é store **segregado** (WORM + hash-chain), não estas tabelas ([ADR-0005](./adr/0005-trilha-append-only-hash-chain.md)).
 - Naturezas e classificações seguem **PCASP/MCASP vigentes** — validar antes de fixar domínios.
 - Triggers são defesa-em-profundidade; a garantia primária é **least-privilege** (papel sem UPDATE/DELETE) + RLS.
+- **Onboarding de ente** ainda não tem papel/rota administrativa dedicada (RAZ-17): hoje o cadastro só existe via credencial de migration/administração (ver [`ente` — cadastro é operação administrativa](#ente--cadastro-é-operação-administrativa-fora-do-app_role-raz-17)); desenhar esse fluxo é decisão de produto em aberto.
 
 ---
 
