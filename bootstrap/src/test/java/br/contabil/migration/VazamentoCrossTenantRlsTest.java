@@ -19,15 +19,21 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 /**
  * Guardrail de CI bloqueante (ADR-0003): prova, com um Postgres real e a migration V1 tal
  * como em produção, que RLS deny-by-default não vaza UMA LINHA SEQUER entre entes em
- * NENHUMA das 5 tabelas protegidas — abre transações com {@code app.ente_id} distinto por
- * ente e confirma zero linhas cruzadas, além do deny-by-default sem a variável setada. Ver
- * razao-contabil-schema.md §"Como o guardião testa isto", trava 4.
+ * NENHUMA das 4 tabelas às quais o {@code app_role} tem GRANT select — abre transações com
+ * {@code app.ente_id} distinto por ente e confirma zero linhas cruzadas, além do
+ * deny-by-default sem a variável setada. Ver razao-contabil-schema.md §"Como o guardião testa
+ * isto", trava 4.
+ *
+ * <p>{@code contador_fato} também tem {@code ente_id} e RLS forçada, mas fica de fora: o
+ * {@code app_role} não recebe NENHUM grant nela (só acesso indireto via a função {@code
+ * security definer} {@code proximo_numero_seq}), então uma consulta direta como app_login
+ * falha com "permission denied" antes mesmo de a RLS entrar em jogo — não há superfície de
+ * SELECT cross-tenant a provar ali; o limite é o grant, não a policy.
  *
  * <p>Complementa, sem substituir: {@code RazaoContabilTravasTest} cobre a trava 4 base só em
  * {@code fato_contabil}; {@code RazaoRlsCrossTenantForeignKeyTest} (RAZ-13) cobre a trava 4b
  * (bypass via FK simples no INSERT/DONO). Este teste cobre o lado SELECT — a superfície que
- * um vazamento cross-tenant reprovaria no controle externo (ADR-0003) — em toda tabela com
- * {@code ente_id}.
+ * um vazamento cross-tenant reprovaria no controle externo (ADR-0003).
  */
 @Testcontainers(disabledWithoutDocker = true)
 class VazamentoCrossTenantRlsTest {
@@ -60,8 +66,6 @@ class VazamentoCrossTenantRlsTest {
                       ('%s', '33333333333333', 'Ente A', 'municipio'),
                       ('%s', '44444444444444', 'Ente B', 'municipio')
                     """.formatted(ENTE_A, ENTE_B));
-            // contador_fato ganha 1 linha por ente via trg_inicializa_contador_fato — nenhum
-            // insert manual necessário para essa tabela ficar com massa de dado dos dois entes.
             st.execute("""
                     insert into periodo_contabil (id, ente_id, exercicio, mes, status) values
                       ('%s', '%s', 2026, 1, 'aberto'),
@@ -91,9 +95,13 @@ class VazamentoCrossTenantRlsTest {
         }
     }
 
-    /** As 5 tabelas com {@code ente_id} sob RLS forçada (trava 4, migration V1). */
+    /**
+     * As 4 tabelas com {@code ente_id} sob RLS forçada (trava 4, migration V1) às quais o
+     * {@code app_role} tem GRANT select — {@code contador_fato} também tem RLS, mas nenhum
+     * grant direto (ver javadoc da classe).
+     */
     static Stream<String> tabelasProtegidasPorRls() {
-        return Stream.of("conta_pcasp", "periodo_contabil", "contador_fato", "fato_contabil", "lancamento");
+        return Stream.of("conta_pcasp", "periodo_contabil", "fato_contabil", "lancamento");
     }
 
     @ParameterizedTest(name = "{0}: soma do que A e B enxergam bate com o total — zero linha cruzada")
