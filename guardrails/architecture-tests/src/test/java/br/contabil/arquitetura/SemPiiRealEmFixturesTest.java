@@ -75,9 +75,11 @@ class SemPiiRealEmFixturesTest {
     @Test
     @DisplayName("detecta CPF com checksum válido e ignora CPF sintético (checksum inválido)")
     void detectaSomenteCpfComChecksumValido() {
-        // Dividido em duas literais para o texto-fonte deste arquivo não conter, ele mesmo, um
-        // CPF de 11 dígitos contíguos (a varredura acima roda sobre src/test/ inteiro).
-        String cpfComChecksumValido = "123456789" + "09"; // exemplo didático clássico — ver nenhumaFixtureDeTesteContemPiiRealObvia
+        // Os dígitos verificadores são CALCULADOS em runtime (cpfComDigitosVerificadoresCalculados)
+        // — nenhum CPF de 11 dígitos com DV correto fica escrito no texto-fonte deste arquivo,
+        // nem mesmo particionado: o próprio princípio do guardrail é "checksum válido = suspeito",
+        // então o teste não pode depender de um CPF-exemplo pronto (ainda que didático conhecido).
+        String cpfComChecksumValido = cpfComDigitosVerificadoresCalculados("987654321");
         String cpfSemChecksumValido = "111222333" + "44"; // mesmo padrão já usado no repo (RAZ-11)
 
         List<Violacao> comValido = escanearLinhas("inline-test", List.of("cpf: " + cpfComChecksumValido));
@@ -248,6 +250,29 @@ class SemPiiRealEmFixturesTest {
 
     private static String somenteDigitos(String valor) {
         return valor.replaceAll("[^0-9]", "");
+    }
+
+    /**
+     * Calcula os 2 dígitos verificadores de um CPF a partir dos 9 dígitos-base — usado só pelo
+     * teste {@code detectaSomenteCpfComChecksumValido} para gerar em runtime um CPF com checksum
+     * válido, sem escrever nenhum CPF pronto no texto-fonte deste arquivo (nem didático).
+     */
+    private static String cpfComDigitosVerificadoresCalculados(String noveDigitosBase) {
+        int[] base = noveDigitosBase.chars().map(c -> c - '0').toArray();
+        int dv1 = dvCpf(base, 10);
+        int[] comDv1 = java.util.Arrays.copyOf(base, base.length + 1);
+        comDv1[9] = dv1;
+        int dv2 = dvCpf(comDv1, 11);
+        return noveDigitosBase + dv1 + dv2;
+    }
+
+    private static int dvCpf(int[] digitos, int pesoInicial) {
+        int soma = 0;
+        for (int i = 0; i < digitos.length; i++) {
+            soma += digitos[i] * (pesoInicial - i);
+        }
+        int resto = soma % 11;
+        return resto < 2 ? 0 : 11 - resto;
     }
 
     /** IBAN (ISO 13616): rearranja BBAN+país+dv para o fim, letras viram A=10..Z=35, valida mod 97 == 1. */
