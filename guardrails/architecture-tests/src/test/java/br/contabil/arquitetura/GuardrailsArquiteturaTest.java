@@ -127,6 +127,30 @@ class GuardrailsArquiteturaTest {
               "com.fasterxml.jackson..")
           .because("ADR-0002: o domínio contábil não conhece framework, ORM nem serialização");
 
+  /**
+   * A aplicação também é POJO: os use cases não importam framework (ADR-0002 / AGENTS.md /
+   * guardiao-arquitetura). Nada de {@code @Service}/{@code @Transactional}/{@code @Bean} no
+   * use case — o wiring e a transação (advisor na borda) são responsabilidade da infra.
+   */
+  @ArchTest
+  static final ArchRule aplicacao_nao_depende_de_framework =
+      noClasses()
+          .that()
+          .resideInAPackage(PKG_APPLICATION)
+          .should()
+          .dependOnClassesThat()
+          .resideInAnyPackage(
+              "org.springframework..",
+              "jakarta.persistence..",
+              "javax.persistence..",
+              "jakarta.transaction..",
+              "javax.transaction..",
+              "org.hibernate..",
+              "com.fasterxml.jackson..")
+          .because(
+              "ADR-0002/AGENTS.md: os use cases são POJO; a infra faz o wiring (@Bean) e detém a "
+                  + "transação (advisor na borda) — a application não anota nem importa framework");
+
   // ---------------------------------------------------------------------------
   // TRAVA 3 — Repositório do razão é append-only (sem update/delete).
   // ---------------------------------------------------------------------------
