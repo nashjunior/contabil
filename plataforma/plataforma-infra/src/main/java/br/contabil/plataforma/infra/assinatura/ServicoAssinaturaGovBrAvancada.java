@@ -3,7 +3,6 @@ package br.contabil.plataforma.infra.assinatura;
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura;
 import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
 import br.contabil.plataforma.domain.auditoria.EventoAuditoria;
-import br.contabil.plataforma.domain.TenantId;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.X509Certificate;
@@ -37,25 +36,15 @@ public final class ServicoAssinaturaGovBrAvancada implements ServicoAssinatura {
     private final AuditoriaEscrita trilha;
     private final Function<ReferenciaDocumento, byte[]> leitorDocumento;
     private final BiFunction<byte[], ReferenciaDocumento, ReferenciaDocumento> publicadorDocumentoAssinado;
-    private final Function<DocumentoParaAssinar, TenantId> resolvedorDeEnte;
     private final Function<byte[], X509Certificate> extratorCertificado;
     private final Clock clock;
 
-    /**
-     * @param resolvedorDeEnte de qual ente é o documento sendo assinado, para
-     *     atribuir corretamente o evento na trilha (ADR-0003/ADR-0005). {@link
-     *     ServicoAssinatura#assinar} não carrega {@code TenantId} no contrato
-     *     hoje — propagação real do tenant corrente (equivalente ao {@code
-     *     app.ente_id} do razão) ainda não existe como utilitário compartilhado
-     *     no projeto; ver limitação no package-info.
-     */
     public ServicoAssinaturaGovBrAvancada(
             ProvedorAssinaturaGovBr provedor,
             VerificadorRevogacaoCertificado verificadorRevogacao,
             AuditoriaEscrita trilha,
             Function<ReferenciaDocumento, byte[]> leitorDocumento,
             BiFunction<byte[], ReferenciaDocumento, ReferenciaDocumento> publicadorDocumentoAssinado,
-            Function<DocumentoParaAssinar, TenantId> resolvedorDeEnte,
             Clock clock) {
         this(
                 provedor,
@@ -63,7 +52,6 @@ public final class ServicoAssinaturaGovBrAvancada implements ServicoAssinatura {
                 trilha,
                 leitorDocumento,
                 publicadorDocumentoAssinado,
-                resolvedorDeEnte,
                 new ExtratorCertificadoPkcs7(),
                 clock);
     }
@@ -74,7 +62,6 @@ public final class ServicoAssinaturaGovBrAvancada implements ServicoAssinatura {
             AuditoriaEscrita trilha,
             Function<ReferenciaDocumento, byte[]> leitorDocumento,
             BiFunction<byte[], ReferenciaDocumento, ReferenciaDocumento> publicadorDocumentoAssinado,
-            Function<DocumentoParaAssinar, TenantId> resolvedorDeEnte,
             Function<byte[], X509Certificate> extratorCertificado,
             Clock clock) {
         this.provedor = Objects.requireNonNull(provedor, "provedor");
@@ -83,7 +70,6 @@ public final class ServicoAssinaturaGovBrAvancada implements ServicoAssinatura {
         this.leitorDocumento = Objects.requireNonNull(leitorDocumento, "leitorDocumento");
         this.publicadorDocumentoAssinado =
                 Objects.requireNonNull(publicadorDocumentoAssinado, "publicadorDocumentoAssinado");
-        this.resolvedorDeEnte = Objects.requireNonNull(resolvedorDeEnte, "resolvedorDeEnte");
         this.extratorCertificado = Objects.requireNonNull(extratorCertificado, "extratorCertificado");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
@@ -173,7 +159,7 @@ public final class ServicoAssinaturaGovBrAvancada implements ServicoAssinatura {
             boolean bloqueado,
             String detalhe) {
         trilha.append(new EventoAuditoria(
-                resolvedorDeEnte.apply(documento),
+                documento.ente(),
                 "assinatura_eletronica",
                 signatario.cpf(),
                 documento.origem().uri().toString(),

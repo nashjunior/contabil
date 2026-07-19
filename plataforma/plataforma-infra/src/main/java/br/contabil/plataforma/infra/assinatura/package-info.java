@@ -31,9 +31,10 @@
  *       de assinatura ISO 32000) exige uma biblioteca de PDF (ex.: PDFBox/iText)
  *       que ainda não é dependência do projeto. {@code publicadorDocumentoAssinado}
  *       recebe o PKCS#7 bruto; quem o injetar decide como/se embute no PDF.</li>
- *   <li><b>Propagação do tenant corrente</b> — não há, ainda, um equivalente Java
- *       do {@code app.ente_id} de sessão do razão; {@code resolvedorDeEnte} é a
- *       costura temporária até esse mecanismo existir.</li>
+ *   <li><b>Propagação do tenant corrente</b> — resolvida: o {@code TenantId ente}
+ *       vem explícito no {@code DocumentoParaAssinar} (ADR-0015), não de um
+ *       {@code TenantContext} ambiente; o seam {@code resolvedorDeEnte} (RAZ-11)
+ *       foi removido (RAZ-28).</li>
  *   <li><b>Âncoras de confiança ICP-Brasil</b> — {@code VerificadorRevogacaoCertificadoPkix}
  *       não empacota o bundle de CA raiz/intermediária; é config/implantação.</li>
  *   <li><b>F1 explicitamente fora de escopo</b>: ICP-Brasil qualificada, workflow

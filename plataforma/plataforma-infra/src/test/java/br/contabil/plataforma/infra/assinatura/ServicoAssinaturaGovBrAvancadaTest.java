@@ -66,7 +66,6 @@ class ServicoAssinaturaGovBrAvancadaTest {
                 trilha,
                 ref -> CONTEUDO,
                 (bytes, ref) -> referenciaPublicada,
-                doc -> ENTE,
                 bytes -> certificadoFake,
                 Clock.fixed(Instant.parse("2026-07-19T12:00:00Z"), ZoneOffset.UTC));
     }
@@ -163,7 +162,6 @@ class ServicoAssinaturaGovBrAvancadaTest {
                 provedor, verificadorRevogacao, trilha,
                 ref -> new byte[0],
                 (bytes, ref) -> referenciaPublicada,
-                doc -> ENTE,
                 bytes -> certificadoFake,
                 Clock.systemUTC());
 
