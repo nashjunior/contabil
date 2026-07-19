@@ -24,8 +24,10 @@ import com.tngtech.archunit.lang.ArchRule;
  *   <li>fronteiras de camada domain/application/infra (ADR-0002);</li>
  *   <li>repositório do razão append-only (sem update/delete).</li>
  * </ol>
- * As outras duas (vazamento cross-tenant/RLS e gitleaks) vivem, respectivamente, em
- * {@code VazamentoCrossTenantRlsTest} e no pipeline de CI + {@code .gitleaks.toml}.
+ * As outras duas (vazamento cross-tenant/RLS e gitleaks) vivem, respectivamente, em {@code
+ * bootstrap/src/test/java/br/contabil/migration/VazamentoCrossTenantRlsTest.java} (Postgres
+ * real via Testcontainers, roda em {@code ./gradlew check}) e em {@code .gitleaks.toml} +
+ * {@code .github/workflows/ci.yml} (RAZ-16, bloqueante — ADR-0003).
  */
 // Não usar DoNotIncludeJars: os módulos de produção chegam como JAR via project(...),
 // e o filtro packages="br.contabil" já restringe a análise ao nosso código.
