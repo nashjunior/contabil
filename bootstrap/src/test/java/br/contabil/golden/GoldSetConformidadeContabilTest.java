@@ -42,10 +42,12 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * bug de aplicação — o mesmo motivo de {@code RazaoContabilTravasTest}, aqui sob cenários de
  * negócio em vez de ataques pontuais a cada trava. Não substitui os testes de unidade
  * mockados de {@code RegistrarFatoContabilTest}/{@code EstornarFatoContabilTest}, e também
- * NÃO prova a integração real desses casos de uso com os adapters Postgres (
- * {@code PostgresFatoContabilRepository}, {@code PostgresPeriodoContabilPort}, etc.) —
- * isso é um gap identificado (nenhum teste hoje exercita esse caminho ponta-a-ponta contra
- * banco real, só mocks de um lado e SQL cru do outro); ver issue de acompanhamento.
+ * não prova a integração real desses casos de uso com os adapters Postgres (
+ * {@code PostgresFatoContabilRepository}, {@code PostgresPeriodoContabilPort}, etc.) — esse
+ * gap era rastreado aqui (RAZ-27) e agora é coberto por
+ * {@code RegistrarEstornarFatoContabilIntegrationTest} (bootstrap), que sobe o contexto
+ * Spring real e exercita {@code RegistrarFatoContabil}/{@code EstornarFatoContabil} como
+ * beans gerenciados contra Postgres real.
  *
  * <p><b>Gaps encontrados (fora do escopo testável hoje, registrar no backlog):</b>
  * <ul>
@@ -59,9 +61,6 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  *       (cenário 7).</li>
  *   <li>Não há tabela {@code doc_suporte} nem beneficiário obrigatório — as travas de UC1
  *       sobre documento de suporte/beneficiário do README §6 não são cobertas aqui.</li>
- *   <li>Nenhum teste hoje exercita {@code RegistrarFatoContabil}/{@code EstornarFatoContabil}
- *       ligados aos adapters {@code razao-infra} contra Postgres real (só mocks de um lado,
- *       SQL cru deste gold set do outro) — gap de integração ponta-a-ponta.</li>
  * </ul>
  *
  * <p>Plano de contas: ilustrativo, não é PCASP oficial validado na fonte (mesma ressalva
