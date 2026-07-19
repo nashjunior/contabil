@@ -38,9 +38,9 @@ Quando o código divergir de um ADR, **o ADR é a autoridade**; sinalize e, se f
 
 Cada módulo tem `domain/ application/ infra/`. Dependências apontam **para dentro**:
 
-- **`domain/`** (entities, VOs, erros) → só a si mesmo. **NUNCA** importa `application/`, `infra/`, nem outro módulo.
-- **`application/`** (use cases, **ports**, dtos, eventos) → próprio `domain` + próprio `application`. **NUNCA** importa `infra/`.
-- **`infra/`** (adapters: repositórios, gateways gov.br/PNCP/SICONFI) → implementa os **ports** da `application`. Regra de negócio em adapter = ❌.
+- **`domain/`** (entities, VOs, erros, **interfaces de repository/persistência**) → só a si mesmo. **NUNCA** importa `application/`, `infra/`, nem outro módulo. O domínio **declara** os contratos de persistência que precisa; interface de `Repository` fora do `domain` = ❌.
+- **`application/`** (use cases, dtos, eventos) → próprio `domain` + próprio `application`. **NUNCA** importa `infra/` nem **framework**. Use cases são **POJOs**: `@Service`/`@Component`/`@Transactional` (ou qualquer `import org.springframework…`/`jakarta…`) na `application` = ❌ — recebem dependências por construtor.
+- **`infra/`** (adapters: repositórios, gateways gov.br/PNCP/SICONFI) → implementa as **interfaces do `domain`**, **faz o wiring** dos use cases (`@Configuration`/`@Bean`) e **detém a transação** (borda). Regra de negócio em adapter = ❌.
 
 ### Razão contábil — append-only e balanceado (razao-schema, ADR-0006)
 
@@ -62,8 +62,8 @@ Cada módulo tem `domain/ application/ infra/`. Dependências apontam **para den
 
 ### Ports & adapters
 
-- Interfaces de port vivem na **`application`** (não no `domain`), nomeadas por papel (`EmpenhoRepository`, `AssinaturaProvider`, `PublicadorEventos`, `CofreSegredos`).
-- Adapters em `infra/`, `class Postgres{X}Repository implements {X}Repository` etc.
+- **Interfaces de repository/persistência vivem no `domain`** (`FatoContabilRepository`, `EmpenhoRepository`) — é o contrato que o domínio declara. **Ports de serviços externos** (gateways: `AssinaturaProvider`, `PublicadorEventos`, `CofreSegredos`) ficam na `application` (orquestração da borda). Interface de `Repository` na `application` = ❌.
+- Adapters em `infra/`, `class Postgres{X}Repository implements {X}Repository` (implementa a interface do `domain`); a `infra` também tem o `@Configuration` que declara os use cases como `@Bean` e abre a transação.
 - Efeito externo (transparência/PNCP/SICONFI) só via **outbox na mesma transação** + worker idempotente (ADR-0004/0011) — chamada externa síncrona dentro da transação do fato = ❌.
 
 ### Entities & Value Objects

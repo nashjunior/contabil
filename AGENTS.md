@@ -12,7 +12,7 @@ Cada regra tem sua autoridade num ADR; o [`guardiao-arquitetura`](.claude/agents
 
 - **Stack:** JVM (Java/Kotlin), Spring Boot — [ADR-0012](docs/arquitetura-tecnica/adr/0012-stack-jvm.md). Domínio nomeado em **pt-BR** (`Empenho`, `Liquidacao`, `FatoContabil`).
 - **Dinheiro:** `BigDecimal` / `NUMERIC(18,2)`, nunca `float` — [ADR-0006](docs/arquitetura-tecnica/adr/0006-dinheiro-decimal.md).
-- **Camadas:** monólito modular `domain/application/infra`, dependências para dentro; ports na `application`, adapters na `infra` — [ADR-0002](docs/arquitetura-tecnica/adr/0002-monolito-modular.md).
+- **Camadas:** monólito modular `domain/application/infra`, dependências para dentro; **interfaces de repository/persistência no `domain`**; use cases (`application`) são **POJOs sem anotação de framework** — a **`infra` faz o wiring (`@Configuration`/`@Bean`) e detém a transação** (borda); adapters na `infra` — [ADR-0002](docs/arquitetura-tecnica/adr/0002-monolito-modular.md).
 - **Razão:** append-only (correção por estorno), Σdébito=Σcrédito, **atômico** — [razao-schema](docs/arquitetura-tecnica/razao-contabil-schema.md).
 - **Multi-ente:** `ente_id` + RLS deny-by-default — [ADR-0003](docs/arquitetura-tecnica/adr/0003-multi-tenant-rls.md).
 - **Efeito externo:** via outbox idempotente, nunca síncrono na transação — [ADR-0004](docs/arquitetura-tecnica/adr/0004-outbox-idempotente.md) / [ADR-0011](docs/arquitetura-tecnica/adr/0011-idempotencia-ponta-a-ponta.md).
