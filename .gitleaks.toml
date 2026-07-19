@@ -2,17 +2,23 @@ title = "gitleaks config — SIAFIC (Oberware)"
 
 # Guardrail de CI bloqueante (ADR-0003 / RAZ-16): segredo real nunca entra no
 # repositório (AGENTS.md §Segurança/LGPD — "segredo só no cofre"). Estende o
-# conjunto padrão de regras do gitleaks; o allowlist abaixo cobre só as
-# credenciais fixas de FIXTURE usadas pelos guardrails de Testcontainers
-# (Postgres efêmero, descartado ao fim do teste) — não são segredos reais.
+# conjunto padrão de regras do gitleaks; o allowlist abaixo isenta só a
+# credencial fixa de FIXTURE usada pelos guardrails de Testcontainers
+# (Postgres efêmero, descartado ao fim do teste) — não é segredo real.
+#
+# NUNCA usar `paths` num allowlist global: o gitleaks pula a árvore inteira
+# que casar com o path ANTES de aplicar qualquer regra — não é "path E
+# regex", é "path OU regex" no sentido de que `paths` sozinho já cega o
+# scanner, mesmo com `condition = "and"` (validado localmente: uma chave
+# AWS de teste em bootstrap/src/test/... ficou invisível com `paths` no
+# allowlist, inclusive com `condition = "and"`; sem `paths`, o gitleaks a
+# encontra normalmente). Isolar por `regexes` mantém a árvore de testes
+# sob varredura real para qualquer segredo que não seja esta fixture.
 [extend]
 useDefault = true
 
 [allowlist]
-description = "Credenciais fixas de teste (Testcontainers) — Postgres efêmero, não é segredo real"
-paths = [
-  '''.*/src/test/.*''',
-]
+description = "Credencial fixa de teste (Testcontainers) — Postgres efêmero, não é segredo real"
 regexes = [
   '''app_login''',
 ]

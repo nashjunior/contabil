@@ -10,6 +10,7 @@ import java.sql.Statement;
 import java.util.stream.Stream;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -34,6 +35,13 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * {@code fato_contabil}; {@code RazaoRlsCrossTenantForeignKeyTest} (RAZ-13) cobre a trava 4b
  * (bypass via FK simples no INSERT/DONO). Este teste cobre o lado SELECT — a superfície que
  * um vazamento cross-tenant reprovaria no controle externo (ADR-0003).
+ *
+ * <p><b>{@link #saldoContaViewNaoVazaLinhaDeOutroEnte()}</b> prova um vazamento cross-tenant
+ * REAL na migration V1 atual: {@code saldo_conta} é uma view com grant select ao app_role,
+ * mas sem {@code security_invoker = true} — o Postgres avalia RLS pelo DONO da view (o
+ * superusuário da migration, que ignora RLS), não por quem consulta. Fica vermelho de
+ * propósito até a V1 declarar {@code security_invoker = true} nessa view; ver javadoc do
+ * método para a reprodução.
  */
 @Testcontainers(disabledWithoutDocker = true)
 class VazamentoCrossTenantRlsTest {
@@ -135,6 +143,41 @@ class VazamentoCrossTenantRlsTest {
                     .as("%s: sem app.ente_id definido, deny-by-default deve zerar a consulta mesmo havendo linhas no banco", tabela)
                     .isZero();
         }
+    }
+
+    /**
+     * {@code saldo_conta} é uma VIEW (não tabela base) com {@code grant select} para
+     * {@code app_role} — a única leitura agregada de saldo que a aplicação tem (V1,
+     * seção "Saldos"). Uma view comum do Postgres, sem {@code security_invoker = true}
+     * (padrão PG15+, ausente na V1), avalia RLS com os privilégios do DONO da view — não
+     * de quem consulta. Como a V1 cria a view rodando como o superusuário da migration,
+     * {@code force row level security} em {@code lancamento} não se aplica ao dono da
+     * view (e superusuário sempre ignora RLS), então {@code saldo_conta} pode vazar TODOS
+     * os entes para qualquer sessão de {@code app_login}, mesmo com {@code app.ente_id}
+     * setado — reproduzido empiricamente contra a migration V1 real (Postgres, docker):
+     * consulta direta em {@code lancamento} respeita a RLS, a mesma sessão consultando
+     * {@code saldo_conta} devolve linhas dos dois entes. Teste isolado (fora de {@code
+     * tabelasProtegidasPorRls()}) porque é uma superfície de vazamento estruturalmente
+     * diferente de RLS em tabela — é exatamente o vazamento cross-tenant que a trava 4
+     * do ADR-0003 promete fechar, então fica vermelho até {@code saldo_conta} declarar
+     * {@code security_invoker = true} (ou equivalente) na migration.
+     */
+    @Test
+    void saldoContaViewNaoVazaLinhaDeOutroEnte() throws SQLException {
+        int totalNoBanco = contarComoAdmin("saldo_conta");
+        assertThat(totalNoBanco)
+                .as("massa de teste: saldo_conta deveria ter pelo menos 1 linha por ente")
+                .isGreaterThanOrEqualTo(2);
+
+        int visivelParaA = contarComoAppLogin("saldo_conta", ENTE_A);
+        int visivelParaB = contarComoAppLogin("saldo_conta", ENTE_B);
+
+        assertThat(visivelParaA + visivelParaB)
+                .as("saldo_conta: soma do que A e B enxergam não pode exceder o total real "
+                        + "(vazamento cross-tenant via VIEW sem security_invoker)")
+                .isEqualTo(totalNoBanco);
+        assertThat(visivelParaA).as("saldo_conta: ente A enxerga ao menos a própria linha").isGreaterThan(0);
+        assertThat(visivelParaB).as("saldo_conta: ente B enxerga ao menos a própria linha").isGreaterThan(0);
     }
 
     private static int contarComoAdmin(String tabela) throws SQLException {
