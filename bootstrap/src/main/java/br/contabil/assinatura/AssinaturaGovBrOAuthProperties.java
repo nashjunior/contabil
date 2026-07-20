@@ -51,6 +51,16 @@ record AssinaturaGovBrOAuthProperties(
         if (!uri.isAbsolute()) {
             throw new IllegalStateException("siafic.assinatura.govbr.oauth." + nome + " deve ser URI absoluta");
         }
+        if (!"https".equals(uri.getScheme()) && !isLoopback(uri.getHost())) {
+            throw new IllegalStateException(
+                    "siafic.assinatura.govbr.oauth." + nome
+                            + " deve usar https — client_secret/code/access_token trafegam nela em claro "
+                            + "sobre http (excecao so para loopback em desenvolvimento local)");
+        }
+    }
+
+    private static boolean isLoopback(String host) {
+        return "localhost".equals(host) || "127.0.0.1".equals(host);
     }
 
     private static void exigirTexto(String valor, String nome) {

@@ -110,6 +110,30 @@ class AssinaturaGovBrOAuthControllerTest {
     }
 
     @Test
+    void callbackComFalhaDoProvedorGovBrDevolveBadGatewayComCorrelationId() {
+        var fixture = fixture();
+        MockHttpSession sessao = new MockHttpSession();
+        TenantId ente = new TenantId(UUID.randomUUID());
+        fixture.sessoesIam().gravarVerificada(sessao, sessaoAutenticada(ente));
+        fixture.cliente().falharComProximaChamada();
+        String state = stateDe(fixture.controller().iniciar(sessao));
+
+        var resposta = fixture.controller().callback("codigo-autorizacao", state, null, null, sessao);
+
+        assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
+        @SuppressWarnings("unchecked")
+        var corpo = (java.util.Map<String, String>) resposta.getBody();
+        assertThat(corpo).containsEntry("erro", "oauth_provedor_indisponivel");
+        assertThat(corpo.get("correlationId")).isNotBlank();
+        // nao guarda token nenhum apos falha do provedor
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setSession(sessao);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+        var supplier = new AssinaturaGovBrTokenSessaoSupplier(fixture.repositorio());
+        assertThatExceptionOfType(IllegalStateException.class).isThrownBy(supplier::get);
+    }
+
+    @Test
     void iniciarSemSessaoIamVerificadaFalhaFechado() {
         var fixture = fixture();
         MockHttpSession sessao = new MockHttpSession();
@@ -214,9 +238,17 @@ class AssinaturaGovBrOAuthControllerTest {
 
         private String codeRecebido;
         private String codeVerifierRecebido;
+        private boolean falharNaProximaChamada;
+
+        void falharComProximaChamada() {
+            this.falharNaProximaChamada = true;
+        }
 
         @Override
         public AssinaturaGovBrOAuthToken trocarCodigoPorToken(String code, String codeVerifier) {
+            if (falharNaProximaChamada) {
+                throw new IllegalStateException("Token endpoint gov.br respondeu status 503");
+            }
             this.codeRecebido = code;
             this.codeVerifierRecebido = codeVerifier;
             return new AssinaturaGovBrOAuthToken("access-token-govbr", CLOCK.instant().plusSeconds(300));
