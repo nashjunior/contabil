@@ -6,7 +6,9 @@ import java.util.Objects;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.ServerSideEncryption;
 
 /**
@@ -20,8 +22,16 @@ import software.amazon.awssdk.services.s3.model.ServerSideEncryption;
  * <p><b>Cifragem em repouso:</b> toda gravação aplica server-side encryption —
  * SSE-KMS quando há {@code kmsKeyId}, senão SSE-S3 (AES256). O adaptador nunca grava
  * em claro.
+ *
+ * <p><b>Append-only:</b> {@code armazenar} usa escrita condicional
+ * ({@code If-None-Match: *}) — a gravação falha se já existir objeto na chave de
+ * destino, em vez de sobrescrever silenciosamente (RAZ-45). Exige backend
+ * S3-compatível com suporte a conditional writes (AWS S3 nativamente; MinIO em
+ * versões recentes).
  */
 public final class S3ArmazenamentoDocumentos implements ArmazenamentoDocumentos {
+
+    private static final int HTTP_PRECONDITION_FAILED = 412;
 
     private final S3Client s3;
     private final String kmsKeyId;
@@ -42,7 +52,11 @@ public final class S3ArmazenamentoDocumentos implements ArmazenamentoDocumentos 
                 .bucket(bucket(referencia))
                 .key(chave(referencia))
                 .build();
-        return s3.getObjectAsBytes(requisicao).asByteArray();
+        try {
+            return s3.getObjectAsBytes(requisicao).asByteArray();
+        } catch (NoSuchKeyException e) {
+            throw new DocumentoNaoEncontradoException("documento ausente na referência: " + referencia);
+        }
     }
 
     @Override
@@ -51,13 +65,22 @@ public final class S3ArmazenamentoDocumentos implements ArmazenamentoDocumentos 
         Objects.requireNonNull(destino, "destino");
         PutObjectRequest.Builder requisicao = PutObjectRequest.builder()
                 .bucket(bucket(destino))
-                .key(chave(destino));
+                .key(chave(destino))
+                .ifNoneMatch("*");
         if (kmsKeyId != null) {
             requisicao.serverSideEncryption(ServerSideEncryption.AWS_KMS).ssekmsKeyId(kmsKeyId);
         } else {
             requisicao.serverSideEncryption(ServerSideEncryption.AES256);
         }
-        s3.putObject(requisicao.build(), RequestBody.fromBytes(conteudo));
+        try {
+            s3.putObject(requisicao.build(), RequestBody.fromBytes(conteudo));
+        } catch (S3Exception e) {
+            if (e.statusCode() == HTTP_PRECONDITION_FAILED) {
+                throw new DocumentoJaExistenteException(
+                        "já existe documento na chave de destino, escrita rejeitada (append-only): " + destino);
+            }
+            throw e;
+        }
         return destino;
     }
 

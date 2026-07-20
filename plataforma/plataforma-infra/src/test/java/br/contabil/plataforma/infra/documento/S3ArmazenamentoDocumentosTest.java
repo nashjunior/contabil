@@ -7,6 +7,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import br.contabil.plataforma.domain.documento.ArmazenamentoDocumentos.DocumentoJaExistenteException;
+import br.contabil.plataforma.domain.documento.ArmazenamentoDocumentos.DocumentoNaoEncontradoException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
@@ -16,8 +18,10 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectResponse;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.ServerSideEncryption;
 
 class S3ArmazenamentoDocumentosTest {
@@ -40,7 +44,31 @@ class S3ArmazenamentoDocumentosTest {
         assertThat(req.key()).isEqualTo("11111111-1111-1111-1111-111111111111/empenho-1-assinado.pdf");
         assertThat(req.serverSideEncryption()).isEqualTo(ServerSideEncryption.AWS_KMS);
         assertThat(req.ssekmsKeyId()).isEqualTo("chave-kms-1");
+        assertThat(req.ifNoneMatch()).isEqualTo("*");
         assertThat(efetiva).isEqualTo(DESTINO);
+    }
+
+    @Test
+    void armazenar_e_condicional_e_nunca_sobrescreve_chave_existente() {
+        S3Client s3 = mock(S3Client.class);
+        when(s3.putObject(any(PutObjectRequest.class), any(RequestBody.class)))
+                .thenThrow(S3Exception.builder().statusCode(412).message("At least one of the pre-conditions you specified did not hold").build());
+        var adaptador = new S3ArmazenamentoDocumentos(s3, null);
+
+        assertThatThrownBy(() -> adaptador.armazenar("novo".getBytes(StandardCharsets.UTF_8), DESTINO))
+                .isInstanceOf(DocumentoJaExistenteException.class);
+    }
+
+    @Test
+    void armazenar_propaga_erro_s3_que_nao_e_precondicao_falha() {
+        S3Client s3 = mock(S3Client.class);
+        when(s3.putObject(any(PutObjectRequest.class), any(RequestBody.class)))
+                .thenThrow(S3Exception.builder().statusCode(500).message("erro interno").build());
+        var adaptador = new S3ArmazenamentoDocumentos(s3, null);
+
+        assertThatThrownBy(() -> adaptador.armazenar("novo".getBytes(StandardCharsets.UTF_8), DESTINO))
+                .isInstanceOf(S3Exception.class)
+                .isNotInstanceOf(DocumentoJaExistenteException.class);
     }
 
     @Test
@@ -80,5 +108,16 @@ class S3ArmazenamentoDocumentosTest {
         var adaptador = new S3ArmazenamentoDocumentos(mock(S3Client.class), null);
         assertThatThrownBy(() -> adaptador.ler(URI.create("s3://ged")))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void ler_objeto_ausente_vira_documento_nao_encontrado() {
+        S3Client s3 = mock(S3Client.class);
+        when(s3.getObjectAsBytes(any(GetObjectRequest.class)))
+                .thenThrow(NoSuchKeyException.builder().message("The specified key does not exist.").build());
+        var adaptador = new S3ArmazenamentoDocumentos(s3, null);
+
+        assertThatThrownBy(() -> adaptador.ler(URI.create("s3://ged/inexistente.pdf")))
+                .isInstanceOf(DocumentoNaoEncontradoException.class);
     }
 }
