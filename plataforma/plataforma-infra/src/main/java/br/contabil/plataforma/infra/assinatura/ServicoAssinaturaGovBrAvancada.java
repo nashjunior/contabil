@@ -1,6 +1,7 @@
 package br.contabil.plataforma.infra.assinatura;
 
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura;
+import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.DocumentoParaAssinar;
 import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
 import br.contabil.plataforma.domain.auditoria.EventoAuditoria;
 import java.security.cert.X509Certificate;
@@ -12,6 +13,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
@@ -34,6 +36,7 @@ public final class ServicoAssinaturaGovBrAvancada implements ServicoAssinatura {
     private final AuditoriaEscrita trilha;
     private final Function<ReferenciaDocumento, byte[]> leitorDocumento;
     private final BiFunction<byte[], ReferenciaDocumento, ReferenciaDocumento> publicadorDocumentoAssinado;
+    private final Consumer<DocumentoParaAssinar> validadorTenant;
     private final Function<byte[], X509Certificate> extratorCertificado;
     private final PreparadorAssinaturaPades preparadorPades = new PreparadorAssinaturaPades();
     private final Clock clock;
@@ -44,6 +47,7 @@ public final class ServicoAssinaturaGovBrAvancada implements ServicoAssinatura {
             AuditoriaEscrita trilha,
             Function<ReferenciaDocumento, byte[]> leitorDocumento,
             BiFunction<byte[], ReferenciaDocumento, ReferenciaDocumento> publicadorDocumentoAssinado,
+            Consumer<DocumentoParaAssinar> validadorTenant,
             Clock clock) {
         this(
                 provedor,
@@ -51,6 +55,7 @@ public final class ServicoAssinaturaGovBrAvancada implements ServicoAssinatura {
                 trilha,
                 leitorDocumento,
                 publicadorDocumentoAssinado,
+                validadorTenant,
                 new ExtratorCertificadoPkcs7(),
                 clock);
     }
@@ -63,12 +68,26 @@ public final class ServicoAssinaturaGovBrAvancada implements ServicoAssinatura {
             BiFunction<byte[], ReferenciaDocumento, ReferenciaDocumento> publicadorDocumentoAssinado,
             Function<byte[], X509Certificate> extratorCertificado,
             Clock clock) {
+        this(provedor, verificadorRevogacao, trilha, leitorDocumento, publicadorDocumentoAssinado,
+                doc -> {}, extratorCertificado, clock);
+    }
+
+    private ServicoAssinaturaGovBrAvancada(
+            ProvedorAssinaturaGovBr provedor,
+            VerificadorRevogacaoCertificado verificadorRevogacao,
+            AuditoriaEscrita trilha,
+            Function<ReferenciaDocumento, byte[]> leitorDocumento,
+            BiFunction<byte[], ReferenciaDocumento, ReferenciaDocumento> publicadorDocumentoAssinado,
+            Consumer<DocumentoParaAssinar> validadorTenant,
+            Function<byte[], X509Certificate> extratorCertificado,
+            Clock clock) {
         this.provedor = Objects.requireNonNull(provedor, "provedor");
         this.verificadorRevogacao = Objects.requireNonNull(verificadorRevogacao, "verificadorRevogacao");
         this.trilha = Objects.requireNonNull(trilha, "trilha");
         this.leitorDocumento = Objects.requireNonNull(leitorDocumento, "leitorDocumento");
         this.publicadorDocumentoAssinado =
                 Objects.requireNonNull(publicadorDocumentoAssinado, "publicadorDocumentoAssinado");
+        this.validadorTenant = Objects.requireNonNull(validadorTenant, "validadorTenant");
         this.extratorCertificado = Objects.requireNonNull(extratorCertificado, "extratorCertificado");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
@@ -90,6 +109,7 @@ public final class ServicoAssinaturaGovBrAvancada implements ServicoAssinatura {
         }
         Signatario signatario = signatarios.get(0);
 
+        validadorTenant.accept(documento);
         byte[] conteudo = leitorDocumento.apply(documento.origem());
         UUID idTransacao = UUID.randomUUID();
         Instant momento = clock.instant();

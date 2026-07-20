@@ -1,9 +1,13 @@
 package br.contabil.plataforma.infra.assinatura;
 
+import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.DocumentoParaAssinar;
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.ReferenciaDocumento;
 import br.contabil.plataforma.domain.documento.ArmazenamentoDocumentos;
+import br.contabil.plataforma.domain.documento.ArmazenamentoDocumentos.DocumentoTenantInvalidoException;
 import java.net.URI;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -18,11 +22,22 @@ import org.springframework.context.annotation.Configuration;
  * <p>Desligado por padrão; ativa junto com {@code contabil.objectstore.enabled} e a
  * presença do adaptador. A montagem de {@code ServicoAssinaturaGovBrAvancada} (RAZ-24)
  * injeta estes beans nos parâmetros {@code leitorDocumento}/{@code publicadorDocumentoAssinado}.
+ *
+ * <p><b>Isolamento multi-tenant estrutural (RAZ-45).</b> O bean {@code validadorTenant}
+ * ({@link Consumer}{@code <DocumentoParaAssinar>}) é chamado por {@code ServicoAssinaturaGovBrAvancada}
+ * em {@code assinar()} antes de qualquer acesso ao object store. Verifica que o prefixo
+ * da URI de origem contém o UUID do {@code ente} — uma URI cross-tenant lança
+ * {@link DocumentoTenantInvalidoException} e o acesso ao S3 é bloqueado (ADR-0015, ADR-0018).
  */
 @Configuration
 @ConditionalOnProperty(prefix = "contabil.objectstore", name = "enabled", havingValue = "true")
 @ConditionalOnBean(ArmazenamentoDocumentos.class)
 public class ObjectStoreSeamsAssinaturaConfiguration {
+
+    @Bean
+    Consumer<DocumentoParaAssinar> validadorTenant() {
+        return doc -> validarPrefixoTenant(doc.ente(), doc.origem().uri());
+    }
 
     @Bean
     Function<ReferenciaDocumento, byte[]> leitorDocumento(ArmazenamentoDocumentos armazenamento) {
@@ -49,5 +64,18 @@ public class ObjectStoreSeamsAssinaturaConfiguration {
                 ? path.substring(0, ponto) + "-assinado" + path.substring(ponto)
                 : path + "-assinado";
         return URI.create(origem.getScheme() + "://" + origem.getAuthority() + novoPath);
+    }
+
+    /**
+     * Verifica que {@code uri} contém o UUID do {@code ente} como primeiro segmento do
+     * path ({@code /{ente.valor()}/…}). Lança {@link DocumentoTenantInvalidoException}
+     * se o prefixo não bater — o acesso ao object store é bloqueado antes de ocorrer.
+     */
+    static void validarPrefixoTenant(TenantId ente, URI uri) {
+        String prefixoEsperado = "/" + ente.valor() + "/";
+        if (uri.getPath() == null || !uri.getPath().startsWith(prefixoEsperado)) {
+            throw new DocumentoTenantInvalidoException(
+                    "URI não pertence ao ente " + ente.valor() + ": " + uri);
+        }
     }
 }

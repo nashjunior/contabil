@@ -12,16 +12,15 @@ import java.net.URI;
  * guarda apenas a referência (a {@link URI} do objeto). Toda gravação é cifrada em
  * repouso pelo adaptador (ADR-0018).
  *
- * <p><b>Isolamento multi-tenant — ainda 100% convenção (RAZ-45, pendente).</b> A
- * porta é dirigida por {@link URI} porque o seam de assinatura
- * ({@code ServicoAssinatura.ReferenciaDocumento(URI)}) assim o é. O escopo por
- * tenant é responsabilidade do produtor da URI: a chave do objeto deve ser
- * namespaced pelo {@code ente} (ex.: {@code s3://bucket/{ente}/...}), reforçado
- * por política de bucket/IAM no ambiente. Nem a porta nem o adaptador verificam
- * em código que a URI lida/gravada pertence ao {@code ente} de quem chama — a
- * correção desenhada (validar o prefixo antes de delegar a esta porta, carregando
- * {@code TenantId} pelo seam de assinatura) é pendência explícita do ADR-0018,
- * ainda não implementada.
+ * <p><b>Isolamento multi-tenant estrutural (RAZ-45).</b> A porta é dirigida por
+ * {@link URI} porque o seam de assinatura
+ * ({@code ServicoAssinatura.ReferenciaDocumento(URI)}) assim o é. A chave do
+ * objeto é namespaced pelo {@code ente} (ex.: {@code s3://bucket/{ente}/...}),
+ * reforçado por política de bucket/IAM. A validação em código é responsabilidade
+ * da ponte ({@code ObjectStoreSeamsAssinaturaConfiguration}), que recebe
+ * {@code DocumentoParaAssinar} com o {@code ente} ({@link br.contabil.plataforma.domain.TenantId})
+ * e confere que o prefixo da URI contém o UUID do tenant antes de delegar a
+ * esta porta — nenhum acesso ao object store ocorre sem essa checagem (RAZ-45).
  *
  * <p><b>Append-only de fato.</b> Uma nova versão (ex.: documento assinado) é um
  * novo objeto com nova URI; correção segue estorno + novo documento (docs/10),
@@ -73,6 +72,21 @@ public interface ArmazenamentoDocumentos {
         @Override
         public String codigo() {
             return "documento_ja_existente";
+        }
+    }
+
+    /**
+     * Erro {@code documento_tenant_invalido}: URI não pertence ao {@code ente} informado —
+     * violação de isolamento multi-tenant (ADR-0015, ADR-0018, RAZ-45).
+     */
+    final class DocumentoTenantInvalidoException extends RuntimeException implements ErroContrato {
+        public DocumentoTenantInvalidoException(String mensagem) {
+            super(mensagem);
+        }
+
+        @Override
+        public String codigo() {
+            return "documento_tenant_invalido";
         }
     }
 }
