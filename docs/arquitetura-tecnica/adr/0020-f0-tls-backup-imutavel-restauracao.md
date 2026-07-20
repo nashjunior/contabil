@@ -70,18 +70,24 @@ scratch descartável**, roda verificações de integridade e **mede o RTO**, emi
 um **relatório de evidência** datado (id do backup, RPO observado, RTO medido,
 resultado de cada verificação, veredito). O drill **falha** (exit ≠ 0, evidência
 `REPROVADO`) se qualquer verificação reprovar ou se RTO/RPO medidos violarem o alvo
-do ente. As verificações ancoram-se no schema real (`contabil`):
+do ente. As verificações ancoram-se no schema **real** das migrações `V1`/`V2` —
+tudo em `public`, chave de isolamento `ente_id` (ADR-0015); nenhuma migração cria
+schema `contabil`:
 
 - **Migrações** — `flyway_schema_history` sem falhas; a base restaurada está na
   versão esperada.
 - **Trilha de auditoria append-only** — `auditoria_evento`: sequência **contígua a
-  partir de 1 por tenant** e `hash_anterior` **encadeado** ao `hash_evento` do
+  partir de 1 por ente** e `hash_anterior` **encadeado** ao `hash_evento` do
   evento anterior. Prova que o backup preservou a cadeia de hash imutável — não uma
   cópia parcial ou corrompida.
-- **Integridade referencial** — ausência de órfãos tenant/auditoria/outbox.
-- **Razão de partidas dobradas (Σdébito = Σcrédito)** — gancho já preparado
-  (`infra/restore/verificacoes-razao.sql`), acionado automaticamente quando a
-  migração do razão entrar; inerte enquanto a tabela não existe.
+- **Integridade referencial** — ausência de eventos de auditoria órfãos de `ente`.
+  (O oráculo NÃO referencia tabela `outbox`: nenhuma migração a cria — cf. RAZ-50; a
+  verificação será reintroduzida, gated por `to_regclass`, quando o outbox
+  transacional entrar.)
+- **Razão de partidas dobradas (Σdébito = Σcrédito)** — gancho
+  (`infra/restore/verificacoes-razao.sql`) **ativo**: `V1` já cria `lancamento`, então
+  a verificação roda (probe `to_regclass('lancamento')`), verificando Σd=Σc por fato e
+  o balanço global. Fica inerte apenas se a tabela não existir na base restaurada.
 
 A frequência do drill é parametrizável (ver item 4). A evidência é o artefato que a
 auditoria TCE/ANPD consome.

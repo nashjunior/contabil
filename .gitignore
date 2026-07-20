@@ -29,3 +29,21 @@ Thumbs.db
 .env
 .env.local
 application-local.yml
+
+# Material sensível de infra — NUNCA versionado (ADR-0020; invariante "segredos no cofre").
+# Certificados, chaves privadas, keystores, identidades de cifra e artefatos de backup.
+*.key
+*.pem
+*.p12
+*.jks
+*.crt
+*.age
+# Templates são modelos e DEVEM ser versionados (não contêm segredo).
+!*.exemplo
+!*.sample
+
+# Terraform — estado e lock nunca no git (state remoto com lock; ADR-0020 §infra).
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl

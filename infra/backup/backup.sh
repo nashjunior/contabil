@@ -45,9 +45,19 @@ case "$TIPO" in full|incr) ;; *) fail "--tipo deve ser full|incr" ;; esac
 case "$METODO" in
   pgbackrest)
     command -v pgbackrest >/dev/null || fail "pgbackrest não instalado"
+    # Residência de dados (LGPD): o backup em repouso NÃO pode sair do Brasil.
+    # A região tem de ser asseverada BR. sa-east-1 (São Paulo) é o default; nuvem
+    # soberana BR com outro rótulo entra por REGIOES_BR_PERMITIDAS (allowlist explícita),
+    # nunca por afrouxamento silencioso. Fail-closed: sem região BR, não sobe.
+    : "${BACKUP_S3_REGION:?BACKUP_S3_REGION ausente — a região do object storage deve ser asseverada BR (ADR-0020; docs/13-nfr residência)}"
+    REGIOES_BR_PERMITIDAS="${REGIOES_BR_PERMITIDAS:-sa-east-1}"
+    _regiao_ok=0
+    for _r in $REGIOES_BR_PERMITIDAS; do [ "$BACKUP_S3_REGION" = "$_r" ] && _regiao_ok=1; done
+    [ "$_regiao_ok" = 1 ] || fail "residência: BACKUP_S3_REGION='$BACKUP_S3_REGION' fora do BR. \
+Use sa-east-1 (ou adicione a região BR soberana legítima a REGIOES_BR_PERMITIDAS)."
     # Repo cifrado (aes-256) + Object Lock/WORM configurados em pgbackrest.conf
     # (ver pgbackrest.conf.exemplo). Retenção vem dos params, não do script.
-    log "pgBackRest $TIPO stanza=$ENTE_SLUG (retenção-full=$RETENCAO_FULL)"
+    log "pgBackRest $TIPO stanza=$ENTE_SLUG região=$BACKUP_S3_REGION (retenção-full=$RETENCAO_FULL)"
     pgbackrest --stanza="$ENTE_SLUG" \
       --type="$([ "$TIPO" = incr ] && echo incr || echo full)" \
       --repo1-retention-full="$RETENCAO_FULL" \

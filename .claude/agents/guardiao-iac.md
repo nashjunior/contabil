@@ -39,7 +39,7 @@ Você é o guardião da **infraestrutura como código (IaC / Terraform)** do SIA
 
 ### 3. Residência e estado
 
-- **Residência no Brasil** (LGPD): provider/recurso de repouso fixado fora de região BR (ex.: `sa-east-1`) = ❌. Exceção honesta: chamada a serviço externo (gov.br/LLM) que cruza fronteira não é recurso de repouso.
+- **Residência no Brasil** (LGPD): recurso de repouso (banco/fila/storage/backup) fixado em região **fora do BR** = ❌. A região brasileira é `sa-east-1` (AWS São Paulo) — usá-la é *conforme*; o furo é apontar para região estrangeira (ex.: `us-east-1`, `eu-west-1`) ou deixar a região de repouso **não asseverada** (sem literal BR nem trava). Exceção honesta: chamada a serviço externo (gov.br/LLM) que cruza fronteira não é recurso de repouso.
 - **State remoto com lock** (backend S3 + lock, ou equivalente): backend sem lock, ou `.tfstate`/segredo commitado no git = ❌.
 
 ### 4. Continuidade e topologia (docs/13)
