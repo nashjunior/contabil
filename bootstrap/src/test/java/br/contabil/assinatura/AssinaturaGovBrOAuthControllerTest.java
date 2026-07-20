@@ -7,6 +7,10 @@ import br.contabil.plataforma.domain.TenantId;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -140,6 +144,27 @@ class AssinaturaGovBrOAuthControllerTest {
         assertThatExceptionOfType(IllegalStateException.class)
                 .isThrownBy(supplier::get)
                 .withMessageContaining("ainda nao concluiu OAuth2");
+    }
+
+    @Test
+    void sessaoIamGravadaNaHttpSessionESerializavel() throws Exception {
+        var fixture = fixture();
+        MockHttpSession sessao = new MockHttpSession();
+        TenantId ente = new TenantId(UUID.randomUUID());
+        fixture.sessoesIam().gravarVerificada(sessao, sessaoAutenticada(ente));
+
+        Object atributo = sessao.getAttribute(SessaoIamAssinaturaHttpSession.ATTR_SESSAO_IAM);
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        try (ObjectOutputStream saida = new ObjectOutputStream(buffer)) {
+            saida.writeObject(atributo);
+        }
+        Object restaurado;
+        try (ObjectInputStream entrada = new ObjectInputStream(new ByteArrayInputStream(buffer.toByteArray()))) {
+            restaurado = entrada.readObject();
+        }
+
+        assertThat(restaurado).isInstanceOf(SessaoIamAssinaturaHttpSession.SessaoVerificada.class);
+        assertThat(((SessaoIamAssinaturaHttpSession.SessaoVerificada) restaurado).ente()).isEqualTo(ente);
     }
 
     private static String stateDe(org.springframework.http.ResponseEntity<?> resposta) {
