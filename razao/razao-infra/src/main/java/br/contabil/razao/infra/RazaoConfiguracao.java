@@ -1,8 +1,10 @@
 package br.contabil.razao.infra;
 
 import br.contabil.plataforma.domain.iam.ControleAcesso;
+import br.contabil.razao.application.ConsultarSaldo;
 import br.contabil.razao.application.EstornarFatoContabil;
 import br.contabil.razao.application.RegistrarFatoContabil;
+import br.contabil.razao.domain.repository.ConsultaSaldoPort;
 import br.contabil.razao.domain.repository.ContadorFatoPort;
 import br.contabil.razao.domain.repository.FatoContabilRepository;
 import br.contabil.razao.domain.repository.PeriodoContabilPort;
@@ -45,5 +47,11 @@ public class RazaoConfiguracao {
             PeriodoContabilPort periodoContabil,
             Clock clock) {
         return new EstornarFatoContabil(controleAcesso, repositorio, contadorFato, periodoContabil, clock);
+    }
+
+    /** RAZ-59: fecha o gap de {@link ConsultaSaldoPort} sem use case (fora do advisor de tenant). */
+    @Bean
+    public ConsultarSaldo consultarSaldo(ControleAcesso controleAcesso, ConsultaSaldoPort consultaSaldo) {
+        return new ConsultarSaldo(controleAcesso, consultaSaldo);
     }
 }

@@ -8,6 +8,7 @@ import br.contabil.plataforma.domain.TenantId;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
+import br.contabil.razao.application.ConsultarSaldo;
 import br.contabil.razao.application.EstornarFatoContabil;
 import br.contabil.razao.application.RegistrarFatoContabil;
 import br.contabil.razao.domain.FatoContabil;
@@ -55,17 +56,23 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * + {@code TenantContextUseCasesConfiguration}, datasource de runtime como {@code app_login} sob RLS
  * forçada) — sem nenhum {@code SET LOCAL} manual no caminho de ESCRITA.
  *
- * <p><b>Achado ao escrever este teste</b>: {@link ConsultaSaldoPort} (bean real, sem use case próprio
- * em {@code razao-application}) NÃO é coberto pelo pointcut de {@code TenantContextUseCasesConfiguration}
- * ({@code execution(* br.contabil..application..*.executar(..))} — só ele fecha {@code app.ente_id}) e,
- * chamado direto (fora de um {@code executar(..)} advisado), quebra com {@code DataAccessException} numa
- * conexão pooled que já teve {@code app.ente_id} setado antes: {@code set_config(name, valor, true)}
- * dentro de uma transação que fecha NÃO devolve o GUC para NULL na mesma sessão — devolve string vazia
- * (reproduzido isolado contra Postgres 16 puro), e a policy {@code current_setting('app.ente_id', true)
- * ::uuid} não trata isso, então o cast estoura. Efeito: fail-closed (nunca vaza dado cross-tenant), mas
- * como exceção, não como "0 linhas". O teste 5 abaixo trava esse comportamento explicitamente; as leituras
- * de saldo nos demais testes usam o mesmo helper de SQL cru com {@code set_config} manual que RAZ-27 já
- * usa para verificação (não é caminho de produção, só prova o dado sob RLS).
+ * <p><b>Achado ao escrever este teste (RAZ-52), resolvido em RAZ-59</b>: {@link ConsultaSaldoPort}
+ * (bean real, sem use case próprio em {@code razao-application}) NÃO era coberto pelo pointcut de
+ * {@code TenantContextUseCasesConfiguration} ({@code execution(* br.contabil..application..*.executar(..))}
+ * — só ele fecha {@code app.ente_id}) e, chamado direto (fora de um {@code executar(..)} advisado),
+ * quebrava com {@code DataAccessException} numa conexão pooled que já teve {@code app.ente_id} setado
+ * antes: {@code set_config(name, valor, true)} dentro de uma transação que fecha NÃO devolve o GUC para
+ * NULL na mesma sessão — devolve string vazia (reproduzido isolado contra Postgres 16 puro), e a policy
+ * {@code current_setting('app.ente_id', true)::uuid} não trata isso, então o cast estoura. Efeito:
+ * fail-closed (nunca vazava dado cross-tenant), mas como exceção, não como "0 linhas".
+ *
+ * <p>RAZ-59 fechou a lacuna com {@link ConsultarSaldo} (use case real em {@code razao-application},
+ * mesmo padrão de {@link RegistrarFatoContabil}/{@link EstornarFatoContabil}) — o teste 6 abaixo prova
+ * o caminho correto. O teste 5 continua travando o comportamento do bypass direto do port (quem injeta
+ * {@link ConsultaSaldoPort} sem passar pelo use case ainda falha fechado, não vaza) — não é mais o único
+ * caminho, mas segue como guarda de regressão contra esse uso indevido. As leituras de saldo nos demais
+ * testes usam o mesmo helper de SQL cru com {@code set_config} manual que RAZ-27 já usa para verificação
+ * (não é caminho de produção, só prova o dado sob RLS).
  */
 @SpringBootTest(classes = RazaoApplication.class, webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @Testcontainers(disabledWithoutDocker = true)
@@ -124,6 +131,9 @@ class RazaoMultiTenantE2EIntegrationTest {
 
     @Autowired
     private ConsultaSaldoPort consultaSaldoPort;
+
+    @Autowired
+    private ConsultarSaldo consultarSaldo;
 
     @BeforeAll
     static void migraCriaLoginDeMenorPrivilegioESemeiaDoisEntes() throws SQLException {
@@ -319,12 +329,12 @@ class RazaoMultiTenantE2EIntegrationTest {
     }
 
     // ------------------------------------------------------------------
-    // 5. ConsultaSaldoPort chamado FORA de um executar(..) advisado nunca
-    //    devolve dado cross-tenant — falha fechado (exceção), não "0 sem
-    //    contexto". Trava o achado documentado no javadoc da classe: o
-    //    pointcut de TenantContextUseCasesConfiguration não cobre este
-    //    port (sem use case próprio em razao-application), então
-    //    app.ente_id não é setado nessa chamada.
+    // 5. Guarda de regressão (RAZ-52): quem BYPASSA o use case e injeta
+    //    ConsultaSaldoPort direto ainda cai fora do pointcut de
+    //    TenantContextUseCasesConfiguration — falha fechado (exceção),
+    //    não "0 sem contexto". Não é mais o caminho correto (ver teste 6
+    //    e ConsultarSaldo, RAZ-59), mas continua sendo o comportamento
+    //    exigido de quem usa o port errado.
     // ------------------------------------------------------------------
 
     @Test
@@ -342,9 +352,44 @@ class RazaoMultiTenantE2EIntegrationTest {
                         Lancamento.de(contaA, Natureza.CREDITO, Dinheiro.de("5.00"))));
 
         assertThatThrownBy(() -> consultaSaldoPort.saldoDevedorLiquido(enteA, contaA))
-                .as("achado RAZ-52: ConsultaSaldoPort fora do advisor falha fechado (nunca devolve dado "
+                .as("achado RAZ-52: bypass do port direto ainda falha fechado (nunca devolve dado "
                         + "de outro tenant) — mas como exceção, não como consulta vazia; ver javadoc da classe")
                 .isInstanceOf(DataAccessException.class);
+    }
+
+    // ------------------------------------------------------------------
+    // 6. RAZ-59: o caminho CORRETO — ConsultarSaldo (use case real, cai
+    //    no advisor) funciona mesmo na MESMA conexão pooled que acabou de
+    //    ser usada fora do advisor no teste anterior (prova que o use
+    //    case reseta app.ente_id de verdade, não só evita o problema por
+    //    sorte de ordem de execução).
+    // ------------------------------------------------------------------
+
+    @Test
+    void consultarSaldoPeloUseCaseFuncionaMesmoDepoisDeUmaChamadaDiretaAoPortForaDoAdvisor() throws SQLException {
+        TenantId enteA = TenantId.de(ENTE_A);
+        TenantId enteB = TenantId.de(ENTE_B);
+        // Débito e crédito em CONTAS DIFERENTES — na mesma conta o saldo líquido zeraria
+        // (mesma ressalva do teste 1: é exatamente esse o ponto que o teste quer medir).
+        UUID contaDebitoA = criarConta(ENTE_A, "RAZ59-6A-DEB");
+        UUID contaCreditoA = criarConta(ENTE_A, "RAZ59-6A-CRED");
+        registrarFatoContabil.executar(
+                sessaoAutenticada(enteA), enteA, LocalDate.of(2026, 1, 18), TipoEvento.RECEITA,
+                "RAZ-59 saldo via use case", "test",
+                List.of(
+                        Lancamento.de(contaDebitoA, Natureza.DEBITO, Dinheiro.de("42.00")),
+                        Lancamento.de(contaCreditoA, Natureza.CREDITO, Dinheiro.de("42.00"))));
+        // chamada direta ao port (mesmo padrão do teste 5) para deixar app.ente_id "usado e
+        // revertido para vazio" na conexão antes de provar que o use case ainda funciona.
+        assertThatThrownBy(() -> consultaSaldoPort.saldoDevedorLiquido(enteA, contaDebitoA))
+                .isInstanceOf(DataAccessException.class);
+
+        Dinheiro saldoA = consultarSaldo.executar(sessaoAutenticada(enteA), enteA, contaDebitoA);
+
+        assertThat(saldoA).isEqualByComparingTo(Dinheiro.de("42.00"));
+        assertThatThrownBy(() -> consultarSaldo.executar(sessaoAutenticada(enteB), enteA, contaDebitoA))
+                .as("anti-BOLA: sessão do ente B não pode consultar saldo em nome do ente A via ConsultarSaldo")
+                .isInstanceOf(ServicoIdentidade.SemPermissaoException.class);
     }
 
     private UUID criarConta(String enteId, String codigo) throws SQLException {
