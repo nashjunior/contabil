@@ -21,9 +21,10 @@ import software.amazon.awssdk.services.s3.S3ClientBuilder;
 
 /**
  * Binding do object store S3-compatível (ADR-0018). Desligado por padrão
- * ({@code contabil.objectstore.enabled=true} para ligar) — ligado quando a montagem
- * de {@code ServicoAssinaturaGovBrAvancada} existir (RAZ-24); o adaptador já é
- * exercitado por teste unitário com {@code S3Client} mockado.
+ * ({@code contabil.objectstore.enabled=true} para ligar) — pré-requisito de
+ * {@code ServicoAssinaturaGovBrConfiguration} (RAZ-24), que consome os seams de
+ * {@code ObjectStoreSeamsAssinaturaConfiguration} montados sobre este binding; o
+ * adaptador já é exercitado por teste unitário com {@code S3Client} mockado.
  *
  * <p>{@code endpoint} vazio → AWS S3 (path-style off, credencial via cadeia
  * padrão/IAM). {@code endpoint} preenchido → MinIO on-prem (path-style on,

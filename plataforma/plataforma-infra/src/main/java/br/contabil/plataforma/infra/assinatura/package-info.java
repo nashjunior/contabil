@@ -24,10 +24,12 @@
  *
  * <h2>Lacunas conhecidas — não implementadas nesta issue</h2>
  * <ul>
- *   <li><b>Leitura/gravação do documento no object store</b> (ADR-0009) — recebidas
- *       como colaboradores injetados ({@code Function}/{@code BiFunction}) em vez de
- *       um adapter concreto, porque o serviço de object store/GED ainda não tem
- *       issue própria implementada.</li>
+ *   <li><b>Leitura/gravação do documento no object store</b> (ADR-0009) —
+ *       resolvida: recebidas como colaboradores injetados ({@code Function}/
+ *       {@code BiFunction}) porque o seam preexiste à decisão de tecnologia, mas
+ *       hoje a composição real ({@code ServicoAssinaturaGovBrConfiguration}, RAZ-24)
+ *       injeta os adapters concretos de {@code ObjectStoreSeamsAssinaturaConfiguration}
+ *       (ADR-0018, RAZ-32/41/45).</li>
  *   <li><b>Propagação do tenant corrente</b> — resolvida: o {@code TenantId ente}
  *       vem explícito no {@code DocumentoParaAssinar} (ADR-0015), não de um
  *       {@code TenantContext} ambiente; o seam {@code resolvedorDeEnte} (RAZ-11)
