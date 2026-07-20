@@ -1,0 +1,42 @@
+# infra/tls/nginx-razao.conf.exemplo — terminação TLS na borda (F0).
+# Modelo: caminhos de cert/chave vêm do cofre/ACME; NÃO versionar chave privada.
+
+# Redirect de todo tráfego em claro para HTTPS.
+server {
+    listen 80;
+    server_name _;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name razao.exemplo.gov.br;
+
+    # --- Material TLS (injetado no deploy; fora do repositório) --------------
+    ssl_certificate     /etc/razao/tls/fullchain.pem;
+    ssl_certificate_key /etc/razao/tls/privkey.pem;
+
+    # --- Piso TLS 1.2, preferência 1.3, apenas suítes AEAD ------------------
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256;
+    ssl_prefer_server_ciphers on;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:RAZAO:10m;
+    ssl_session_tickets off;
+
+    # HSTS — força HTTPS no navegador por 1 ano, incluindo subdomínios.
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    # --- Proxy para o app (que escuta HTTP só na rede interna) --------------
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+
+    # Endpoints de gestão (actuator) NÃO são expostos na borda pública.
+    location /actuator/ { return 404; }
+}

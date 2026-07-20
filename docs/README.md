@@ -31,6 +31,7 @@ Organizada por tema (o número no arquivo é só o prefixo; a leitura segue os g
 
 - [12 · Migração e implantação](./12-migracao.md) — onboarding do ente (saldos, restos a pagar, de-para PCASP); bloqueante de go-live
 - [13 · NFR e operação](./13-nfr-e-operacao.md) — disponibilidade, RPO/RTO, DR/BCP, backup imutável e o **piso de segurança F0**
+- [Operação](./operacao/) — runbooks operacionais e evidências do piso F0
 
 ### Conformidade
 

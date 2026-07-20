@@ -1,0 +1,34 @@
+# infra/tls/application-tls.yml.exemplo — overlay de TLS nativo do Spring (F0).
+#
+# Use quando o app é exposto SEM proxy reverso. Ative como profile de deploy
+# (ex.: SPRING_PROFILES_ACTIVE=tls) e copie para bootstrap como
+# application-tls.yml, OU injete estes valores por variáveis de ambiente.
+# Keystore e senha vêm do COFRE — nunca versionados.
+#
+# App → PostgreSQL: o TLS do banco NÃO fica aqui; vai na DB_URL, ex.:
+#   DB_URL=jdbc:postgresql://db.interno:5432/razao?sslmode=verify-full&sslrootcert=/etc/razao/tls/ca.crt
+
+server:
+  port: ${SERVER_PORT:8443}
+  ssl:
+    enabled: true
+    protocol: TLS
+    enabled-protocols: TLSv1.3,TLSv1.2
+    ciphers: >-
+      TLS_AES_256_GCM_SHA384,TLS_CHACHA20_POLY1305_SHA256,TLS_AES_128_GCM_SHA256,
+      ECDHE-ECDSA-AES256-GCM-SHA384,ECDHE-RSA-AES256-GCM-SHA384
+    key-store: ${TLS_KEYSTORE_PATH}          # ex.: /etc/razao/tls/razao.p12 (do cofre)
+    key-store-password: ${TLS_KEYSTORE_PASSWORD}
+    key-store-type: PKCS12
+    client-auth: none
+
+# Endpoints de gestão em porta separada, com TLS e bind interno.
+management:
+  server:
+    port: ${MANAGEMENT_PORT:9443}
+    address: ${MANAGEMENT_BIND:127.0.0.1}
+    ssl:
+      enabled: true
+      key-store: ${TLS_KEYSTORE_PATH}
+      key-store-password: ${TLS_KEYSTORE_PASSWORD}
+      key-store-type: PKCS12

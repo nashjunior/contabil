@@ -22,7 +22,9 @@
 | [0014](./0014-contratos-plataforma-ports.md) | Contratos dos serviços de plataforma como ports no `plataforma-domain` (taxonomia de erros estável) | Aceita |
 | [0015](./0015-atribuicao-tenant-explicita-no-contrato.md) | Atribuição de tenant explícita no contrato de domínio; campo é `ente` (não `tenantId`) | Aceita |
 | [0016](./0016-controle-acesso-mfa-movimentacao-recurso.md) | `ControleAcesso` na application: RBAC + MFA obrigatório para ações que movimentam recurso | Aceita |
+| [0017](./0017-bff-oauth-assinatura-govbr.md) | BFF OAuth2 do signatário para Assinatura gov.br | Aceita |
 | [0018](./0018-object-store-s3-compativel.md) | Object store S3-compatível (AWS SDK v2 / MinIO), cifrado, referência por URI | Aceita |
+| [0020](./0020-f0-tls-backup-imutavel-restauracao.md) | F0: TLS em todas as interfaces, backup cifrado imutável e teste de restauração | Aceita |
 
 ## Como adicionar/mudar uma decisão
 
