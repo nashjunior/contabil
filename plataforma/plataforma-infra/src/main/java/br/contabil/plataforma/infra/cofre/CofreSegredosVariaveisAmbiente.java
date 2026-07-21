@@ -5,7 +5,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.function.Function;
+import java.util.function.UnaryOperator;
 
 /**
  * Adapter local/dev para o port {@link CofreSegredos}. Em produção, a mesma porta
@@ -15,11 +15,11 @@ import java.util.function.Function;
 public final class CofreSegredosVariaveisAmbiente implements CofreSegredos {
 
     private static final Duration VALIDADE_PADRAO = Duration.ofMinutes(15);
-    private final Function<String, String> ambiente;
+    private final UnaryOperator<String> ambiente;
     private final Clock clock;
     private final Duration validade;
 
-    public CofreSegredosVariaveisAmbiente(Function<String, String> ambiente, Clock clock, Duration validade) {
+    public CofreSegredosVariaveisAmbiente(UnaryOperator<String> ambiente, Clock clock, Duration validade) {
         this.ambiente = Objects.requireNonNull(ambiente, "ambiente");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.validade = Objects.requireNonNullElse(validade, VALIDADE_PADRAO);

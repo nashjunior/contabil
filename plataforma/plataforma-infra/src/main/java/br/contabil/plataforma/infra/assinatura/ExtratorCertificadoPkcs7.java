@@ -38,7 +38,7 @@ final class ExtratorCertificadoPkcs7 implements Function<byte[], X509Certificate
                             .map(X509Certificate.class::cast)
                             .noneMatch(outro -> outro != candidato
                                     && outro.getIssuerX500Principal().equals(candidato.getSubjectX500Principal())))
-                    .max(Comparator.comparing(X509Certificate::getNotBefore))
+                    .max(Comparator.comparingLong(candidato -> candidato.getNotBefore().getTime()))
                     .orElseThrow(() -> new CertificateException("PKCS#7 sem certificado de signatário embutido"));
         } catch (CertificateException e) {
             throw new CertificadoPkcs7InvalidoException(e.getMessage(), e);

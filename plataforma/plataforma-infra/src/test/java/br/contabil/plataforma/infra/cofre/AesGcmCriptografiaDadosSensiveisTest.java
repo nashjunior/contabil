@@ -1,13 +1,5 @@
 package br.contabil.plataforma.infra.cofre;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
-import br.contabil.plataforma.domain.cofre.CofreSegredos;
-import br.contabil.plataforma.domain.cofre.CofreSegredos.ContaServico;
-import br.contabil.plataforma.domain.cofre.CofreSegredos.ReferenciaSegredo;
-import br.contabil.plataforma.domain.cofre.CriptografiaDadosSensiveis.CategoriaDadoSensivel;
-import br.contabil.plataforma.domain.cofre.CriptografiaDadosSensiveis.ReferenciaChave;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Clock;
@@ -15,7 +7,15 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.Set;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.Test;
+
+import br.contabil.plataforma.domain.cofre.CofreSegredos;
+import br.contabil.plataforma.domain.cofre.CofreSegredos.ContaServico;
+import br.contabil.plataforma.domain.cofre.CriptografiaDadosSensiveis.CategoriaDadoSensivel;
+import br.contabil.plataforma.domain.cofre.CriptografiaDadosSensiveis.ReferenciaChave;
 
 class AesGcmCriptografiaDadosSensiveisTest {
 

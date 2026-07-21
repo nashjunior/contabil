@@ -26,19 +26,20 @@ class TenantContextTest {
     @Test
     void ativarParaPopulaEFecharLimpa() throws Exception {
         AutoCloseable escopo = TenantContext.ativarPara(ENTE_A);
-
-        assertThat(TenantContext.atual()).contains(ENTE_A);
-        assertThat(TenantContext.exigirAtual()).isEqualTo(ENTE_A);
-
-        escopo.close();
+        try (escopo) {
+            assertThat(TenantContext.atual()).contains(ENTE_A);
+            assertThat(TenantContext.exigirAtual()).isEqualTo(ENTE_A);
+        }
 
         assertThat(TenantContext.atual()).isEmpty();
     }
 
     @Test
     void escopoAninhadoRestauraOAnteriorAoFecharSemVazarNemApagarOExterno() throws Exception {
-        try (AutoCloseable externo = TenantContext.ativarPara(ENTE_A)) {
-            try (AutoCloseable interno = TenantContext.ativarPara(ENTE_B)) {
+        AutoCloseable externo = TenantContext.ativarPara(ENTE_A);
+        try (externo) {
+            AutoCloseable interno = TenantContext.ativarPara(ENTE_B);
+            try (interno) {
                 assertThat(TenantContext.atual()).contains(ENTE_B);
             }
             assertThat(TenantContext.atual())
@@ -55,7 +56,8 @@ class TenantContextTest {
 
     @Test
     void ehIsoladoPorThreadNaoVazaParaOutraThreadEmExecucaoConcorrente() throws Exception {
-        try (AutoCloseable escopo = TenantContext.ativarPara(ENTE_A)) {
+        AutoCloseable escopo = TenantContext.ativarPara(ENTE_A);
+        try (escopo) {
             AtomicReference<Optional<TenantId>> vistoNaOutraThread = new AtomicReference<>();
             CountDownLatch pronto = new CountDownLatch(1);
             Thread outra = new Thread(() -> {

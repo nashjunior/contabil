@@ -37,51 +37,58 @@ public interface CriptografiaDadosSensiveis {
      * Envelope persistivel. O banco guarda ciphertext + metadados de chave/algoritmo,
      * nunca o dado claro nem a chave.
      */
-    final class DadoCifrado {
-        private final CategoriaDadoSensivel categoria;
-        private final byte[] ciphertext;
-        private final byte[] nonce;
-        private final String algoritmo;
-        private final ReferenciaChave chave;
-        private final Instant cifradoEm;
+    record DadoCifrado(
+            CategoriaDadoSensivel categoria,
+            byte[] ciphertext,
+            byte[] nonce,
+            String algoritmo,
+            ReferenciaChave chave,
+            Instant cifradoEm) {
 
-        public DadoCifrado(
-                CategoriaDadoSensivel categoria,
-                byte[] ciphertext,
-                byte[] nonce,
-                String algoritmo,
-                ReferenciaChave chave,
-                Instant cifradoEm) {
-            this.categoria = Objects.requireNonNull(categoria, "categoria");
-            this.ciphertext = exigirBytes(ciphertext, "ciphertext");
-            this.nonce = exigirBytes(nonce, "nonce");
-            this.algoritmo = exigirTexto(algoritmo, "algoritmo");
-            this.chave = Objects.requireNonNull(chave, "chave");
-            this.cifradoEm = Objects.requireNonNull(cifradoEm, "cifradoEm");
+        public DadoCifrado {
+            Objects.requireNonNull(categoria, "categoria");
+            ciphertext = exigirBytes(ciphertext, "ciphertext");
+            nonce = exigirBytes(nonce, "nonce");
+            Objects.requireNonNull(algoritmo, "algoritmo");
+            if (algoritmo.isBlank()) {
+                throw new IllegalArgumentException("algoritmo nao pode ser vazio");
+            }
+            Objects.requireNonNull(chave, "chave");
+            Objects.requireNonNull(cifradoEm, "cifradoEm");
         }
 
-        public CategoriaDadoSensivel categoria() {
-            return categoria;
-        }
-
+        @Override
         public byte[] ciphertext() {
             return ciphertext.clone();
         }
 
+        @Override
         public byte[] nonce() {
             return nonce.clone();
         }
 
-        public String algoritmo() {
-            return algoritmo;
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof DadoCifrado outro)) {
+                return false;
+            }
+            return categoria == outro.categoria
+                    && Arrays.equals(ciphertext, outro.ciphertext)
+                    && Arrays.equals(nonce, outro.nonce)
+                    && algoritmo.equals(outro.algoritmo)
+                    && chave.equals(outro.chave)
+                    && cifradoEm.equals(outro.cifradoEm);
         }
 
-        public ReferenciaChave chave() {
-            return chave;
-        }
-
-        public Instant cifradoEm() {
-            return cifradoEm;
+        @Override
+        public int hashCode() {
+            int resultado = Objects.hash(categoria, algoritmo, chave, cifradoEm);
+            resultado = 31 * resultado + Arrays.hashCode(ciphertext);
+            resultado = 31 * resultado + Arrays.hashCode(nonce);
+            return resultado;
         }
 
         @Override
@@ -97,14 +104,6 @@ public interface CriptografiaDadosSensiveis {
                 throw new IllegalArgumentException(campo + " nao pode ser vazio");
             }
             return Arrays.copyOf(valor, valor.length);
-        }
-
-        private static String exigirTexto(String valor, String campo) {
-            Objects.requireNonNull(valor, campo);
-            if (valor.isBlank()) {
-                throw new IllegalArgumentException(campo + " nao pode ser vazio");
-            }
-            return valor;
         }
     }
 }

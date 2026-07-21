@@ -1,12 +1,28 @@
 package br.contabil.razao.application;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.Month;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Optional;
+import java.util.UUID;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
+import org.mockito.Mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
@@ -24,20 +40,6 @@ import br.contabil.razao.domain.TipoEvento;
 import br.contabil.razao.domain.repository.ContadorFatoPort;
 import br.contabil.razao.domain.repository.FatoContabilRepository;
 import br.contabil.razao.domain.repository.PeriodoContabilPort;
-import java.time.Clock;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.Optional;
-import java.util.UUID;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class EstornarFatoContabilTest {
@@ -86,7 +88,7 @@ class EstornarFatoContabilTest {
         FatoContabil original = FatoContabil.registrar(
                 enteId,
                 1L,
-                LocalDate.of(2026, 7, 1),
+                LocalDate.of(2026, Month.JULY, 1),
                 periodoId,
                 TipoEvento.RECEITA,
                 "original",
@@ -97,11 +99,11 @@ class EstornarFatoContabilTest {
                 relogioFixo);
 
         when(repositorio.buscarPorId(enteId, original.id())).thenReturn(Optional.of(original));
-        when(periodoContabil.periodoAbertoPara(enteId, LocalDate.of(2026, 7, 19))).thenReturn(periodoId);
+        when(periodoContabil.periodoAbertoPara(enteId, LocalDate.of(2026, Month.JULY, 19))).thenReturn(periodoId);
         when(contadorFato.proximoNumeroSeq(enteId)).thenReturn(2L);
 
         FatoContabil estorno =
-                useCase.executar(sessao, enteId, original.id(), LocalDate.of(2026, 7, 19), "correção", "origem");
+                useCase.executar(sessao, enteId, original.id(), LocalDate.of(2026, Month.JULY, 19), "correção", "origem");
 
         assertThat(estorno.isEstorno()).isTrue();
         assertThat(estorno.fatoEstornadoId()).isEqualTo(original.id());
@@ -117,9 +119,9 @@ class EstornarFatoContabilTest {
 
         UUID idInexistente = UUID.randomUUID();
         when(repositorio.buscarPorId(enteId, idInexistente)).thenReturn(Optional.empty());
+        LocalDate dataEstorno = LocalDate.of(2026, Month.JULY, 19);
 
-        assertThatThrownBy(() -> useCase.executar(
-                        sessao, enteId, idInexistente, LocalDate.of(2026, 7, 19), "correção", "origem"))
+        assertThatThrownBy(() -> useCase.executar(sessao, enteId, idInexistente, dataEstorno, "correção", "origem"))
                 .isInstanceOf(NoSuchElementException.class);
     }
 
@@ -130,8 +132,9 @@ class EstornarFatoContabilTest {
         when(servicoIdentidade.autorizar(sessao, new ServicoIdentidade.Recurso("razao:fato_contabil"), Acao.ESTORNAR))
                 .thenReturn(false);
 
-        assertThatThrownBy(() -> useCase.executar(
-                        sessao, enteId, UUID.randomUUID(), LocalDate.of(2026, 7, 19), "correção", "origem"))
+        UUID fatoId = UUID.randomUUID();
+        LocalDate dataEstorno = LocalDate.of(2026, Month.JULY, 19);
+        assertThatThrownBy(() -> useCase.executar(sessao, enteId, fatoId, dataEstorno, "correção", "origem"))
                 .isInstanceOf(SemPermissaoException.class);
 
         verifyNoInteractions(repositorio, contadorFato, periodoContabil);
@@ -144,8 +147,9 @@ class EstornarFatoContabilTest {
         when(servicoIdentidade.autorizar(sessao, new ServicoIdentidade.Recurso("razao:fato_contabil"), Acao.ESTORNAR))
                 .thenReturn(true);
 
-        assertThatThrownBy(() -> useCase.executar(
-                        sessao, enteId, UUID.randomUUID(), LocalDate.of(2026, 7, 19), "correção", "origem"))
+        UUID fatoId = UUID.randomUUID();
+        LocalDate dataEstorno = LocalDate.of(2026, Month.JULY, 19);
+        assertThatThrownBy(() -> useCase.executar(sessao, enteId, fatoId, dataEstorno, "correção", "origem"))
                 .isInstanceOf(MfaRequeridoException.class);
 
         verifyNoInteractions(repositorio, contadorFato, periodoContabil);
@@ -162,8 +166,9 @@ class EstornarFatoContabilTest {
                 true,
                 Instant.parse("2030-01-01T00:00:00Z"));
 
-        assertThatThrownBy(() -> useCase.executar(
-                        sessaoDeOutroEnte, enteId, UUID.randomUUID(), LocalDate.of(2026, 7, 19), "correção", "origem"))
+        UUID fatoId = UUID.randomUUID();
+        LocalDate dataEstorno = LocalDate.of(2026, Month.JULY, 19);
+        assertThatThrownBy(() -> useCase.executar(sessaoDeOutroEnte, enteId, fatoId, dataEstorno, "correção", "origem"))
                 .isInstanceOf(SemPermissaoException.class);
 
         verify(servicoIdentidade, never()).autorizar(any(), any(), any());

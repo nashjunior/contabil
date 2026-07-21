@@ -1,8 +1,8 @@
 package br.contabil.plataforma.infra.iam;
 
-import br.contabil.plataforma.domain.iam.ServicoIdentidade;
 import java.io.ByteArrayInputStream;
 import java.security.MessageDigest;
+import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
@@ -12,6 +12,8 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import br.contabil.plataforma.domain.iam.ServicoIdentidade;
 
 final class VerificadorCertificadoIcp {
 
@@ -55,7 +57,7 @@ final class VerificadorCertificadoIcp {
             byte[] der = Base64.getDecoder().decode(normalizado);
             return (X509Certificate) CertificateFactory.getInstance("X.509")
                     .generateCertificate(new ByteArrayInputStream(der));
-        } catch (Exception e) {
+        } catch (CertificateException e) {
             throw new ServicoIdentidade.NaoAutenticadoException("cadeia ICP-Brasil malformada");
         }
     }
