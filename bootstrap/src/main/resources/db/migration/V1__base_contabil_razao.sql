@@ -25,6 +25,21 @@ begin
 end;
 $$;
 
+alter role app_role nologin nosuperuser nocreatedb nocreaterole noreplication;
+
+-- A credencial de runtime herda app_role, mas nao e dona de schema e nao tem
+-- DDL. A credencial de migration e a unica dona de CREATE/ALTER/DROP.
+revoke create on schema public from public;
+revoke create on schema public from app_role;
+
+do $$
+begin
+  execute format('grant usage on schema %I to app_role', current_schema());
+  execute format('revoke create on schema %I from public', current_schema());
+  execute format('revoke create on schema %I from app_role', current_schema());
+end;
+$$;
+
 -- ============================================================================
 -- Tabelas
 -- ============================================================================
