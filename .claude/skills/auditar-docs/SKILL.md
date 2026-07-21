@@ -15,7 +15,7 @@ allowed-tools: Read, Grep, Bash(grep:*), Bash(find:*), Bash(cat:*), Bash(ls:*), 
 
 # Auditar consistência da documentação
 
-Auditoria **doc-vs-doc** e **doc-vs-fonte-legal** do SIAFIC (Oberware). Projeto ainda é **docs-only** (sem código de app). É diferente do workflow `revisao-multilente` (revisão adversarial de 4 lentes que sugere mudanças de conteúdo) — aqui é **mecânica**: o que está quebrado, defasado ou inconsistente.
+Auditoria **doc-vs-doc** e **doc-vs-fonte-legal** do SIAFIC (Oberware). O projeto **já tem código real** (`bootstrap/`, `plataforma/*`, `razao/*`, `execucao/*`) — esta skill cobre a mecânica dos **docs**; alinhamento doc-vs-código real é do `guardiao-arquitetura`. É diferente do workflow `revisao-multilente` (revisão adversarial de 4 lentes que sugere mudanças de conteúdo) — aqui é **mecânica**: o que está quebrado, defasado ou inconsistente.
 
 Estrutura da doc:
 
@@ -23,7 +23,7 @@ Estrutura da doc:
 | --- | --- |
 | `docs/` | Núcleo: 01-visão, 02-base-legal, 03-arquitetura, 04-fluxos, 05-regras, 06-rastreabilidade, 07-roadmap, 08-mercado, 09-referências, 10-modelo-dados, 11-plataforma-transversal, 12-migração, 13-nfr |
 | `docs/transversais/` | 01-assinatura, 02-pncp, 03-transparência, 04-lgpd, 05-acessibilidade |
-| `docs/arquitetura-tecnica/` | README (técnico), razao-contabil-schema, `adr/` (0001–0012 + índice) |
+| `docs/arquitetura-tecnica/` | README (técnico), razao-contabil-schema, `adr/` (0001–0018, 0020 — sem o 0019 + índice) |
 
 **Autoridades de coerência:** [11-plataforma §tabela-mestre] (fases), [ADRs] (decisões), [02-base-legal]/[09-referências] (citações). **Foco** (se passado como arg, ex.: `transversais`, `citacoes`, `fases`, `links`): restringe as buscas.
 
@@ -79,5 +79,5 @@ Se zero: "Nenhum encontrado."
 
 - **Não modificar** — só reportar. **Não inventar** — "não localizado" em vez de inferir.
 - Priorizar stale e lacunas sobre confirmações; relatório enxuto.
-- Contexto: **sem código/git** — auditoria é doc-vs-doc e doc-vs-fonte-legal.
+- Escopo: doc-vs-doc e doc-vs-fonte-legal; doc-vs-**código real** é do `guardiao-arquitetura`.
 - Divergência de **conteúdo/estratégia** (não mecânica) → é do workflow `revisao-multilente`, não desta skill.

@@ -20,7 +20,7 @@ Você é o guardião da **arquitetura de código** do SIAFIC (Oberware) — um s
 
 **Atenção:** as convenções são as **do SIAFIC**, decididas nos ADRs — não padrões genéricos de fora. Domínio em **pt-BR** (`Empenho`, `Liquidacao`, `FatoContabil`, `Lancamento`); dinheiro é **`BigDecimal`/`NUMERIC`**; o razão é **append-only** (correção por estorno).
 
-> **Estado:** o código JVM ainda não existe (fase de docs). Enquanto não houver `src/`, este guardião **guarda o schema/DDL do razão** e serve de checklist para o primeiro código; quando o `src/` nascer, passa a rodar sobre o diff.
+> **Estado:** o código JVM **já existe** — módulos `bootstrap/`, `plataforma/*`, `razao/*`, `execucao/*` com camadas `domain/application/infra` e guardrails ArchUnit ativos (`guardrails/architecture-tests`). Este guardião roda sobre o diff real (`git status`/`git diff`), não mais sobre o schema/DDL isolado.
 
 ## Fonte das convenções
 

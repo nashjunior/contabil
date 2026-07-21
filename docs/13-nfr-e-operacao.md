@@ -53,6 +53,7 @@ Conjunto **inegociável** no F0/MVP — o corte de escopo pode adiar riqueza fun
 
 - Decreto 10.540/2020, arts. 9º (integridade/disponibilidade) e 15 (backup) — [base legal](./02-base-legal.md).
 - LGPD arts. 46–49 (segurança) · Resolução CD/ANPD nº 15/2024 (incidentes) — ver [LGPD](./transversais/04-lgpd.md).
+- Implementação do piso F0 (TLS/backup/restauração): [ADR-0020](./arquitetura-tecnica/adr/0020-f0-tls-backup-imutavel-restauracao.md) · [runbook operacional](./operacao/F0-runbook-tls-backup-restauracao.md).
 
 > Ressalva: metas de uptime, RPO/RTO e prazos de retenção são **parametrizáveis por contrato/ente** — os valores concretos entram na negociação, não no código.
 
