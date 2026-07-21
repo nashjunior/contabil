@@ -63,6 +63,9 @@ siafic:
     icp:
       certificados-confiaveis-sha256: []
     concessoes: []
+  security:
+    database:
+      require-ssl: ${DB_REQUIRE_SSL:true}
   assinatura:
     govbr:
       oauth:
