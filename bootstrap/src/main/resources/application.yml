@@ -49,6 +49,20 @@ logging:
     org.flywaydb: INFO
 
 siafic:
+  iam:
+    enabled: ${IAM_ENABLED:false}
+    session-ttl: ${IAM_SESSION_TTL:PT8H}
+    govbr:
+      issuer: ${GOVBR_IAM_ISSUER:https://sso.staging.acesso.gov.br}
+      audience: ${GOVBR_IAM_AUDIENCE:}
+      public-key-pem: ${GOVBR_IAM_PUBLIC_KEY_PEM:}
+      cpf-claim: ${GOVBR_IAM_CPF_CLAIM:cpf}
+      ente-claim: ${GOVBR_IAM_ENTE_CLAIM:ente_id}
+      orgao-claim: ${GOVBR_IAM_ORGAO_CLAIM:orgao}
+      nivel-claim: ${GOVBR_IAM_NIVEL_CLAIM:nivel_conta}
+    icp:
+      certificados-confiaveis-sha256: []
+    concessoes: []
   assinatura:
     govbr:
       oauth:
