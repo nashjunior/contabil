@@ -15,3 +15,5 @@ executáveis vivem em [`infra/`](../../infra/) na raiz.
 
 - [ADR-0020 — F0: TLS, backup cifrado imutável e teste de restauração](../arquitetura-tecnica/adr/0020-f0-tls-backup-imutavel-restauracao.md)
 - [ADR-0008 — Assinatura eletrônica: abstração de provedor](../arquitetura-tecnica/adr/0008-assinatura-provedor.md)
+- [ADR-0017 — BFF OAuth2 do signatário para assinatura gov.br](../arquitetura-tecnica/adr/0017-bff-oauth-assinatura-govbr.md)
+- [ADR-0018 — Object store S3-compatível, cifrado, referência por URI](../arquitetura-tecnica/adr/0018-object-store-s3-compativel.md)

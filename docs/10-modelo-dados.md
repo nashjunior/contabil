@@ -138,7 +138,7 @@ erDiagram
 
 ## Cardinalidades e base legal
 
-| Relação | Cardinalidade | Base legal (Lei 4.320/64) |
+| Relação | Cardinalidade | Base legal (Lei 4.320/1964) |
 | --- | --- | --- |
 | Dotação → Empenho | 1 : N | art. 59 (limite é o crédito, não a quantidade) |
 | Empenho → Liquidação | 1 : N | art. 60 §2º/§3º (estimativo/global) + art. 63 |

@@ -111,6 +111,7 @@ As decisões são **versionadas** em [`adr/`](./adr/) — uma por arquivo, com *
 
 - [0001](./adr/0001-base-unica-postgresql.md) Base única PostgreSQL · [0002](./adr/0002-monolito-modular.md) Monólito modular · [0003](./adr/0003-multi-tenant-rls.md) Multi-tenant RLS · [0004](./adr/0004-outbox-idempotente.md) Outbox idempotente · [0005](./adr/0005-trilha-append-only-hash-chain.md) Trilha hash-chain · [0006](./adr/0006-dinheiro-decimal.md) Dinheiro decimal
 - [0007](./adr/0007-read-models-cqrs.md) Read models/CQRS · [0008](./adr/0008-assinatura-provedor.md) Assinatura via provedor · [0009](./adr/0009-documentos-object-store.md) Documentos no object store · [0010](./adr/0010-single-writer-failover.md) Single-writer · [0011](./adr/0011-idempotencia-ponta-a-ponta.md) Idempotência ponta a ponta · [0012](./adr/0012-stack-jvm.md) **Stack JVM** · [0013](./adr/0013-persistencia-lote-fail-soft.md) Persistência em lote fail-soft
+- [0014](./adr/0014-contratos-plataforma-ports.md) Contratos de plataforma como ports · [0015](./adr/0015-atribuicao-tenant-explicita-no-contrato.md) Tenant explícito no contrato (`ente`) · [0016](./adr/0016-controle-acesso-mfa-movimentacao-recurso.md) ControleAcesso RBAC+MFA · [0017](./adr/0017-bff-oauth-assinatura-govbr.md) BFF OAuth2 assinatura gov.br · [0018](./adr/0018-object-store-s3-compativel.md) Object store S3-compatível · [0020](./adr/0020-f0-tls-backup-imutavel-restauracao.md) F0: TLS + backup imutável + restauração (0019 não utilizado — ver [índice](./adr/README.md))
 
 ## 6. Stress test lógico (caso de uso × cenário de falha)
 

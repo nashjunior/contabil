@@ -26,6 +26,8 @@
 | [0018](./0018-object-store-s3-compativel.md) | Object store S3-compatível (AWS SDK v2 / MinIO), cifrado, referência por URI | Aceita |
 | [0020](./0020-f0-tls-backup-imutavel-restauracao.md) | F0: TLS em todas as interfaces, backup cifrado imutável e teste de restauração | Aceita |
 
+> **Nota:** o número **0019 não foi utilizado** — reservado durante execução paralela de agentes e nunca materializado em arquivo. Não renumerar os ADRs existentes (a numeração é histórica/imutável, mesmo princípio do ADR); o próximo ADR novo continua a partir do 0021.
+
 ## Como adicionar/mudar uma decisão
 
 1. Novo ADR = próximo número, Status **Proposta**.

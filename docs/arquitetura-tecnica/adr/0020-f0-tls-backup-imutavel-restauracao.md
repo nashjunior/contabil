@@ -1,4 +1,4 @@
-# ADR-0020 — F0: TLS em todas as interfaces, backup cifrado imutável e teste de restauração
+# ADR-0020 · F0: TLS em todas as interfaces, backup cifrado imutável e teste de restauração
 
 - **Status:** Aceita
 - **Data:** 2026-07-19
@@ -133,3 +133,7 @@ para produção como valor "de fábrica".
 - **−** A trilha física (pgBackRest/PITR) e a lógica (pg_dump/age) têm operação
   distinta; o runbook (`docs/operacao/F0-runbook-tls-backup-restauracao.md`)
   documenta ambas para não haver ambiguidade em produção.
+
+---
+
+[← ADRs](./README.md)
