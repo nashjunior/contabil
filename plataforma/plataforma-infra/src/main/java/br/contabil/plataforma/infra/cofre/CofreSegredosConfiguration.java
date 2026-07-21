@@ -3,9 +3,8 @@ package br.contabil.plataforma.infra.cofre;
 import br.contabil.plataforma.domain.cofre.CofreSegredos;
 import br.contabil.plataforma.domain.cofre.CriptografiaDadosSensiveis;
 import java.time.Clock;
-import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
@@ -34,9 +33,13 @@ public class CofreSegredosConfiguration {
     }
 
     private static Set<String> normalizarEscopos(String escopos) {
-        return Arrays.stream(escopos.split(","))
-                .map(String::trim)
-                .filter(escopo -> !escopo.isBlank())
-                .collect(Collectors.toSet());
+        Set<String> resultado = new HashSet<>();
+        for (String parte : escopos.split(",")) {
+            String escopo = parte.trim();
+            if (!escopo.isBlank()) {
+                resultado.add(escopo);
+            }
+        }
+        return resultado;
     }
 }

@@ -41,7 +41,9 @@ record IamProperties(
         if (concessoes.isEmpty()) {
             throw new IllegalStateException("siafic.iam.concessoes deve declarar a matriz RBAC");
         }
-        concessoes.forEach(Concessao::validar);
+        for (Concessao concessao : concessoes) {
+            concessao.validar();
+        }
     }
 
     record GovBr(
