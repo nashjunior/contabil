@@ -1,18 +1,5 @@
 package br.contabil;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
-import br.contabil.plataforma.domain.Dinheiro;
-import br.contabil.plataforma.domain.TenantId;
-import br.contabil.plataforma.domain.iam.ServicoIdentidade;
-import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
-import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
-import br.contabil.razao.application.RegistrarFatoContabil;
-import br.contabil.razao.domain.FatoContabil;
-import br.contabil.razao.domain.Lancamento;
-import br.contabil.razao.domain.Natureza;
-import br.contabil.razao.domain.TipoEvento;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -20,9 +7,13 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -37,6 +28,17 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+
+import br.contabil.plataforma.domain.Dinheiro;
+import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
+import br.contabil.razao.application.RegistrarFatoContabil;
+import br.contabil.razao.domain.FatoContabil;
+import br.contabil.razao.domain.Lancamento;
+import br.contabil.razao.domain.Natureza;
+import br.contabil.razao.domain.TipoEvento;
 
 /**
  * Guardrail de CI para RAZ-21: prova, com um Postgres real e RLS forçada
@@ -142,6 +144,7 @@ class TenantContextWiringIntegrationTest {
         registry.add("spring.flyway.url", POSTGRES::getJdbcUrl);
         registry.add("spring.flyway.user", POSTGRES::getUsername);
         registry.add("spring.flyway.password", POSTGRES::getPassword);
+        registry.add("siafic.security.database.require-ssl", () -> "false");
     }
 
     @Test
@@ -149,7 +152,7 @@ class TenantContextWiringIntegrationTest {
         FatoContabil fato = registrarFatoContabil.executar(
                 sessaoAutenticada(TenantId.de(ENTE_A)),
                 TenantId.de(ENTE_A),
-                LocalDate.now(),
+                LocalDate.of(2026, Month.JANUARY, 15),
                 TipoEvento.EMPENHO,
                 "fato via pipeline de produção (RAZ-21)",
                 "test",
@@ -166,7 +169,7 @@ class TenantContextWiringIntegrationTest {
         FatoContabil fatoA = registrarFatoContabil.executar(
                 sessaoAutenticada(TenantId.de(ENTE_A)),
                 TenantId.de(ENTE_A),
-                LocalDate.now(),
+                LocalDate.of(2026, Month.JANUARY, 16),
                 TipoEvento.EMPENHO,
                 "fato A",
                 "test",
@@ -176,7 +179,7 @@ class TenantContextWiringIntegrationTest {
         FatoContabil fatoB = registrarFatoContabil.executar(
                 sessaoAutenticada(TenantId.de(ENTE_B)),
                 TenantId.de(ENTE_B),
-                LocalDate.now(),
+                LocalDate.of(2026, Month.JANUARY, 17),
                 TipoEvento.EMPENHO,
                 "fato B",
                 "test",

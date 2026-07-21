@@ -16,12 +16,12 @@ import br.contabil.razao.domain.Natureza;
 import br.contabil.razao.domain.PartidasNaoBalanceadasException;
 import br.contabil.razao.domain.PeriodoEncerradoException;
 import br.contabil.razao.domain.TipoEvento;
-import br.contabil.razao.domain.repository.ConsultaSaldoPort;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -113,9 +113,6 @@ class RegistrarEstornarFatoContabilIntegrationTest {
     @Autowired
     private EstornarFatoContabil estornarFatoContabil;
 
-    @Autowired
-    private ConsultaSaldoPort consultaSaldo;
-
     @BeforeAll
     static void migraCriaLoginDeMenorPrivilegioESemeiaPeriodos() throws SQLException {
         Flyway.configure()
@@ -147,6 +144,7 @@ class RegistrarEstornarFatoContabilIntegrationTest {
         registry.add("spring.flyway.url", POSTGRES::getJdbcUrl);
         registry.add("spring.flyway.user", POSTGRES::getUsername);
         registry.add("spring.flyway.password", POSTGRES::getPassword);
+        registry.add("siafic.security.database.require-ssl", () -> "false");
     }
 
     // ------------------------------------------------------------------
@@ -171,8 +169,8 @@ class RegistrarEstornarFatoContabilIntegrationTest {
                         Lancamento.de(contaDebito, Natureza.DEBITO, Dinheiro.de("1000.00")),
                         Lancamento.de(contaCredito, Natureza.CREDITO, Dinheiro.de("1000.00"))));
 
-        assertThat(consultaSaldo.saldoDevedorLiquido(enteId, contaDebito).valor())
-                .as("debito refletido no saldo derivado (adapter razao-infra) apos o registro pelo pipeline real")
+        assertThat(saldoDevedorLiquidoViaRls(enteId, contaDebito))
+                .as("debito refletido no saldo derivado sob RLS apos o registro pelo pipeline real")
                 .isEqualByComparingTo("1000.00");
 
         FatoContabil estorno = estornarFatoContabil.executar(
@@ -185,7 +183,7 @@ class RegistrarEstornarFatoContabilIntegrationTest {
 
         assertThat(estorno.isEstorno()).isTrue();
         assertThat(estorno.fatoEstornadoId()).isEqualTo(empenho.id());
-        assertThat(consultaSaldo.saldoDevedorLiquido(enteId, contaDebito).valor())
+        assertThat(saldoDevedorLiquidoViaRls(enteId, contaDebito))
                 .as("estorno neutraliza o saldo - o fato original nao e alterado, so compensado por um novo fato")
                 .isEqualByComparingTo("0.00");
     }
@@ -297,6 +295,23 @@ class RegistrarEstornarFatoContabilIntegrationTest {
                         st.executeQuery("select count(*) from fato_contabil where periodo_id = '" + periodoId + "'")) {
             rs.next();
             return rs.getLong(1);
+        }
+    }
+
+    private static BigDecimal saldoDevedorLiquidoViaRls(TenantId enteId, UUID contaId) throws SQLException {
+        try (Connection conn = DriverManager.getConnection(POSTGRES.getJdbcUrl(), "app_login", "app_login");
+                Statement st = conn.createStatement()) {
+            conn.setAutoCommit(false);
+            st.execute("select set_config('app.ente_id', '" + enteId.valor() + "', true)");
+            try (ResultSet rs = st.executeQuery(
+                    "select saldo_devedor_liquido from saldo_conta where conta_id = '" + contaId + "'")) {
+                if (!rs.next()) {
+                    return BigDecimal.ZERO.setScale(2);
+                }
+                return rs.getBigDecimal(1);
+            } finally {
+                conn.rollback();
+            }
         }
     }
 
