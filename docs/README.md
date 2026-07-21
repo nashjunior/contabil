@@ -72,7 +72,7 @@ Atalhos diretos para os diagramas em [04-fluxos.md](./04-fluxos.md):
 | [Modelo de dados](./10-modelo-dados.md) | Dicionário das entidades da base única | 🟡 parcial (ciclo da despesa) |
 | User stories + critérios de aceite | Backlog detalhado (Gherkin) | ⏳ pendente |
 | [Máquinas de estado](./10-modelo-dados.md#ciclo-de-vida-do-empenho) | Ciclo de vida do empenho e do período | 🟡 parcial (empenho) |
-| Matriz de perfis (RBAC) | Segregação de funções por persona × operação | ⏳ pendente |
+| Matriz de perfis (RBAC) | Segregação de funções por persona × operação | ✅ código F0 (`ServicoIdentidadeGovBrIcp`) |
 
 ---
 
