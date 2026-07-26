@@ -28,6 +28,11 @@
 | [0021](./0021-contabilizacao-execucao-despesa.md) | Contabilização da execução da despesa: um fato por evento, roteiro no produtor (`execucao`) | Aceita |
 | [0022](./0022-lote-pagamento-contrato-api-execucao.md) | Lote é só no pagamento: contrato de API da execução não expõe lote em empenho/liquidação | Aceita |
 | [0023](./0023-gate-aprovacao-pagamento-segregacao.md) | Gate de aprovação do pagamento: segundo gate transacional (`APROVAR`), não só papel RBAC | Aceita |
+| [0024](./0024-cofre-segredos-f0-env-passthrough.md) | Cofre de segredos F0 via passthrough de ambiente; KMS/HSM gerenciado escala por fase/tier | Aceita |
+| [0025](./0025-building-blocks-taticos-ddd.md) | Building blocks táticos de DDD: vocabulário de consulta, sem hierarquia base | Aceita |
+| [0026](./0026-design-system-figma-decisoes-estruturais.md) | Design system SIAFIC no Figma: escopo v1, terminologia ("devolvida" vs "rejeitado") e tenant de biblioteca | Aceita |
+| [0027](./0027-wiring-empenho-assinatura-gate-interativo.md) | Wiring RegistrarEmpenho → assinatura: gate interativo pós-outbox de documento, não worker autônomo | Aceita |
+| [0028](./0028-tipagem-id-fronteira-execucao-razao.md) | Tipagem de id na fronteira execução↔razão: VO de referência local do consumidor, `UUID` contido no adapter, id de domínio não sobe ao shared kernel | Aceita |
 
 > **Nota:** o número **0019 não foi utilizado** — reservado durante execução paralela de agentes e nunca materializado em arquivo. Não renumerar os ADRs existentes (a numeração é histórica/imutável, mesmo princípio do ADR); o próximo ADR novo continua a partir do 0024.
 
