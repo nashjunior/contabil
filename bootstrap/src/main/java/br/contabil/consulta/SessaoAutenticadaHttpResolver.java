@@ -1,6 +1,7 @@
 package br.contabil.consulta;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import org.springframework.core.MethodParameter;
 import org.springframework.lang.NonNull;
@@ -14,6 +15,9 @@ import br.contabil.plataforma.domain.iam.ServicoIdentidade;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.CredencialGovBr;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.NaoAutenticadoException;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
+import br.contabil.sessao.RepositorioAssercaoSessaoLoginGovBr;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 
 /**
  * Resolve {@link Sessao} como parâmetro de qualquer {@code @RestController} de
@@ -28,6 +32,14 @@ import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
  * {@link Sessao} completa (com {@code Cpf}) que {@code ControleAcesso.exigir}
  * exige, sem reter nada em memória entre requisições.
  *
+ * <p><b>Fallback aditivo por cookie de sessão do BFF de login</b> (ADR-0035 Decisão
+ * §2): quando o cabeçalho {@code Authorization} está ausente mas há cookie de sessão
+ * BFF válido com asserção guardada ({@link RepositorioAssercaoSessaoLoginGovBr}), lê
+ * a asserção e a <b>reverifica via {@code ServicoIdentidade.autenticar} a cada
+ * requisição</b> — a mesma invariante stateless acima, nada de autoritativo
+ * (identidade/expiração/MFA) é cacheado na sessão HTTP. O caminho por cabeçalho
+ * (RAZ-84) permanece inalterado e tem prioridade quando presente.
+ *
  * <p>Registrado globalmente por {@link ConsultaWebConfiguration}.
  */
 final class SessaoAutenticadaHttpResolver implements HandlerMethodArgumentResolver {
@@ -36,9 +48,12 @@ final class SessaoAutenticadaHttpResolver implements HandlerMethodArgumentResolv
     private static final String PREFIXO_BEARER = "Bearer ";
 
     private final ServicoIdentidade servicoIdentidade;
+    private final RepositorioAssercaoSessaoLoginGovBr repositorioAssercaoSessao;
 
-    SessaoAutenticadaHttpResolver(ServicoIdentidade servicoIdentidade) {
+    SessaoAutenticadaHttpResolver(
+            ServicoIdentidade servicoIdentidade, RepositorioAssercaoSessaoLoginGovBr repositorioAssercaoSessao) {
         this.servicoIdentidade = Objects.requireNonNull(servicoIdentidade, "servicoIdentidade");
+        this.repositorioAssercaoSessao = Objects.requireNonNull(repositorioAssercaoSessao, "repositorioAssercaoSessao");
     }
 
     @Override
@@ -57,15 +72,33 @@ final class SessaoAutenticadaHttpResolver implements HandlerMethodArgumentResolv
 
     Sessao autenticar(NativeWebRequest webRequest) {
         String cabecalho = webRequest.getHeader(CABECALHO_AUTORIZACAO);
-        if (cabecalho == null || !cabecalho.startsWith(PREFIXO_BEARER)) {
-            throw new NaoAutenticadoException(
-                    "Cabeçalho 'Authorization: Bearer <asserção gov.br>' ausente ou mal formado");
+        if (cabecalho != null && !cabecalho.isBlank()) {
+            if (!cabecalho.startsWith(PREFIXO_BEARER)) {
+                throw new NaoAutenticadoException(
+                        "Cabeçalho 'Authorization: Bearer <asserção gov.br>' ausente ou mal formado");
+            }
+            String assercao = cabecalho.substring(PREFIXO_BEARER.length()).trim();
+            if (assercao.isEmpty()) {
+                throw new NaoAutenticadoException(
+                        "Cabeçalho 'Authorization: Bearer <asserção gov.br>' ausente ou mal formado");
+            }
+            return servicoIdentidade.autenticar(new CredencialGovBr(assercao));
         }
-        String assercao = cabecalho.substring(PREFIXO_BEARER.length()).trim();
-        if (assercao.isEmpty()) {
-            throw new NaoAutenticadoException(
-                    "Cabeçalho 'Authorization: Bearer <asserção gov.br>' ausente ou mal formado");
+        Optional<String> assercaoDaSessao = assercaoDoCookieDeSessao(webRequest);
+        if (assercaoDaSessao.isPresent()) {
+            return servicoIdentidade.autenticar(new CredencialGovBr(assercaoDaSessao.get()));
         }
-        return servicoIdentidade.autenticar(new CredencialGovBr(assercao));
+        throw new NaoAutenticadoException(
+                "Cabeçalho 'Authorization: Bearer <asserção gov.br>' ausente ou mal formado, "
+                        + "e nenhuma sessão de login (cookie) válida");
+    }
+
+    private Optional<String> assercaoDoCookieDeSessao(NativeWebRequest webRequest) {
+        HttpServletRequest request = webRequest.getNativeRequest(HttpServletRequest.class);
+        if (request == null) {
+            return Optional.empty();
+        }
+        HttpSession sessaoHttp = request.getSession(false);
+        return repositorioAssercaoSessao.assercaoDaSessao(sessaoHttp);
     }
 }

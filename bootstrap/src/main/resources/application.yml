@@ -31,6 +31,12 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+  servlet:
+    session:
+      cookie:
+        http-only: true
+        secure: true
+        same-site: lax
 
 management:
   endpoints:
@@ -87,3 +93,16 @@ siafic:
           - sign
           - signature_session
         state-ttl: ${GOVBR_ASSINATURA_OAUTH_STATE_TTL:PT10M}
+  login:
+    govbr:
+      oauth:
+        authorization-uri: ${GOVBR_LOGIN_OAUTH_AUTHORIZATION_URI:https://sso.staging.acesso.gov.br/authorize}
+        token-uri: ${GOVBR_LOGIN_OAUTH_TOKEN_URI:https://sso.staging.acesso.gov.br/token}
+        client-id: ${GOVBR_LOGIN_OAUTH_CLIENT_ID:}
+        client-secret-ref: ${GOVBR_LOGIN_OAUTH_CLIENT_SECRET_REF:cofre://siafic/f0/login/govbr/oauth/client-secret}
+        redirect-uri: ${GOVBR_LOGIN_OAUTH_REDIRECT_URI:http://localhost:8080/sessao/oauth/callback}
+        post-login-redirect-uri: ${GOVBR_LOGIN_POST_LOGIN_REDIRECT_URI:/}
+        scopes:
+          - openid
+          - profile
+        state-ttl: ${GOVBR_LOGIN_OAUTH_STATE_TTL:PT10M}

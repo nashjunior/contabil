@@ -7,6 +7,7 @@ import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import br.contabil.plataforma.domain.iam.ServicoIdentidade;
+import br.contabil.sessao.RepositorioAssercaoSessaoLoginGovBr;
 
 /**
  * Registra {@link SessaoAutenticadaHttpResolver} para todo {@code @RestController}
@@ -16,13 +17,16 @@ import br.contabil.plataforma.domain.iam.ServicoIdentidade;
 class ConsultaWebConfiguration implements WebMvcConfigurer {
 
     private final ServicoIdentidade servicoIdentidade;
+    private final RepositorioAssercaoSessaoLoginGovBr repositorioAssercaoSessao;
 
-    ConsultaWebConfiguration(ServicoIdentidade servicoIdentidade) {
+    ConsultaWebConfiguration(
+            ServicoIdentidade servicoIdentidade, RepositorioAssercaoSessaoLoginGovBr repositorioAssercaoSessao) {
         this.servicoIdentidade = servicoIdentidade;
+        this.repositorioAssercaoSessao = repositorioAssercaoSessao;
     }
 
     @Override
     public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
-        resolvers.add(new SessaoAutenticadaHttpResolver(servicoIdentidade));
+        resolvers.add(new SessaoAutenticadaHttpResolver(servicoIdentidade, repositorioAssercaoSessao));
     }
 }

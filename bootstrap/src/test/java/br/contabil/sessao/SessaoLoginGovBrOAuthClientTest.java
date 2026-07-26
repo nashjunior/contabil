@@ -1,0 +1,91 @@
+package br.contabil.sessao;
+
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.URI;
+import java.net.URLDecoder;
+import java.net.http.HttpClient;
+import java.nio.charset.StandardCharsets;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sun.net.httpserver.HttpServer;
+
+class SessaoLoginGovBrOAuthClientTest {
+
+    private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-07-26T12:00:00Z"), ZoneOffset.UTC);
+
+    private HttpServer servidor;
+    private final AtomicReference<String> corpoRecebido = new AtomicReference<>();
+
+    @BeforeEach
+    void sobeServidorToken() throws IOException {
+        servidor = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+        servidor.createContext("/token", exchange -> {
+            corpoRecebido.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            byte[] resposta = "{\"access_token\":\"assercao-http\",\"expires_in\":60}".getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, resposta.length);
+            exchange.getResponseBody().write(resposta);
+            exchange.close();
+        });
+        servidor.start();
+    }
+
+    @AfterEach
+    void paraServidorToken() {
+        servidor.stop(0);
+    }
+
+    @Test
+    void trocaCodigoPorTokenNoEndpointConfiguradoComPkce() {
+        SessaoLoginGovBrOAuthProperties properties = new SessaoLoginGovBrOAuthProperties(
+                URI.create("https://sso.staging.acesso.gov.br/authorize"),
+                URI.create("http://localhost:" + servidor.getAddress().getPort() + "/token"),
+                "cliente-siafic-login",
+                "segredo",
+                URI.create("http://localhost:8080/sessao/oauth/callback"),
+                null,
+                List.of("openid", "profile"),
+                Duration.ofMinutes(10));
+        var client = new SessaoLoginGovBrOAuthClient(HttpClient.newHttpClient(), new ObjectMapper(), CLOCK, properties);
+
+        SessaoLoginGovBrOAuthToken token = client.trocarCodigoPorToken("codigo", "verifier");
+
+        assertThat(token.assercao()).isEqualTo("assercao-http");
+        assertThat(token.expiraEm()).isEqualTo(Instant.parse("2026-07-26T12:01:00Z"));
+        Map<String, String> form = formRecebido();
+        assertThat(form)
+                .containsEntry("grant_type", "authorization_code")
+                .containsEntry("code", "codigo")
+                .containsEntry("redirect_uri", "http://localhost:8080/sessao/oauth/callback")
+                .containsEntry("client_id", "cliente-siafic-login")
+                .containsEntry("client_secret", "segredo")
+                .containsEntry("code_verifier", "verifier");
+    }
+
+    private Map<String, String> formRecebido() {
+        return Arrays.stream(corpoRecebido.get().split("&"))
+                .map(par -> par.split("=", 2))
+                .collect(Collectors.toMap(
+                        partes -> decode(partes[0]),
+                        partes -> partes.length == 1 ? "" : decode(partes[1])));
+    }
+
+    private static String decode(String valor) {
+        return URLDecoder.decode(valor, StandardCharsets.UTF_8);
+    }
+}

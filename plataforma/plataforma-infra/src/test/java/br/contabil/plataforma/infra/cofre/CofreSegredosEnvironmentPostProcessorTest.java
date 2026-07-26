@@ -24,6 +24,20 @@ class CofreSegredosEnvironmentPostProcessorTest {
     }
 
     @Test
+    void resolveReferenciaDeCofreDoClientSecretDeLoginGovBr() {
+        var environment = new MockEnvironment()
+                .withProperty(
+                        "siafic.login.govbr.oauth.client-secret-ref",
+                        "cofre://siafic/f0/login/govbr/oauth/client-secret");
+
+        new CofreSegredosEnvironmentPostProcessor(cofreFake("segredo-login-resolvido"))
+                .postProcessEnvironment(environment, new SpringApplication());
+
+        assertThat(environment.getProperty("siafic.login.govbr.oauth.client-secret"))
+                .isEqualTo("segredo-login-resolvido");
+    }
+
+    @Test
     void recusaValorDiretoQuandoExisteReferenciaDeCofre() {
         var environment = new MockEnvironment()
                 .withProperty("spring.datasource.password-ref", "env:DB_RUNTIME_PASSWORD")

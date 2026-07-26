@@ -26,7 +26,8 @@ public final class CofreSegredosEnvironmentPostProcessor implements EnvironmentP
     private static final Map<String, String> SEGREDOS_RUNTIME = Map.of(
             "spring.datasource.password-ref", "spring.datasource.password",
             "spring.flyway.password-ref", "spring.flyway.password",
-            "siafic.assinatura.govbr.oauth.client-secret-ref", "siafic.assinatura.govbr.oauth.client-secret");
+            "siafic.assinatura.govbr.oauth.client-secret-ref", "siafic.assinatura.govbr.oauth.client-secret",
+            "siafic.login.govbr.oauth.client-secret-ref", "siafic.login.govbr.oauth.client-secret");
 
     private final CofreSegredos cofre;
 
