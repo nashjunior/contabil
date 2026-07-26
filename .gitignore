@@ -29,6 +29,8 @@ Thumbs.db
 .env
 .env.local
 application-local.yml
+# Config de MCP local — contém FIGMA_API_KEY (invariante "segredos no cofre", nunca hardcoded/versionado).
+.mcp.json
 
 # Material sensível de infra — NUNCA versionado (ADR-0020; invariante "segredos no cofre").
 # Certificados, chaves privadas, keystores, identidades de cifra e artefatos de backup.
