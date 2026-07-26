@@ -1,7 +1,8 @@
 # SIAFIC — Frontend
 
-React + TypeScript (Vite). Arquitetura: ver ADR-0031 (tokens), ADR-0032
-(estrutura feature-based), ADR-0033 (composição) em
+React + TypeScript (Vite), organizado como **workspace npm**. Arquitetura: ver
+ADR-0031 (tokens), ADR-0032 (estrutura feature-based), ADR-0033 (composição) e
+ADR-0036 (design system como pacote independente `@siafic/design-system`) em
 `../docs/arquitetura-tecnica/adr/`.
 
 ## Rodando
@@ -10,7 +11,7 @@ React + TypeScript (Vite). Arquitetura: ver ADR-0031 (tokens), ADR-0032
 npm install
 npm run dev      # http://localhost:5173 — /entrar (login dev) -> /execucao
 npm test         # vitest (unit + componente, contra MSW)
-npm run build    # tsc -b && vite build (roda tokens:build + api:generate antes)
+npm run build    # tsc -b && vite build (roda ds:build [tokens do pacote] + api:generate antes)
 ```
 
 Não há backend Spring Boot rodável neste ambiente de scaffold (multi-módulo
@@ -21,18 +22,32 @@ Para apontar a um backend real: `VITE_API_MODE=real npm run dev`.
 
 ## Estrutura
 
+Workspace npm (`workspaces: ["packages/*"]`, ADR-0036). O app é a raiz;
+o design system é um **pacote independente** que o app consome via
+`@siafic/design-system` — o app depende do DS, não o contém.
+
 ```
-src/
+packages/
+  design-system/  @siafic/design-system — FONTE ÚNICA de tokens + componentes do DS
+    tokens/       *.tokens.json (DTCG) — fonte, alimentada pelo pipeline Figma (RAZ-100)
+    scripts/      build-tokens.mjs (Style Dictionary) + check-contrast.mjs (gate WCAG AA)
+    src/
+      tokens/     theme.ts/theme.css — GERADOS (gitignored) pelo pipeline
+      ui/         compound components do DS (ADR-0033), ex.: FormSection
+      index.ts    ponto de entrada público
+src/                (o app do operador)
   app/            composition root: providers globais, rotas
   features/
     execucao/     empenho (escrita) + execução orçamentária (consulta) — única feature implementada
   shared/
-    ui/           compound components (ADR-0033)
-    tokens/       theme.ts/theme.css — GERADOS (gitignored), ver tokens/
     api/          client.ts (camada estável) + generated/ (GERADO) + mocks/ (MSW)
     auth/         sessão gov.br (bearer) + ente ativo (dev-only — ver gap)
     lib/          Dinheiro (decimal), CPF (PII mascarada), moneyJson (parse seguro)
 ```
+
+Tokens e componentes do DS **não** vivem mais em `src/shared/` — o
+`guardiao-frontend` exige que venham do pacote `@siafic/design-system`
+(não hardcoded nem local ao app).
 
 ## Nota sobre este scaffold: correção de contrato feita durante a construção
 
@@ -71,7 +86,7 @@ para a proveniência exata (arquivo por arquivo) de cada campo.
    de assinatura, mas para login geral). `DevLoginPage`/`AuthContext`
    sintetizam um bearer token opaco local — stand-in de desenvolvimento, não
    o mecanismo de produção. Ver comentário em `shared/auth/AuthContext.tsx`.
-5. **(Fechado majoritariamente pela RAZ-125.)** `tokens/color.tokens.json` já
+5. **(Fechado majoritariamente pela RAZ-125.)** `packages/design-system/tokens/color.tokens.json` já
    era a nomenclatura semântica real (`bg.*`/`text.*`/`brand.*`/`state.*`/
    `pii.*`); agora todo valor hex também é real (lido via Figma REST API da
    página `Foundations`, resolvendo cada swatch semântico e revertendo pelo
@@ -81,8 +96,8 @@ para a proveniência exata (arquivo por arquivo) de cada campo.
    `brand`/`success`/`warning`/`danger`) exigem a Figma Variables REST API
    (bloqueada por escopo no token atual) ou export manual via Tokens Studio —
    não bloqueiam nenhum componente, já que primitivos ficam ocultos da camada
-   semântica (ADR-0026). Ver `tokens/README.md` e ADR-0031 (atualização
-   RAZ-125).
+   semântica (ADR-0026). Ver `packages/design-system/tokens/README.md` e
+   ADR-0031 (atualização RAZ-125).
 6. **Sem backend rodável neste ambiente para prova 100% real.** A prova
    fim-a-fim aqui é: client real (paths/campos/auth batendo com o código-fonte
    lido diretamente) + MSW fiel ao mesmo contrato + teste de componente
