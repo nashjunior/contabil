@@ -445,9 +445,63 @@ GET /entes/{enteId}/execucao/orcamentaria?exercicio=&mes=  (Acao: LER)
 - **`/razao/contas` é o catálogo que faltava**: `/saldo` exige um `contaId` UUID que o operador não descobria sozinho. É uma *lista* §6.1 (paginada); o balancete **não** (é demonstrativo).
 - Backend delegado: convergência (dinheiro/envelope/`natureza_saldo`) e catálogo+existência são duas issues filhas de backend da RAZ-114.
 
+### 6.9 Dotação — consulta por ente/exercício, ingestão em lote e vínculo com empenho (RAZ-140)
+
+Desenhado em [ADR-0038](./adr/0038-contrato-api-dotacao-upstream-empenho.md) (Proposta) sobre o domínio já entregue em RAZ-65/66/80/81/82/89 — corrige o bullet abaixo (§7) que dizia "`Dotacao` não existe em código" (verdadeiro quando este parágrafo foi escrito, obsoleto hoje). Nenhum dos três endpoints abaixo existe em HTTP ainda; complementam, sem duplicar, RAZ-135 (`GET /dotacoes/{id}/saldo`, *in progress*) e o recorte restante de RAZ-136 (cadastro/busca de Credor/Contrato/Unidade Gestora, F2).
+
+```
+GET /entes/{enteId}/execucao/dotacoes?exercicio=&busca=&cursor=&limit=   (Acao: LER)
+→ 200
+{
+  "itens": [
+    { "id": "uuid", "exercicio": 2026, "classificacaoOrcamentaria": "12.361.0021.2044",
+      "fonteRecurso": "01 — Recursos ordinários", "unidadeGestoraId": "uuid",
+      "valorAutorizado": "150000.00", "valorComprometido": "21550.00",
+      "saldoDisponivel": "128450.00" }
+  ],
+  "proximoCursor": "..." | null
+}
+```
+Saldo **embutido na mesma linha** (mesmos 3 campos de [§6.2](#62-consulta-de-saldo-alimenta-as-três-telas)) — a tela de gestão não faz N chamadas de saldo para renderizar uma tabela de N dotações. `busca` filtra por prefixo/`ilike` de `classificacaoOrcamentaria`; é o mesmo parâmetro que alimenta o combo "Dotação" da tela de empenho ([§5.1](#51-tela-novo-empenho)), hoje sem endpoint nenhum atrás dele. Não existe campo "bloqueado/reservado" na resposta — `SaldoDotacao` só modela `valorAutorizado`/`valorComprometido`; ver ADR-0038 §5.
+
+```
+POST /entes/{enteId}/execucao/dotacoes:lote
+Acao: CRIAR sobre execucao:dotacao (se "fixacoes" não vazio) + ALTERAR sobre execucao:dotacao
+      (se "creditos" não vazio) — cobradas independentemente, espelha IngerirDotacoes.executar
+
+{
+  "fixacoes": [
+    { "exercicio": 2026, "classificacaoOrcamentaria": "12.361.0021.2044",
+      "fonteRecurso": "01 — Recursos ordinários", "unidadeGestoraId": "uuid",
+      "valorAutorizado": "150000.00" }
+  ],
+  "creditos": [
+    { "dotacaoId": "uuid", "tipo": "suplementar | especial | extraordinario",
+      "valor": "10000.00", "historico": "Decreto 2026/0087 — reforço de custeio" }
+  ]
+}
+
+→ 207
+{
+  "dotacoesInseridas": ["uuid", ...],
+  "dotacoesAtualizadas": ["uuid", ...],
+  "erros": [
+    { "referencia": "fixacao[4] classificacao=... fonte=...", "codigo": "valor_invalido",
+      "mensagem": "valorAutorizado da dotação deve ser positivo" },
+    { "referencia": "credito dotacaoId=...", "codigo": "dotacao_nao_encontrada",
+      "mensagem": "dotação não encontrada para o ente — crédito não aplicado" }
+  ]
+}
+```
+Fail-soft (ADR-0013), só `toInsert`-equivalente (`fixacoes`/`creditos`) + `erros` — sem `toUpdate`/`toDelete`: crédito adicional é soma atômica rastreável (Lei 4.320 arts. 40–46), nunca correção por sobrescrita do valor. **Pré-requisito de backend:** `DotacaoRepository.ErroItemLote` hoje só tem `referencia`+`motivo` (texto livre) — precisa ganhar `codigo` antes deste endpoint existir, para não inventar uma segunda taxonomia de erro na borda (ADR-0038 §4). Sem lote menor — não há "fixar 1 dotação avulsa" como endpoint à parte; o próprio `IngerirDotacoes` já trata lote-de-1 como caso normal do mesmo caminho.
+
+Vínculo dotação→empenho **já é coberto** por um endpoint já contratado — não precisa de nada novo: `GET /empenhos?dotacaoId=&cursor=&limit=` ([§6.3](#63-empenho-sem-lote)). A tela de detalhe da dotação (RAZ-140) só precisa confirmar, quando `EmpenhoController` (RAZ-105) estiver acessível para verificação, que o filtro `dotacaoId` está de fato implementado no lado servidor.
+
+---
+
 ## 7. Abertos e riscos
 
-- **`Dotacao` como agregado não existe em código ainda** (só `DotacaoId`/`SaldoDotacao`) — a carga da LOA que popula `valorAutorizado` é pré-requisito funcional de qualquer tela de empenho e não está desenhada aqui (seguir ADR-0013 quando for feita — é ingestão em lote legítima, diferente da decisão do §4).
+- **`Dotacao` como agregado não existe em código ainda** (só `DotacaoId`/`SaldoDotacao`) — a carga da LOA que popula `valorAutorizado` é pré-requisito funcional de qualquer tela de empenho e não está desenhada aqui (seguir ADR-0013 quando for feita — é ingestão em lote legítima, diferente da decisão do §4). **[Obsoleto — corrigido em RAZ-140]** `Dotacao`/`CreditoAdicional`/`SaldoDotacao` e o caso de uso `IngerirDotacoes` (fail-soft) foram entregues em RAZ-65/66/80/81/82/89; o contrato de API está desenhado em [§6.9](#69-dotação-consulta-por-enteexercício-ingestão-em-lote-e-vínculo-com-empenho-raz-140)/[ADR-0038](./adr/0038-contrato-api-dotacao-upstream-empenho.md) (Proposta) — falta só a borda HTTP.
 - **Gate de `APROVAR` para pagamento — escrita em produção (RAZ-92 + RAZ-105).** `AprovarPagamento` + pré-condição em `RegistrarPagamento` (`pagamento_nao_aprovado`) e o `LiquidacaoController` (`POST .../aprovacao`) + beans + V8 estão **mesclados em `master`** (merge `4fba4ce`); o front-end pode apontar para o endpoint de escrita. **Leitura** (fila + trilha) ratificada em [ADR-0029](./adr/0029-contrato-leitura-fila-aprovacao-trilha.md)/§6.7 e delegada ao backend (RAZ-113 → issue filha `[BE]`) — ainda **não** implementada; front-end não deve assumir os GETs disponíveis antes do wiring chegar.
 - **Alçada por valor** (quem pode aprovar até que teto) explicitamente **fora da v1** por ADR-0023 — não está modelada em nenhum port hoje; se o produto quiser diferenciar alçada por cargo/valor, é RBAC com atributo extra (ABAC), decisão futura própria.
 - **Reforço/anulação de empenho e estorno** ficam fora deste contrato (RAZ-65 já os marca como issues próprias) — quando chegarem, seguem a mesma convenção (endpoint de ação, não PATCH).
