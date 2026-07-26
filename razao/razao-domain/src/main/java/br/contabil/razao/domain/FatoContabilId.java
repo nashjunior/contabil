@@ -1,8 +1,9 @@
 package br.contabil.razao.domain;
 
 import java.io.Serializable;
-import java.util.Objects;
 import java.util.UUID;
+
+import br.contabil.plataforma.domain.Validacoes;
 
 /** Identificador estável do agregado FatoContabil. */
 public record FatoContabilId(UUID valor) implements Serializable {
@@ -10,7 +11,7 @@ public record FatoContabilId(UUID valor) implements Serializable {
     private static final long serialVersionUID = 1L;
 
     public FatoContabilId {
-        Objects.requireNonNull(valor, "FatoContabilId não pode ser nulo");
+        Validacoes.exigirNaoNulo(valor, "FatoContabilId");
     }
 
     public static FatoContabilId novo() {

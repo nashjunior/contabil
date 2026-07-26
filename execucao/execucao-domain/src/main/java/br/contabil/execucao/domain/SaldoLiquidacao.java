@@ -1,16 +1,15 @@
 package br.contabil.execucao.domain;
 
-import java.util.Objects;
-
 import br.contabil.plataforma.domain.Dinheiro;
+import br.contabil.plataforma.domain.Validacoes;
 
 /** Snapshot de saldo da liquidação usado para travar pagamento <= liquidado. */
 public record SaldoLiquidacao(LiquidacaoId liquidacaoId, Dinheiro valorLiquidado, Dinheiro valorPago) {
 
     public SaldoLiquidacao {
-        Objects.requireNonNull(liquidacaoId, "liquidacaoId não pode ser nulo");
-        Objects.requireNonNull(valorLiquidado, "valorLiquidado não pode ser nulo");
-        Objects.requireNonNull(valorPago, "valorPago não pode ser nulo");
+        Validacoes.exigirNaoNulo(liquidacaoId, "liquidacaoId");
+        Validacoes.exigirNaoNulo(valorLiquidado, "valorLiquidado");
+        Validacoes.exigirNaoNulo(valorPago, "valorPago");
         if (valorLiquidado.compareTo(Dinheiro.zero()) < 0 || valorPago.compareTo(Dinheiro.zero()) < 0) {
             throw new ExecucaoInvalidaException("saldo_invalido", "saldos da liquidação não podem ser negativos");
         }
@@ -24,7 +23,7 @@ public record SaldoLiquidacao(LiquidacaoId liquidacaoId, Dinheiro valorLiquidado
     }
 
     public void exigirSaldoParaPagar(Dinheiro valor) {
-        Objects.requireNonNull(valor, "valor não pode ser nulo");
+        Validacoes.exigirNaoNulo(valor, "valor");
         if (valor.compareTo(saldoAPagar()) > 0) {
             throw new SaldoInsuficienteException("pagamento", valor, saldoAPagar());
         }

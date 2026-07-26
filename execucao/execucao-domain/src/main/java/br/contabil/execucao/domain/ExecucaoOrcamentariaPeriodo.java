@@ -1,10 +1,9 @@
 package br.contabil.execucao.domain;
 
-import java.util.Objects;
-
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.ErroContrato;
 import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.Validacoes;
 
 /**
  * Execução orçamentária da despesa de um ente, acumulada do início do
@@ -29,10 +28,10 @@ public record ExecucaoOrcamentariaPeriodo(
         Dinheiro totalPago) {
 
     public ExecucaoOrcamentariaPeriodo {
-        Objects.requireNonNull(enteId, "enteId não pode ser nulo");
-        Objects.requireNonNull(totalEmpenhado, "totalEmpenhado não pode ser nulo");
-        Objects.requireNonNull(totalLiquidado, "totalLiquidado não pode ser nulo");
-        Objects.requireNonNull(totalPago, "totalPago não pode ser nulo");
+        Validacoes.exigirNaoNulo(enteId, "enteId");
+        Validacoes.exigirNaoNulo(totalEmpenhado, "totalEmpenhado");
+        Validacoes.exigirNaoNulo(totalLiquidado, "totalLiquidado");
+        Validacoes.exigirNaoNulo(totalPago, "totalPago");
         validarMes(mes);
     }
 

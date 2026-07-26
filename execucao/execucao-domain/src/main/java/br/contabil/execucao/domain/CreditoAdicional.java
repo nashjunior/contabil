@@ -1,8 +1,7 @@
 package br.contabil.execucao.domain;
 
-import java.util.Objects;
-
 import br.contabil.plataforma.domain.Dinheiro;
+import br.contabil.plataforma.domain.Validacoes;
 
 /**
  * Item de entrada de um crédito adicional (Lei 4.320/1964 arts. 40-46): soma
@@ -13,9 +12,9 @@ import br.contabil.plataforma.domain.Dinheiro;
 public record CreditoAdicional(DotacaoId dotacaoId, TipoCreditoAdicional tipo, Dinheiro valor, String historico) {
 
     public CreditoAdicional {
-        Objects.requireNonNull(dotacaoId, "dotacaoId não pode ser nulo");
-        Objects.requireNonNull(tipo, "tipo não pode ser nulo");
-        Objects.requireNonNull(valor, "valor não pode ser nulo");
-        Objects.requireNonNull(historico, "histórico não pode ser nulo");
+        Validacoes.exigirNaoNulo(dotacaoId, "dotacaoId");
+        Validacoes.exigirNaoNulo(tipo, "tipo");
+        Validacoes.exigirNaoNulo(valor, "valor");
+        Validacoes.exigirNaoNulo(historico, "histórico");
     }
 }

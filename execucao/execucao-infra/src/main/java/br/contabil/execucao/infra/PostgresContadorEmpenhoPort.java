@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 
 import br.contabil.execucao.domain.repository.ContadorEmpenhoPort;
 import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.Validacoes;
 
 /**
  * Numeração sequencial gapless do empenho por ente/exercício — delega à função
@@ -29,8 +30,9 @@ public class PostgresContadorEmpenhoPort implements ContadorEmpenhoPort {
 
     @Override
     public long proximoNumero(TenantId enteId, int exercicio) {
-        Objects.requireNonNull(enteId, "enteId não pode ser nulo");
-        Long numero = jdbcTemplate.queryForObject(SQL_PROXIMO_NUMERO, Long.class, exercicio);
-        return numero;
+        Validacoes.exigirNaoNulo(enteId, "enteId");
+        return Objects.requireNonNull(
+                jdbcTemplate.queryForObject(SQL_PROXIMO_NUMERO, Long.class, exercicio),
+                "proximo_numero_empenho retornou null");
     }
 }

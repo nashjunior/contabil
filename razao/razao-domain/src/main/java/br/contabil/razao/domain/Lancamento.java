@@ -1,8 +1,7 @@
 package br.contabil.razao.domain;
 
-import java.util.Objects;
-
 import br.contabil.plataforma.domain.Dinheiro;
+import br.contabil.plataforma.domain.Validacoes;
 
 /**
  * Uma partida (débito ou crédito) sobre uma conta do PCASP. Membro interno do
@@ -25,9 +24,9 @@ public final class Lancamento {
 
     /** Cria um lançamento novo, validado — usado ao montar um fato para registrar. */
     public static Lancamento de(ContaContabilId contaId, Natureza natureza, Dinheiro valor) {
-        Objects.requireNonNull(contaId, "contaId não pode ser nulo");
-        Objects.requireNonNull(natureza, "natureza não pode ser nula");
-        Objects.requireNonNull(valor, "valor não pode ser nulo");
+        Validacoes.exigirNaoNulo(contaId, "contaId");
+        Validacoes.exigirNaoNulo(natureza, "natureza");
+        Validacoes.exigirNaoNulo(valor, "valor");
         if (valor.valor().signum() <= 0) {
             throw new LancamentoInvalidoException(
                     "valor do lançamento deve ser positivo (conta %s, natureza %s): %s"
@@ -40,7 +39,7 @@ public final class Lancamento {
     public static Lancamento reconstituir(
             LancamentoId id, ContaContabilId contaId, Natureza natureza, Dinheiro valor) {
         return new Lancamento(
-                Objects.requireNonNull(id, "id não pode ser nulo"), contaId, natureza, valor);
+                Validacoes.exigirNaoNulo(id, "id"), contaId, natureza, valor);
     }
 
     /** Lançamento espelho para um estorno: mesma conta/valor, natureza invertida (D↔C). */

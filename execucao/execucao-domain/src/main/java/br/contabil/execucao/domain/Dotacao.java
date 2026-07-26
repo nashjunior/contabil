@@ -4,6 +4,7 @@ import java.util.Objects;
 
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.Validacoes;
 
 /**
  * Agregado de dotação (crédito orçamentário, Lei 4.320/1964 arts. 34/40) — a
@@ -59,17 +60,17 @@ public final class Dotacao {
             Dinheiro valorAutorizado) {
         validarValorAutorizado(valorAutorizado);
         return new Dotacao(
-                Objects.requireNonNull(id, "id não pode ser nulo"),
-                Objects.requireNonNull(enteId, "enteId não pode ser nulo"),
+                Validacoes.exigirNaoNulo(id, "id"),
+                Validacoes.exigirNaoNulo(enteId, "enteId"),
                 exercicio,
                 textoObrigatorio(classificacaoOrcamentaria, "classificação orçamentária"),
                 textoObrigatorio(fonteRecurso, "fonte de recurso"),
-                Objects.requireNonNull(unidadeGestoraId, "unidadeGestoraId não pode ser nulo"),
+                Validacoes.exigirNaoNulo(unidadeGestoraId, "unidadeGestoraId"),
                 valorAutorizado);
     }
 
     public static void validarValorAutorizado(Dinheiro valorAutorizado) {
-        Objects.requireNonNull(valorAutorizado, "valorAutorizado não pode ser nulo");
+        Validacoes.exigirNaoNulo(valorAutorizado, "valorAutorizado");
         if (valorAutorizado.compareTo(Dinheiro.zero()) <= 0) {
             throw new ExecucaoInvalidaException("valor_invalido", "valorAutorizado da dotação deve ser positivo");
         }

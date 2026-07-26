@@ -1,6 +1,7 @@
 package br.contabil.razao.infra;
 
 import java.math.BigDecimal;
+
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 

@@ -7,6 +7,7 @@ import java.util.Optional;
 
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.Validacoes;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
 
 /**
@@ -148,23 +149,23 @@ public final class Empenho {
             Optional<DocumentoAssinadoEmpenho> documentoAssinado) {
         validarValor(valor, "valor do empenho");
         return new Empenho(
-                Objects.requireNonNull(id, "id não pode ser nulo"),
-                Objects.requireNonNull(enteId, "enteId não pode ser nulo"),
+                Validacoes.exigirNaoNulo(id, "id"),
+                Validacoes.exigirNaoNulo(enteId, "enteId"),
                 numeroSequencial,
                 exercicio,
-                Objects.requireNonNull(tipo, "tipo não pode ser nulo"),
-                Objects.requireNonNull(dotacaoId, "dotacaoId não pode ser nulo"),
-                Objects.requireNonNull(credorId, "credorId não pode ser nulo"),
-                Objects.requireNonNull(unidadeGestoraId, "unidadeGestoraId não pode ser nulo"),
+                Validacoes.exigirNaoNulo(tipo, "tipo"),
+                Validacoes.exigirNaoNulo(dotacaoId, "dotacaoId"),
+                Validacoes.exigirNaoNulo(credorId, "credorId"),
+                Validacoes.exigirNaoNulo(unidadeGestoraId, "unidadeGestoraId"),
                 contratoId,
                 valor,
-                Objects.requireNonNull(dataFato, "dataFato não pode ser nula"),
+                Validacoes.exigirNaoNulo(dataFato, "dataFato"),
                 textoObrigatorio(classificacaoOrcamentaria, "classificação orçamentária"),
                 textoObrigatorio(fonteRecurso, "fonte de recurso"),
                 textoObrigatorio(historico, "histórico"),
-                Objects.requireNonNull(fatoContabilId, "fatoContabilId não pode ser nula"),
-                Objects.requireNonNull(autor, "autor não pode ser nulo"),
-                Objects.requireNonNull(status, "status não pode ser nulo"),
+                Validacoes.exigirNaoNulo(fatoContabilId, "fatoContabilId"),
+                Validacoes.exigirNaoNulo(autor, "autor"),
+                Validacoes.exigirNaoNulo(status, "status"),
                 Objects.requireNonNull(documentoPendenteUri, "documentoPendenteUri (Optional) não pode ser nulo"),
                 Objects.requireNonNull(documentoAssinado, "documentoAssinado (Optional) não pode ser nulo"));
     }
@@ -176,7 +177,7 @@ public final class Empenho {
      */
     public Empenho marcarPendenteAssinatura(URI documentoPendenteUri) {
         exigirStatus(StatusEmpenho.REGISTRADO);
-        Objects.requireNonNull(documentoPendenteUri, "documentoPendenteUri não pode ser nulo");
+        Validacoes.exigirNaoNulo(documentoPendenteUri, "documentoPendenteUri");
         return new Empenho(
                 id, enteId, numeroSequencial, exercicio, tipo, dotacaoId, credorId, unidadeGestoraId, contratoId,
                 valor, dataFato, classificacaoOrcamentaria, fonteRecurso, historico, fatoContabilId, autor,
@@ -191,7 +192,7 @@ public final class Empenho {
      */
     public Empenho assinar(DocumentoAssinadoEmpenho documentoAssinado) {
         exigirStatus(StatusEmpenho.PENDENTE_ASSINATURA, StatusEmpenho.ASSINATURA_REJEITADA);
-        Objects.requireNonNull(documentoAssinado, "documentoAssinado não pode ser nulo");
+        Validacoes.exigirNaoNulo(documentoAssinado, "documentoAssinado");
         return new Empenho(
                 id, enteId, numeroSequencial, exercicio, tipo, dotacaoId, credorId, unidadeGestoraId, contratoId,
                 valor, dataFato, classificacaoOrcamentaria, fonteRecurso, historico, fatoContabilId, autor,

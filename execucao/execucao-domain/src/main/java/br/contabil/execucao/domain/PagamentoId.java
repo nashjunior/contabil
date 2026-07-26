@@ -1,8 +1,9 @@
 package br.contabil.execucao.domain;
 
 import java.io.Serializable;
-import java.util.Objects;
 import java.util.UUID;
+
+import br.contabil.plataforma.domain.Validacoes;
 
 /** Identificador estável do agregado Pagamento. */
 public record PagamentoId(UUID valor) implements Serializable {
@@ -10,7 +11,7 @@ public record PagamentoId(UUID valor) implements Serializable {
     private static final long serialVersionUID = 1L;
 
     public PagamentoId {
-        Objects.requireNonNull(valor, "PagamentoId não pode ser nulo");
+        Validacoes.exigirNaoNulo(valor, "PagamentoId");
     }
 
     public static PagamentoId novo() {

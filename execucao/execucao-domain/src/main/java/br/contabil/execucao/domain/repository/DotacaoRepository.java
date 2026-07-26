@@ -8,6 +8,7 @@ import br.contabil.execucao.domain.CreditoAdicional;
 import br.contabil.execucao.domain.Dotacao;
 import br.contabil.execucao.domain.DotacaoId;
 import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.Validacoes;
 
 /** Port de persistência da dotação (Fixação/carga da LOA — RAZ-80; ingestão em lote — RAZ-89). */
 public interface DotacaoRepository {
@@ -33,8 +34,8 @@ public interface DotacaoRepository {
     /** Resultado de uma operação em lote fail-soft: os itens processados e os que falharam. */
     record ResultadoLote<T>(List<T> processados, List<ErroItemLote> erros) {
         public ResultadoLote {
-            Objects.requireNonNull(processados, "processados não pode ser nulo");
-            Objects.requireNonNull(erros, "erros não pode ser nulo");
+            Validacoes.exigirNaoNulo(processados, "processados");
+            Validacoes.exigirNaoNulo(erros, "erros");
             processados = List.copyOf(processados);
             erros = List.copyOf(erros);
         }
@@ -44,7 +45,7 @@ public interface DotacaoRepository {
     record ErroItemLote(String referencia, String motivo) {
         public ErroItemLote {
             Objects.requireNonNull(referencia, "referência não pode ser nula");
-            Objects.requireNonNull(motivo, "motivo não pode ser nulo");
+            Validacoes.exigirNaoNulo(motivo, "motivo");
         }
     }
 }

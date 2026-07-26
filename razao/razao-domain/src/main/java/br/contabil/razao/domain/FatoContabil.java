@@ -8,6 +8,7 @@ import java.util.Objects;
 
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.Validacoes;
 
 /**
  * Agregado raiz do razão contábil de dupla entrada — o evento (fato) que gera
@@ -152,15 +153,15 @@ public final class FatoContabil {
             FatoContabilId fatoEstornadoId,
             List<Lancamento> lancamentos) {
         return new FatoContabil(
-                Objects.requireNonNull(id, "id não pode ser nulo"),
-                Objects.requireNonNull(enteId, "enteId não pode ser nulo"),
+                Validacoes.exigirNaoNulo(id, "id"),
+                Validacoes.exigirNaoNulo(enteId, "enteId"),
                 numeroSeq,
-                Objects.requireNonNull(dataCompetencia, "dataCompetencia não pode ser nula"),
-                Objects.requireNonNull(dataHoraRegistro, "dataHoraRegistro não pode ser nula"),
-                Objects.requireNonNull(periodoId, "periodoId não pode ser nulo"),
-                Objects.requireNonNull(tipoEvento, "tipoEvento não pode ser nulo"),
-                Objects.requireNonNull(historico, "histórico não pode ser nulo"),
-                Objects.requireNonNull(origem, "origem não pode ser nula"),
+                Validacoes.exigirNaoNulo(dataCompetencia, "dataCompetencia"),
+                Validacoes.exigirNaoNulo(dataHoraRegistro, "dataHoraRegistro"),
+                Validacoes.exigirNaoNulo(periodoId, "periodoId"),
+                Validacoes.exigirNaoNulo(tipoEvento, "tipoEvento"),
+                Validacoes.exigirNaoNulo(historico, "histórico"),
+                Validacoes.exigirNaoNulo(origem, "origem"),
                 fatoEstornadoId,
                 List.copyOf(lancamentos));
     }
@@ -177,12 +178,12 @@ public final class FatoContabil {
             String origem,
             FatoContabilId fatoEstornadoId,
             List<Lancamento> lancamentos) {
-        Objects.requireNonNull(enteId, "enteId não pode ser nulo");
-        Objects.requireNonNull(dataCompetencia, "dataCompetencia não pode ser nula");
-        Objects.requireNonNull(periodoId, "periodoId não pode ser nulo");
-        Objects.requireNonNull(tipoEvento, "tipoEvento não pode ser nulo");
-        Objects.requireNonNull(historico, "histórico não pode ser nulo");
-        Objects.requireNonNull(origem, "origem não pode ser nula");
+        Validacoes.exigirNaoNulo(enteId, "enteId");
+        Validacoes.exigirNaoNulo(dataCompetencia, "dataCompetencia");
+        Validacoes.exigirNaoNulo(periodoId, "periodoId");
+        Validacoes.exigirNaoNulo(tipoEvento, "tipoEvento");
+        Validacoes.exigirNaoNulo(historico, "histórico");
+        Validacoes.exigirNaoNulo(origem, "origem");
         validarPartidasDobradas(lancamentos);
         return new FatoContabil(
                 id,

@@ -1,8 +1,9 @@
 package br.contabil.execucao.domain;
 
 import java.io.Serializable;
-import java.util.Objects;
 import java.util.UUID;
+
+import br.contabil.plataforma.domain.Validacoes;
 
 /** Referência identificada ao contrato vinculado a um empenho (opcional). */
 public record ContratoId(UUID valor) implements Serializable {
@@ -10,7 +11,7 @@ public record ContratoId(UUID valor) implements Serializable {
     private static final long serialVersionUID = 1L;
 
     public ContratoId {
-        Objects.requireNonNull(valor, "ContratoId não pode ser nulo");
+        Validacoes.exigirNaoNulo(valor, "ContratoId");
     }
 
     public static ContratoId novo() {

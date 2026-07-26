@@ -1,8 +1,9 @@
 package br.contabil.execucao.domain;
 
 import java.io.Serializable;
-import java.util.Objects;
 import java.util.UUID;
+
+import br.contabil.plataforma.domain.Validacoes;
 
 /** Identificador estável do agregado Liquidacao. */
 public record LiquidacaoId(UUID valor) implements Serializable {
@@ -10,7 +11,7 @@ public record LiquidacaoId(UUID valor) implements Serializable {
     private static final long serialVersionUID = 1L;
 
     public LiquidacaoId {
-        Objects.requireNonNull(valor, "LiquidacaoId não pode ser nulo");
+        Validacoes.exigirNaoNulo(valor, "LiquidacaoId");
     }
 
     public static LiquidacaoId novo() {

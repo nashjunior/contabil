@@ -1,11 +1,11 @@
 package br.contabil.razao.infra;
 
-import java.util.Objects;
-
-import br.contabil.plataforma.domain.TenantId;
-import br.contabil.razao.domain.repository.ContadorFatoPort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
+
+import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.Validacoes;
+import br.contabil.razao.domain.repository.ContadorFatoPort;
 
 /**
  * Numeração sequencial cronológica gapless — delega à função
@@ -35,7 +35,7 @@ public class PostgresContadorFatoPort implements ContadorFatoPort {
 
     @Override
     public long proximoNumeroSeq(TenantId enteId) {
-        Objects.requireNonNull(enteId, "enteId não pode ser nulo");
+        Validacoes.exigirNaoNulo(enteId, "enteId");
         Long numero = jdbcTemplate.queryForObject(SQL_PROXIMO_NUMERO_SEQ, Long.class);
         return numero;
     }

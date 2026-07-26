@@ -5,7 +5,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -18,6 +17,7 @@ import br.contabil.execucao.domain.repository.DotacaoRepository.ErroItemLote;
 import br.contabil.execucao.domain.repository.DotacaoRepository.ResultadoLote;
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.Validacoes;
 import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
 import br.contabil.plataforma.domain.auditoria.EventoAuditoria;
 import br.contabil.plataforma.domain.iam.ControleAcesso;
@@ -165,10 +165,10 @@ public class IngerirDotacoes {
             Dinheiro valorAutorizado) {
 
         public SolicitacaoFixacaoDotacao {
-            Objects.requireNonNull(classificacaoOrcamentaria, "classificacaoOrcamentaria não pode ser nula");
-            Objects.requireNonNull(fonteRecurso, "fonteRecurso não pode ser nulo");
-            Objects.requireNonNull(unidadeGestoraId, "unidadeGestoraId não pode ser nulo");
-            Objects.requireNonNull(valorAutorizado, "valorAutorizado não pode ser nulo");
+            Validacoes.exigirNaoNulo(classificacaoOrcamentaria, "classificacaoOrcamentaria");
+            Validacoes.exigirNaoNulo(fonteRecurso, "fonteRecurso");
+            Validacoes.exigirNaoNulo(unidadeGestoraId, "unidadeGestoraId");
+            Validacoes.exigirNaoNulo(valorAutorizado, "valorAutorizado");
         }
     }
 

@@ -4,6 +4,8 @@ import java.time.LocalDate;
 import java.util.Objects;
 import java.util.Optional;
 
+import br.contabil.plataforma.domain.Validacoes;
+
 /**
  * Documento que fundamenta a liquidação (Lei 4.320/1964 art. 63, §2º).
  *
@@ -15,8 +17,8 @@ public record DocumentoSuporte(String tipo, String numero, LocalDate dataEmissao
     public DocumentoSuporte {
         Objects.requireNonNull(tipo, "tipo do documento não pode ser nulo");
         Objects.requireNonNull(numero, "número do documento não pode ser nulo");
-        Objects.requireNonNull(dataEmissao, "dataEmissao não pode ser nula");
-        Objects.requireNonNull(referenciaExterna, "referenciaExterna não pode ser nula");
+        Validacoes.exigirNaoNulo(dataEmissao, "dataEmissao");
+        Validacoes.exigirNaoNulo(referenciaExterna, "referenciaExterna");
         if (tipo.isBlank()) {
             throw new IllegalArgumentException("tipo do documento não pode ser vazio");
         }

@@ -1,10 +1,10 @@
 package br.contabil.razao.domain;
 
 import java.util.List;
-import java.util.Objects;
 
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.Validacoes;
 
 /**
  * Balancete de um período/ente: lista de contas com saldo anterior, movimento a
@@ -22,8 +22,8 @@ import br.contabil.plataforma.domain.TenantId;
 public record Balancete(TenantId enteId, int exercicio, int mes, List<LinhaBalancete> linhas) {
 
     public Balancete {
-        Objects.requireNonNull(enteId, "enteId não pode ser nulo");
-        Objects.requireNonNull(linhas, "linhas não pode ser nulo");
+        Validacoes.exigirNaoNulo(enteId, "enteId");
+        Validacoes.exigirNaoNulo(linhas, "linhas");
         linhas = List.copyOf(linhas);
     }
 

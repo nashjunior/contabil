@@ -2,7 +2,6 @@ package br.contabil.execucao.domain.repository;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 import br.contabil.execucao.domain.Beneficiario;
@@ -14,6 +13,7 @@ import br.contabil.execucao.domain.PagamentoId;
 import br.contabil.execucao.domain.ReferenciaFatoContabil;
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.Validacoes;
 
 /**
  * Port de escrituração contábil produzido pela execução.
@@ -41,11 +41,11 @@ public interface ExecucaoContabilPort {
             TenantId enteId, EmpenhoId empenhoId, LocalDate dataFato, Dinheiro valor, String historico) {
 
         public SolicitacaoEscrituracaoEmpenho {
-            Objects.requireNonNull(enteId, "enteId não pode ser nulo");
-            Objects.requireNonNull(empenhoId, "empenhoId não pode ser nulo");
-            Objects.requireNonNull(dataFato, "dataFato não pode ser nula");
-            Objects.requireNonNull(valor, "valor não pode ser nulo");
-            Objects.requireNonNull(historico, "histórico não pode ser nulo");
+            Validacoes.exigirNaoNulo(enteId, "enteId");
+            Validacoes.exigirNaoNulo(empenhoId, "empenhoId");
+            Validacoes.exigirNaoNulo(dataFato, "dataFato");
+            Validacoes.exigirNaoNulo(valor, "valor");
+            Validacoes.exigirNaoNulo(historico, "histórico");
         }
     }
 
@@ -59,13 +59,13 @@ public interface ExecucaoContabilPort {
             String historico) {
 
         public SolicitacaoEscrituracaoLiquidacao {
-            Objects.requireNonNull(enteId, "enteId não pode ser nulo");
-            Objects.requireNonNull(liquidacaoId, "liquidacaoId não pode ser nulo");
-            Objects.requireNonNull(empenhoId, "empenhoId não pode ser nulo");
-            Objects.requireNonNull(dataCompetencia, "dataCompetencia não pode ser nula");
-            Objects.requireNonNull(valor, "valor não pode ser nulo");
-            Objects.requireNonNull(documentosSuporte, "documentosSuporte não pode ser nulo");
-            Objects.requireNonNull(historico, "histórico não pode ser nulo");
+            Validacoes.exigirNaoNulo(enteId, "enteId");
+            Validacoes.exigirNaoNulo(liquidacaoId, "liquidacaoId");
+            Validacoes.exigirNaoNulo(empenhoId, "empenhoId");
+            Validacoes.exigirNaoNulo(dataCompetencia, "dataCompetencia");
+            Validacoes.exigirNaoNulo(valor, "valor");
+            Validacoes.exigirNaoNulo(documentosSuporte, "documentosSuporte");
+            Validacoes.exigirNaoNulo(historico, "histórico");
             documentosSuporte = List.copyOf(documentosSuporte);
         }
     }
@@ -82,15 +82,15 @@ public interface ExecucaoContabilPort {
             String historico) {
 
         public SolicitacaoEscrituracaoPagamento {
-            Objects.requireNonNull(enteId, "enteId não pode ser nulo");
-            Objects.requireNonNull(pagamentoId, "pagamentoId não pode ser nulo");
-            Objects.requireNonNull(liquidacaoId, "liquidacaoId não pode ser nulo");
-            Objects.requireNonNull(dataCompetencia, "dataCompetencia não pode ser nula");
-            Objects.requireNonNull(valor, "valor não pode ser nulo");
-            Objects.requireNonNull(natureza, "natureza não pode ser nula");
-            Objects.requireNonNull(beneficiario, "beneficiario não pode ser nulo");
-            Objects.requireNonNull(ordemBancaria, "ordemBancaria não pode ser nula");
-            Objects.requireNonNull(historico, "histórico não pode ser nulo");
+            Validacoes.exigirNaoNulo(enteId, "enteId");
+            Validacoes.exigirNaoNulo(pagamentoId, "pagamentoId");
+            Validacoes.exigirNaoNulo(liquidacaoId, "liquidacaoId");
+            Validacoes.exigirNaoNulo(dataCompetencia, "dataCompetencia");
+            Validacoes.exigirNaoNulo(valor, "valor");
+            Validacoes.exigirNaoNulo(natureza, "natureza");
+            Validacoes.exigirNaoNulo(beneficiario, "beneficiario");
+            Validacoes.exigirNaoNulo(ordemBancaria, "ordemBancaria");
+            Validacoes.exigirNaoNulo(historico, "histórico");
         }
     }
 }

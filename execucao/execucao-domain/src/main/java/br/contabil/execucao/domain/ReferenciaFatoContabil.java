@@ -1,8 +1,9 @@
 package br.contabil.execucao.domain;
 
 import java.io.Serializable;
-import java.util.Objects;
 import java.util.UUID;
+
+import br.contabil.plataforma.domain.Validacoes;
 
 /**
  * Referência da execução ao fato contábil que a escrituração produziu no razão
@@ -16,7 +17,7 @@ public record ReferenciaFatoContabil(UUID valor) implements Serializable {
     private static final long serialVersionUID = 1L;
 
     public ReferenciaFatoContabil {
-        Objects.requireNonNull(valor, "ReferenciaFatoContabil não pode ser nula");
+        Validacoes.exigirNaoNulo(valor, "ReferenciaFatoContabil");
     }
 
     public static ReferenciaFatoContabil de(String uuid) {

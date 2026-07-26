@@ -1,8 +1,9 @@
 package br.contabil.razao.domain;
 
 import java.io.Serializable;
-import java.util.Objects;
 import java.util.UUID;
+
+import br.contabil.plataforma.domain.Validacoes;
 
 /** Identificador estável de um lançamento dentro de um fato contábil. */
 public record LancamentoId(UUID valor) implements Serializable {
@@ -10,7 +11,7 @@ public record LancamentoId(UUID valor) implements Serializable {
     private static final long serialVersionUID = 1L;
 
     public LancamentoId {
-        Objects.requireNonNull(valor, "LancamentoId não pode ser nulo");
+        Validacoes.exigirNaoNulo(valor, "LancamentoId");
     }
 
     public static LancamentoId novo() {

@@ -1,7 +1,5 @@
 package br.contabil.escrita;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -11,12 +9,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -217,7 +216,7 @@ class ExecucaoEscritaHttpIntegrationTest {
         ResponseEntity<Map> resposta = post("/execucao/pagamentos", CPF_APROVADOR, pagamentoValido(), Map.class);
 
         assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
-        assertThat(resposta.getBody()).containsEntry("erro", "pagamento_nao_aprovado");
+        assertThat(resposta.getBody()).containsEntry("codigo", "pagamento_nao_aprovado");
     }
 
     @Test
@@ -229,7 +228,7 @@ class ExecucaoEscritaHttpIntegrationTest {
                 post("/execucao/liquidacoes/" + liquidacaoId + "/aprovacao", CPF_ORDENADOR, corpo, Map.class);
 
         assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
-        assertThat(resposta.getBody()).containsEntry("erro", "auto_aprovacao_vedada");
+        assertThat(resposta.getBody()).containsEntry("codigo", "auto_aprovacao_vedada");
     }
 
     @Test

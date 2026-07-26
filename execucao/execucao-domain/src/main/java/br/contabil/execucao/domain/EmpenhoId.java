@@ -1,8 +1,9 @@
 package br.contabil.execucao.domain;
 
 import java.io.Serializable;
-import java.util.Objects;
 import java.util.UUID;
+
+import br.contabil.plataforma.domain.Validacoes;
 
 /** Identificador estável do agregado Empenho, contrato mínimo para encadear a F1. */
 public record EmpenhoId(UUID valor) implements Serializable {
@@ -10,7 +11,7 @@ public record EmpenhoId(UUID valor) implements Serializable {
     private static final long serialVersionUID = 1L;
 
     public EmpenhoId {
-        Objects.requireNonNull(valor, "EmpenhoId não pode ser nulo");
+        Validacoes.exigirNaoNulo(valor, "EmpenhoId");
     }
 
     public static EmpenhoId novo() {

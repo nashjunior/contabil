@@ -1,8 +1,9 @@
 package br.contabil.execucao.domain;
 
 import java.io.Serializable;
-import java.util.Objects;
 import java.util.UUID;
+
+import br.contabil.plataforma.domain.Validacoes;
 
 /** Referência identificada à unidade gestora responsável por um empenho. */
 public record UnidadeGestoraId(UUID valor) implements Serializable {
@@ -10,7 +11,7 @@ public record UnidadeGestoraId(UUID valor) implements Serializable {
     private static final long serialVersionUID = 1L;
 
     public UnidadeGestoraId {
-        Objects.requireNonNull(valor, "UnidadeGestoraId não pode ser nulo");
+        Validacoes.exigirNaoNulo(valor, "UnidadeGestoraId");
     }
 
     public static UnidadeGestoraId novo() {

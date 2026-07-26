@@ -2,9 +2,9 @@ package br.contabil.execucao.domain;
 
 import java.net.URI;
 import java.time.Instant;
-import java.util.Objects;
 import java.util.UUID;
 
+import br.contabil.plataforma.domain.Validacoes;
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.NivelAssinatura;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
 
@@ -24,12 +24,12 @@ public record DocumentoAssinadoEmpenho(
         Instant assinadoEm) {
 
     public DocumentoAssinadoEmpenho {
-        Objects.requireNonNull(pdfAssinado, "pdfAssinado não pode ser nulo");
-        Objects.requireNonNull(hashSha256, "hashSha256 não pode ser nulo");
-        Objects.requireNonNull(manifesto, "manifesto não pode ser nulo");
-        Objects.requireNonNull(idTransacao, "idTransacao não pode ser nulo");
-        Objects.requireNonNull(nivel, "nivel não pode ser nulo");
-        Objects.requireNonNull(signatario, "signatario não pode ser nulo");
-        Objects.requireNonNull(assinadoEm, "assinadoEm não pode ser nulo");
+        Validacoes.exigirNaoNulo(pdfAssinado, "pdfAssinado");
+        Validacoes.exigirNaoNulo(hashSha256, "hashSha256");
+        Validacoes.exigirNaoNulo(manifesto, "manifesto");
+        Validacoes.exigirNaoNulo(idTransacao, "idTransacao");
+        Validacoes.exigirNaoNulo(nivel, "nivel");
+        Validacoes.exigirNaoNulo(signatario, "signatario");
+        Validacoes.exigirNaoNulo(assinadoEm, "assinadoEm");
     }
 }

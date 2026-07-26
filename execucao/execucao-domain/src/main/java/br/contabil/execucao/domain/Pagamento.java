@@ -1,12 +1,12 @@
 package br.contabil.execucao.domain;
 
 import java.time.LocalDate;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.Validacoes;
 
 /**
  * Agregado de pagamento da despesa: quita total/parcialmente uma liquidação e
@@ -61,16 +61,16 @@ public final class Pagamento {
             UUID fatoContabilId) {
         validarEntrada(valor, natureza, beneficiario, ordemBancaria, historico);
         return new Pagamento(
-                Objects.requireNonNull(id, "id não pode ser nulo"),
-                Objects.requireNonNull(enteId, "enteId não pode ser nulo"),
-                Objects.requireNonNull(liquidacaoId, "liquidacaoId não pode ser nulo"),
-                Objects.requireNonNull(dataCompetencia, "dataCompetencia não pode ser nula"),
+                Validacoes.exigirNaoNulo(id, "id"),
+                Validacoes.exigirNaoNulo(enteId, "enteId"),
+                Validacoes.exigirNaoNulo(liquidacaoId, "liquidacaoId"),
+                Validacoes.exigirNaoNulo(dataCompetencia, "dataCompetencia"),
                 valor,
                 natureza,
                 beneficiario,
                 ordemBancaria,
                 Liquidacao.textoObrigatorio(historico, "histórico"),
-                Objects.requireNonNull(fatoContabilId, "fatoContabilId não pode ser nulo"));
+                Validacoes.exigirNaoNulo(fatoContabilId, "fatoContabilId"));
     }
 
     public static void validarEntrada(
@@ -80,9 +80,9 @@ public final class Pagamento {
             Optional<String> ordemBancaria,
             String historico) {
         Liquidacao.validarValor(valor, "valor do pagamento");
-        Objects.requireNonNull(natureza, "natureza não pode ser nula");
-        Objects.requireNonNull(beneficiario, "beneficiario não pode ser nulo");
-        Objects.requireNonNull(ordemBancaria, "ordemBancaria não pode ser nula");
+        Validacoes.exigirNaoNulo(natureza, "natureza");
+        Validacoes.exigirNaoNulo(beneficiario, "beneficiario");
+        Validacoes.exigirNaoNulo(ordemBancaria, "ordemBancaria");
         if (natureza != NaturezaPagamento.FOLHA_CONSOLIDADA && beneficiario.isEmpty()) {
             throw new ExecucaoInvalidaException(
                     "beneficiario_obrigatorio", "pagamento orçamentário exige beneficiário nominal");

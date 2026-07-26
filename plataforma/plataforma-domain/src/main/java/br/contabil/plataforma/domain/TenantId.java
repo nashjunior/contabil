@@ -1,7 +1,6 @@
 package br.contabil.plataforma.domain;
 
 import java.io.Serializable;
-import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -19,7 +18,7 @@ public record TenantId(UUID valor) implements Serializable {
     private static final long serialVersionUID = 1L;
 
     public TenantId {
-        Objects.requireNonNull(valor, "TenantId não pode ser nulo");
+        Validacoes.exigirNaoNulo(valor, "TenantId");
     }
 
     public static TenantId de(String uuid) {

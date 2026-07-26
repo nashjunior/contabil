@@ -8,8 +8,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import br.contabil.plataforma.domain.TenantId;
-import br.contabil.razao.domain.PeriodoEncerradoException;
 import br.contabil.razao.domain.PeriodoContabilId;
+import br.contabil.razao.domain.PeriodoEncerradoException;
 import br.contabil.razao.domain.repository.PeriodoContabilPort;
 
 /**

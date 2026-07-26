@@ -1,12 +1,14 @@
 package br.contabil.plataforma.infra.entrega;
 
-import br.contabil.plataforma.domain.ChaveIdempotencia;
-import br.contabil.plataforma.domain.entrega.ServicoEntrega;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
+
+import br.contabil.plataforma.domain.ChaveIdempotencia;
+import br.contabil.plataforma.domain.entrega.ServicoEntrega;
 
 /**
  * Adapter Postgres do outbox de entrega garantida (ADR-0004/0011). {@code enqueue}
