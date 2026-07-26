@@ -1,16 +1,20 @@
 package br.contabil.razao.infra;
 
+import java.time.Clock;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
 import br.contabil.plataforma.domain.iam.ControleAcesso;
 import br.contabil.razao.application.ConsultarSaldo;
 import br.contabil.razao.application.EstornarFatoContabil;
+import br.contabil.razao.application.GerarBalancete;
 import br.contabil.razao.application.RegistrarFatoContabil;
+import br.contabil.razao.domain.repository.BalancetePort;
 import br.contabil.razao.domain.repository.ConsultaSaldoPort;
 import br.contabil.razao.domain.repository.ContadorFatoPort;
 import br.contabil.razao.domain.repository.FatoContabilRepository;
 import br.contabil.razao.domain.repository.PeriodoContabilPort;
-import java.time.Clock;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
 /**
  * Wiring dos use cases do razão (ADR-0002 / AGENTS.md).
@@ -53,5 +57,11 @@ public class RazaoConfiguracao {
     @Bean
     public ConsultarSaldo consultarSaldo(ControleAcesso controleAcesso, ConsultaSaldoPort consultaSaldo) {
         return new ConsultarSaldo(controleAcesso, consultaSaldo);
+    }
+
+    /** RAZ-97: balancete de encerramento/comparativo entre períodos. */
+    @Bean
+    public GerarBalancete gerarBalancete(ControleAcesso controleAcesso, BalancetePort balancete) {
+        return new GerarBalancete(controleAcesso, balancete);
     }
 }
