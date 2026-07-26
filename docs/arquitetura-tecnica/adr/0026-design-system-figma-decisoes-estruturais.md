@@ -17,6 +17,10 @@
 
 O escopo travado em (3) previa qualquer extensão como "revisão futura deste ADR". Ao montar as telas do RAZ-102, nenhum dos 10 componentes nem a biblioteca "Simple Design System" (já anexada ao arquivo) cobria sinalização de lacuna de API na própria tela — busca confirmada via `search_design_system` antes de criar algo novo (feedback do board em RAZ-102: reusar o que existe, criar só o que não existe). Adicionado o 11º componente **Aviso de Gap (API)** (`Nível=Crítico|Atenção`), página própria `10 Aviso de Gap (API)`. Não muda nenhuma das 3 decisões originais (terminologia "Devolvida", tenant do Figma, ausência de dark mode/Code Connect/lote no Gate) — só estende o inventário de componentes. Detalhe em [design-system-tokens-componentes.md](../design-system-tokens-componentes.md).
 
+## Atualização (RAZ-112)
+
+Mesmo princípio da atualização RAZ-102: ao montar as telas de consultas/relatórios (saldo/balancete/execução, RAZ-112), `search_design_system` confirmou que "Table" na biblioteca "Simple Design System" é só um ícone, não um componente de dados — nenhum dos 11 componentes existentes cobria uma tabela de relatório somente-leitura (o componente 7, `Tabela — Seleção em Lote`, é especificamente do lote de pagamento, com checkbox). Adicionado o 12º componente **Tabela — Balancete** (colunas fixas, espelha `LinhaBalancete`/RAZ-101), página própria `11 Tabela — Balancete (RAZ-112)`. Não muda nenhuma das 3 decisões originais nem a atualização RAZ-102 — só estende o inventário. Detalhe em [design-system-tokens-componentes.md](../design-system-tokens-componentes.md).
+
 ---
 
 [← ADRs](./README.md) · [design-system-tokens-componentes](../design-system-tokens-componentes.md) · [fluxo-execucao-operador-contrato-api](../fluxo-execucao-operador-contrato-api.md) · [ADR-0023](./0023-gate-aprovacao-pagamento-segregacao.md)
