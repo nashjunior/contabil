@@ -23,6 +23,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
 import br.contabil.razao.domain.Balancete;
+import br.contabil.razao.domain.ContaContabilId;
 import br.contabil.razao.domain.LinhaBalancete;
 import br.contabil.razao.infra.PostgresBalancetePort;
 
@@ -216,7 +217,7 @@ class BalanceteConformidadeIntegrationTest {
         Balancete balanceteC = consultarBalancete(enteC, enteC, 2026, 1);
         assertThat(balanceteC.linhas()).hasSize(2);
         LinhaBalancete linhaCaixaC = linha(balanceteC, "BAL3-1.1.1");
-        assertThat(linhaCaixaC.contaId()).isEqualTo(UUID.fromString(caixaC));
+        assertThat(linhaCaixaC.contaId()).isEqualTo(new ContaContabilId(UUID.fromString(caixaC)));
         assertThat(linhaCaixaC.saldoAtual()).isEqualTo(Dinheiro.de("900.00"));
 
         Balancete balanceteDVistoDeD = consultarBalancete(enteD, enteD, 2026, 1);

@@ -106,10 +106,11 @@ public class ExecucaoContabilPortAdapter implements ExecucaoContabilPort {
      */
     @Override
     public UUID registrarLiquidacao(SolicitacaoEscrituracaoLiquidacao solicitacao) {
-        UUID contaVpd = resolverConta(solicitacao.enteId(), CODIGO_VPD);
-        UUID contaFornecedoresAPagar = resolverConta(solicitacao.enteId(), CODIGO_FORNECEDORES_A_PAGAR);
-        UUID contaEmpenhadoALiquidar = resolverConta(solicitacao.enteId(), CODIGO_CREDITO_EMPENHADO_A_LIQUIDAR);
-        UUID contaEmpenhadoLiquidadoAPagar = resolverConta(solicitacao.enteId(), CODIGO_EMPENHADO_LIQUIDADO_A_PAGAR);
+        ContaContabilId contaVpd = resolverConta(solicitacao.enteId(), CODIGO_VPD);
+        ContaContabilId contaFornecedoresAPagar = resolverConta(solicitacao.enteId(), CODIGO_FORNECEDORES_A_PAGAR);
+        ContaContabilId contaEmpenhadoALiquidar = resolverConta(solicitacao.enteId(), CODIGO_CREDITO_EMPENHADO_A_LIQUIDAR);
+        ContaContabilId contaEmpenhadoLiquidadoAPagar =
+                resolverConta(solicitacao.enteId(), CODIGO_EMPENHADO_LIQUIDADO_A_PAGAR);
 
         List<Lancamento> lancamentos = List.of(
                 Lancamento.de(contaVpd, Natureza.DEBITO, solicitacao.valor()),
@@ -117,7 +118,7 @@ public class ExecucaoContabilPortAdapter implements ExecucaoContabilPort {
                 Lancamento.de(contaEmpenhadoLiquidadoAPagar, Natureza.CREDITO, solicitacao.valor()),
                 Lancamento.de(contaEmpenhadoALiquidar, Natureza.DEBITO, solicitacao.valor()));
 
-        UUID periodoId = periodoContabil.periodoAbertoPara(solicitacao.enteId(), solicitacao.dataCompetencia());
+        var periodoId = periodoContabil.periodoAbertoPara(solicitacao.enteId(), solicitacao.dataCompetencia());
         long numeroSeq = contadorFato.proximoNumeroSeq(solicitacao.enteId());
 
         FatoContabil fato = FatoContabil.registrar(
@@ -132,7 +133,7 @@ public class ExecucaoContabilPortAdapter implements ExecucaoContabilPort {
                 clock);
 
         fatoContabilRepositorio.inserir(fato);
-        return fato.id();
+        return fato.id().valor();
     }
 
     /**
@@ -142,10 +143,11 @@ public class ExecucaoContabilPortAdapter implements ExecucaoContabilPort {
      */
     @Override
     public UUID registrarPagamento(SolicitacaoEscrituracaoPagamento solicitacao) {
-        UUID contaFornecedoresAPagar = resolverConta(solicitacao.enteId(), CODIGO_FORNECEDORES_A_PAGAR);
-        UUID contaCaixaEBancos = resolverConta(solicitacao.enteId(), CODIGO_CAIXA_E_BANCOS);
-        UUID contaEmpenhadoLiquidadoAPagar = resolverConta(solicitacao.enteId(), CODIGO_EMPENHADO_LIQUIDADO_A_PAGAR);
-        UUID contaEmpenhadoPago = resolverConta(solicitacao.enteId(), CODIGO_EMPENHADO_PAGO);
+        ContaContabilId contaFornecedoresAPagar = resolverConta(solicitacao.enteId(), CODIGO_FORNECEDORES_A_PAGAR);
+        ContaContabilId contaCaixaEBancos = resolverConta(solicitacao.enteId(), CODIGO_CAIXA_E_BANCOS);
+        ContaContabilId contaEmpenhadoLiquidadoAPagar =
+                resolverConta(solicitacao.enteId(), CODIGO_EMPENHADO_LIQUIDADO_A_PAGAR);
+        ContaContabilId contaEmpenhadoPago = resolverConta(solicitacao.enteId(), CODIGO_EMPENHADO_PAGO);
 
         List<Lancamento> lancamentos = List.of(
                 Lancamento.de(contaFornecedoresAPagar, Natureza.DEBITO, solicitacao.valor()),
@@ -153,7 +155,7 @@ public class ExecucaoContabilPortAdapter implements ExecucaoContabilPort {
                 Lancamento.de(contaEmpenhadoPago, Natureza.CREDITO, solicitacao.valor()),
                 Lancamento.de(contaEmpenhadoLiquidadoAPagar, Natureza.DEBITO, solicitacao.valor()));
 
-        UUID periodoId = periodoContabil.periodoAbertoPara(solicitacao.enteId(), solicitacao.dataCompetencia());
+        var periodoId = periodoContabil.periodoAbertoPara(solicitacao.enteId(), solicitacao.dataCompetencia());
         long numeroSeq = contadorFato.proximoNumeroSeq(solicitacao.enteId());
 
         FatoContabil fato = FatoContabil.registrar(
@@ -168,7 +170,7 @@ public class ExecucaoContabilPortAdapter implements ExecucaoContabilPort {
                 clock);
 
         fatoContabilRepositorio.inserir(fato);
-        return fato.id();
+        return fato.id().valor();
     }
 
     private ContaContabilId resolverConta(TenantId enteId, String codigoPcasp) {
