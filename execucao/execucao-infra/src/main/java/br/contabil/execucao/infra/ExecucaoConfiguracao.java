@@ -9,6 +9,8 @@ import org.springframework.context.annotation.Configuration;
 import br.contabil.execucao.application.AprovarPagamento;
 import br.contabil.execucao.application.AssinarEmpenho;
 import br.contabil.execucao.application.ConsultarExecucaoOrcamentaria;
+import br.contabil.execucao.application.ConsultarFilaAprovacao;
+import br.contabil.execucao.application.ConsultarTrilhaLiquidacao;
 import br.contabil.execucao.application.IngerirDotacoes;
 import br.contabil.execucao.application.PublicacaoTransparenciaExecucaoPort;
 import br.contabil.execucao.application.PublicadorTransparenciaExecucao;
@@ -22,12 +24,14 @@ import br.contabil.execucao.domain.repository.DotacaoRepository;
 import br.contabil.execucao.domain.repository.EmpenhoRepository;
 import br.contabil.execucao.domain.repository.ExecucaoContabilPort;
 import br.contabil.execucao.domain.repository.ExecucaoOrcamentariaPeriodoPort;
+import br.contabil.execucao.domain.repository.FilaAprovacaoQuery;
 import br.contabil.execucao.domain.repository.LiquidacaoRepository;
 import br.contabil.execucao.domain.repository.PagamentoRepository;
 import br.contabil.execucao.domain.repository.SaldosExecucaoPort;
 import br.contabil.plataforma.domain.assinatura.NivelAssinaturaExigidoPort;
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura;
 import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
+import br.contabil.plataforma.domain.auditoria.AuditoriaLeitura;
 import br.contabil.plataforma.domain.entrega.ServicoEntrega;
 import br.contabil.plataforma.domain.iam.ControleAcesso;
 import br.contabil.plataforma.domain.mascaramento.ServicoMascaramento;
@@ -138,6 +142,20 @@ public class ExecucaoConfiguracao {
     public ConsultarExecucaoOrcamentaria consultarExecucaoOrcamentaria(
             ControleAcesso controleAcesso, ExecucaoOrcamentariaPeriodoPort execucaoOrcamentaria) {
         return new ConsultarExecucaoOrcamentaria(controleAcesso, execucaoOrcamentaria);
+    }
+
+    /** RAZ-115/ADR-0029 §1: fila de aprovação (read model), segregação Regra 9 imposta na query. */
+    @Bean
+    public ConsultarFilaAprovacao consultarFilaAprovacao(
+            ControleAcesso controleAcesso, FilaAprovacaoQuery filaAprovacao) {
+        return new ConsultarFilaAprovacao(controleAcesso, filaAprovacao);
+    }
+
+    /** RAZ-115/ADR-0029 §3: trilha de auditoria da liquidação, servida por {@link AuditoriaLeitura}. */
+    @Bean
+    public ConsultarTrilhaLiquidacao consultarTrilhaLiquidacao(
+            ControleAcesso controleAcesso, AuditoriaLeitura auditoriaLeitura) {
+        return new ConsultarTrilhaLiquidacao(controleAcesso, auditoriaLeitura);
     }
 
     @Bean

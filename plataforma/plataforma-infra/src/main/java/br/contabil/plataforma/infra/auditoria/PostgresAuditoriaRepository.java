@@ -103,6 +103,10 @@ public class PostgresAuditoriaRepository implements AuditoriaEscrita, AuditoriaL
             where.append(" and ator = ?");
             parametros.add(ator);
         });
+        filtro.recurso().ifPresent(recurso -> {
+            where.append(" and recurso = ?");
+            parametros.add(recurso);
+        });
 
         Long total = jdbcTemplate.queryForObject(
                 "select count(*) from auditoria_evento" + where,

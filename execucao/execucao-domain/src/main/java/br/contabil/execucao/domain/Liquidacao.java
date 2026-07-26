@@ -154,9 +154,7 @@ public final class Liquidacao {
 
     private void exigirPendente() {
         if (statusAprovacao != StatusAprovacao.PENDENTE) {
-            throw new ExecucaoInvalidaException(
-                    "liquidacao_ja_decidida",
-                    "liquidação %s já foi decidida (status atual: %s)".formatted(id.valor(), statusAprovacao));
+            throw new LiquidacaoJaDecididaException(id, statusAprovacao);
         }
     }
 

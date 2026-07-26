@@ -10,6 +10,9 @@ import org.springframework.http.HttpStatus;
 
 import br.contabil.assinatura.AssinaturaGovBrOAuthProvedorIndisponivelException;
 import br.contabil.execucao.domain.ExecucaoInvalidaException;
+import br.contabil.execucao.domain.LiquidacaoId;
+import br.contabil.execucao.domain.LiquidacaoJaDecididaException;
+import br.contabil.execucao.domain.StatusAprovacao;
 import br.contabil.plataforma.domain.TenantId;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.DesafioMfa;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.MfaRequeridoException;
@@ -56,6 +59,15 @@ class ErroContratoExceptionHandlerTest {
         assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(resposta.getBody().codigo()).isEqualTo("periodo_invalido");
         assertThat(resposta.getBody().mensagem()).isEqualTo("mes fora do intervalo");
+    }
+
+    @Test
+    void liquidacaoJaDecididaDevolve409ComCodigoDoContrato() {
+        var resposta = handler.conflitoDeSaldoOuEstado(
+                new LiquidacaoJaDecididaException(LiquidacaoId.novo(), StatusAprovacao.APROVADA));
+
+        assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(resposta.getBody().codigo()).isEqualTo("liquidacao_ja_decidida");
     }
 
     @Test

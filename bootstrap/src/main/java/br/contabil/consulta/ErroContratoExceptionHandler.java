@@ -14,6 +14,7 @@ import br.contabil.assinatura.AssinaturaGovBrOAuthProvedorIndisponivelException;
 import br.contabil.execucao.domain.AutoAprovacaoNaoPermitidaException;
 import br.contabil.execucao.domain.EmpenhoAssinaturaConflitanteException;
 import br.contabil.execucao.domain.ExecucaoInvalidaException;
+import br.contabil.execucao.domain.LiquidacaoJaDecididaException;
 import br.contabil.execucao.domain.PagamentoNaoAprovadoException;
 import br.contabil.execucao.domain.SaldoInsuficienteException;
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.CertificadoInvalidoException;
@@ -71,9 +72,15 @@ class ErroContratoExceptionHandler {
      * RAZ-105/RAZ-79 §6.1: "conflito de saldo/estado" é {@code 409}, mais específico que o
      * {@code 400} genérico de {@link #execucaoInvalida} — cobre também {@link
      * AutoAprovacaoNaoPermitidaException} (viola a segregação de funções da Regra 9, um conflito de
-     * estado da liquidação, não um payload malformado).
+     * estado da liquidação, não um payload malformado) e {@link LiquidacaoJaDecididaException}
+     * (dupla decisão sobre a mesma liquidação — ADR-0029 §4, mapeado por tipo, não por string).
      */
-    @ExceptionHandler({SaldoInsuficienteException.class, PagamentoNaoAprovadoException.class, AutoAprovacaoNaoPermitidaException.class})
+    @ExceptionHandler({
+        SaldoInsuficienteException.class,
+        PagamentoNaoAprovadoException.class,
+        AutoAprovacaoNaoPermitidaException.class,
+        LiquidacaoJaDecididaException.class
+    })
     ResponseEntity<ErroResponse> conflitoDeSaldoOuEstado(ExecucaoInvalidaException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(corpo(e.codigo(), e));
     }

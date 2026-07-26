@@ -145,12 +145,13 @@ class LiquidacaoTest {
     }
 
     @Test
-    @DisplayName("estado forte: liquidação já decidida não pode ser aprovada/devolvida de novo")
+    @DisplayName("estado forte: liquidação já decidida não pode ser aprovada/devolvida de novo (409 — ADR-0029)")
     void rejeitaDecisaoSobreLiquidacaoJaDecidida() {
         Liquidacao aprovada = liquidacaoValida().aprovar(aprovador, autorEmpenho);
 
         assertThatThrownBy(() -> aprovada.devolver(aprovador, autorEmpenho, "motivo qualquer"))
-                .isInstanceOf(ExecucaoInvalidaException.class)
+                .isInstanceOf(LiquidacaoJaDecididaException.class)
+                .hasFieldOrPropertyWithValue("codigo", "liquidacao_ja_decidida")
                 .hasMessageContaining("já foi decidida");
     }
 
