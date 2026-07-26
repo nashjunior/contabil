@@ -3,6 +3,8 @@
 [← Índice](./README.md)
 
 > **Escopo:** este anexo detalha as entidades da **execução da despesa** (empenho, liquidação, pagamento) e suas cardinalidades, conforme a **Lei nº 4.320/1964**. O **razão contábil de dupla entrada é o núcleo** do modelo (ver [Razão contábil (núcleo)](#razão-contábil-núcleo)) — a execução da despesa é escriturada como fatos e lançamentos nesse razão, não como domínio lateral. Demais domínios (receita, patrimônio, integrações) serão acrescentados em versões futuras. Complementa o [fluxo 2](./04-fluxos.md#2-execução-da-despesa) e as [regras de negócio](./05-regras-de-negocio.md).
+>
+> **Design do domínio/aplicação** (agregados, saldos operacionais vs. contábeis, roteiro de contabilização evento→fato, fronteiras execução × razão × plataforma): **[execução orçamentária da despesa](./arquitetura-tecnica/execucao-orcamentaria-despesa.md)** ([ADR-0021](./arquitetura-tecnica/adr/0021-contabilizacao-execucao-despesa.md)) — assim como o [motor de partidas dobradas](./arquitetura-tecnica/motor-razao-partidas-dobradas.md) é a contraparte de design do razão.
 
 ## Diagrama de entidades
 
