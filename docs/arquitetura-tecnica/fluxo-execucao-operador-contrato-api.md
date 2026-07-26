@@ -4,7 +4,7 @@
 
 > Design de **produto/UX** (RAZ-79) sobre o domínio já modelado em [RAZ-65](./execucao-orcamentaria-despesa.md) e parcialmente implementado (RAZ-66 empenho *in progress*, RAZ-67 liquidação/pagamento *done*). Objetivo: mapear o fluxo do **operador** (não do agregado) — quem faz o quê, em que tela, com que payload — e fechar o **contrato de API** que a UI vai consumir. **Este documento não constrói tela**; é o contrato contra o qual a tela nasce depois.
 >
-> **Ratificado (RAZ-88, Aurélio, 2026-07-26):** a decisão de lote (§4) foi confirmada sem ajuste em [ADR-0022](./adr/0022-lote-pagamento-contrato-api-execucao.md) (Aceita). O gate de aprovação (§2/§6.6), que este documento deixava como proposta em aberto, foi decidido em [ADR-0023](./adr/0023-gate-aprovacao-pagamento-segregacao.md) (Aceita): é um segundo gate transacional, não só RBAC. O contrato abaixo pode ser tratado como **definitivo**; a materialização do gate no backend foi entregue em **RAZ-92** (`AprovarPagamento` + pré-condição em `RegistrarPagamento` — falta só o controller HTTP, mesma lacuna dos demais endpoints de execução).
+> **Ratificado (RAZ-88, Aurélio, 2026-07-26):** a decisão de lote (§4) foi confirmada sem ajuste em [ADR-0022](./adr/0022-lote-pagamento-contrato-api-execucao.md) (Aceita). O gate de aprovação (§2/§6.6), que este documento deixava como proposta em aberto, foi decidido em [ADR-0023](./adr/0023-gate-aprovacao-pagamento-segregacao.md) (Aceita): é um segundo gate transacional, não só RBAC. O contrato abaixo pode ser tratado como **definitivo**; a materialização do gate no backend foi entregue em **RAZ-92** (`AprovarPagamento` + pré-condição em `RegistrarPagamento`) e o **controller HTTP em RAZ-105** (mesclado em `master`, `POST .../aprovacao`). O **contrato de leitura** do gate (fila + trilha) foi ratificado em [ADR-0029](./adr/0029-contrato-leitura-fila-aprovacao-trilha.md) (§6.7) — implementação `[BE]` delegada.
 
 ---
 
@@ -197,7 +197,8 @@ Pergunta do issue: **o operador empenha/liquida/paga em lote?** A resposta não 
 - **Dinheiro:** sempre **string decimal** de 2 casas no JSON (`"1234.50"`, nunca `1234.5` numérico — evita o cliente HTTP desserializar como float). Espelha `Dinheiro`/`NUMERIC(18,2)` ([ADR-0006](./adr/0006-dinheiro-decimal.md)).
 - **Datas:** `LocalDate` → `"YYYY-MM-DD"`. Sem timestamp de cliente em nenhum payload — data-hora de registro é sempre o relógio do servidor (Regra 2); o cliente nunca envia "agora".
 - **IDs:** UUID como string.
-- **Paginação:** `?cursor=&limit=` (cursor opaco, não offset — evita o problema clássico de página deslizando sob escrita concorrente numa lista que cresce o tempo todo). Resposta de lista: `{ "itens": [...], "proximoCursor": "..." | null }`. `limit` default 20, máx. 100.
+- **Paginação:** `?cursor=&limit=` (cursor opaco, não offset — evita o problema clássico de página deslizando sob escrita concorrente numa lista que cresce o tempo todo). Resposta de lista: `{ "itens": [...], "proximoCursor": "..." | null }`. `limit` default 20, máx. 100. **Vale para *lista* — coleção append-only ilimitada** (empenhos, liquidações, pagamentos, catálogo de contas). **Não vale para *demonstrativo*** — relatório de período cuja totalização (`Σ`/`confere`) é propriedade do conjunto *inteiro* (balancete): demonstrativo é payload único com cabeçalho + linhas + rodapé, sem cursor ([ADR-0030](./adr/0030-contrato-consultas-razao-convergencia-79.md) §4).
+- **Alcance das convenções (leitura tanto quanto escrita):** dinheiro-string e o envelope de erro abaixo valem para **toda** resposta da API, inclusive as consultas de leitura — o hazard de float e a taxonomia única de erro são, aliás, sobretudo problemas de leitura (é o cliente que parseia). As consultas da RAZ-101 (§6.8) convergem para cá ([ADR-0030](./adr/0030-contrato-consultas-razao-convergencia-79.md)).
 - **Erros:** envelope único, o `codigo` é o mesmo `ErroContrato.codigo()` que já existe no domínio — **não se inventa uma segunda taxonomia na borda HTTP**:
 
   ```json
@@ -409,12 +410,48 @@ Acao: LER sobre execucao:liquidacao (trilha de auditoria — ADR-0005)
 
 ---
 
+### 6.8 Consultas do razão e da execução (RAZ-101) — convergência do contrato
+
+As três consultas já implementadas e testadas na RAZ-101 nasceram antes deste contrato ser lido e derivaram do §6.1 em três pontos; a triagem da RAZ-114 fixou a convergência em [ADR-0030](./adr/0030-contrato-consultas-razao-convergencia-79.md). Contrato-alvo:
+
+```
+GET /entes/{enteId}/razao/saldo?contaId=            (Acao: LER, sem MFA)
+→ 200 { "contaId": "...", "saldo": "128450.00" }        # dinheiro string (§6.1), não número
+→ 404 { "codigo": "conta_nao_encontrada", ... }         # conta inexistente ≠ saldo zero (gap 2)
+
+GET /entes/{enteId}/razao/balancete?exercicio=&mes=  (Acao: LER)  — DEMONSTRATIVO, não lista: sem cursor
+→ 200 {
+    "exercicio": 2026, "mes": 7,
+    "linhas": [ { "contaId": "...", "codigo": "1.1.1", "descricao": "Caixa e bancos",
+                  "naturezaSaldo": "D",                  # exposto para a UI decidir devedor/credor (gap 6)
+                  "saldoAnterior": "0.00", "movimentoDebito": "1000.00",
+                  "movimentoCredito": "0.00", "saldoAtual": "1000.00" } ],
+    "totalMovimentoDebito": "1000.00", "totalMovimentoCredito": "1000.00",
+    "confere": true                                       # Σdébito=Σcrédito sobre o conjunto INTEIRO
+  }
+
+GET /entes/{enteId}/razao/contas?busca=&cursor=&limit=   (Acao: LER)  — LISTA (§6.1): catálogo PCASP, NOVO
+→ 200 { "itens": [ { "id": "...", "codigo": "1.1.1", "descricao": "Caixa e bancos",
+                     "naturezaSaldo": "D", "naturezaInformacao": "patrimonial",
+                     "escrituravel": true, "contaPaiId": "..." } ],
+        "proximoCursor": null }                           # busca = prefixo de código OU descricao ilike
+
+GET /entes/{enteId}/execucao/orcamentaria?exercicio=&mes=  (Acao: LER)
+→ 200 { "exercicio": 2026, "mes": 7, "totalEmpenhado": "12300.00", "totalLiquidado": "4200.00",
+        "totalPago": "0.00", "saldoALiquidar": "8100.00", "saldoAPagar": "4200.00" }  # tudo string
+```
+
+- **Dinheiro string** nas 4 respostas (era `BigDecimal` cru → número JSON). **Envelope de erro** `{codigo, mensagem, detalhes}` (era `{"erro": "..."}`) — mesma taxonomia do domínio, `mfa_requerido`→`428`. Ambos herdados do §6.1.
+- **`/razao/contas` é o catálogo que faltava**: `/saldo` exige um `contaId` UUID que o operador não descobria sozinho. É uma *lista* §6.1 (paginada); o balancete **não** (é demonstrativo).
+- Backend delegado: convergência (dinheiro/envelope/`natureza_saldo`) e catálogo+existência são duas issues filhas de backend da RAZ-114.
+
 ## 7. Abertos e riscos
 
 - **`Dotacao` como agregado não existe em código ainda** (só `DotacaoId`/`SaldoDotacao`) — a carga da LOA que popula `valorAutorizado` é pré-requisito funcional de qualquer tela de empenho e não está desenhada aqui (seguir ADR-0013 quando for feita — é ingestão em lote legítima, diferente da decisão do §4).
 - **Gate de `APROVAR` para pagamento — escrita em produção (RAZ-92 + RAZ-105).** `AprovarPagamento` + pré-condição em `RegistrarPagamento` (`pagamento_nao_aprovado`) e o `LiquidacaoController` (`POST .../aprovacao`) + beans + V8 estão **mesclados em `master`** (merge `4fba4ce`); o front-end pode apontar para o endpoint de escrita. **Leitura** (fila + trilha) ratificada em [ADR-0029](./adr/0029-contrato-leitura-fila-aprovacao-trilha.md)/§6.7 e delegada ao backend (RAZ-113 → issue filha `[BE]`) — ainda **não** implementada; front-end não deve assumir os GETs disponíveis antes do wiring chegar.
 - **Alçada por valor** (quem pode aprovar até que teto) explicitamente **fora da v1** por ADR-0023 — não está modelada em nenhum port hoje; se o produto quiser diferenciar alçada por cargo/valor, é RBAC com atributo extra (ABAC), decisão futura própria.
 - **Reforço/anulação de empenho e estorno** ficam fora deste contrato (RAZ-65 já os marca como issues próprias) — quando chegarem, seguem a mesma convenção (endpoint de ação, não PATCH).
+- **Consultas RAZ-101 ainda não convergidas em código** (RAZ-114/[ADR-0030](./adr/0030-contrato-consultas-razao-convergencia-79.md)): as respostas de `/razao/saldo`, `/razao/balancete` e `/execucao/orcamentaria` hoje serializam dinheiro como número e usam o envelope `{"erro"}` — o §6.8 é o alvo, a implementação está em duas issues filhas de backend (convergência; e catálogo PCASP + validação de existência). O front-end das telas de consulta (RAZ-112) não deve assumir o contrato do §6.8 antes de o wiring chegar.
 - Números de exemplo (`2026NE00341`, `2026LQ00118`) nos wireframes são ilustrativos — o formato canônico de exibição do número sequencial (prefixo por tipo de documento) ainda não foi decidido em nenhum ADR; **revalidar com Aurélio** antes de fixar em tela real.
 
 ---
