@@ -1,9 +1,12 @@
 package br.contabil.execucao.application;
 
+import br.contabil.execucao.domain.ContratoId;
+import br.contabil.execucao.domain.CredorId;
 import br.contabil.execucao.domain.DotacaoId;
 import br.contabil.execucao.domain.Empenho;
 import br.contabil.execucao.domain.EmpenhoId;
 import br.contabil.execucao.domain.TipoEmpenho;
+import br.contabil.execucao.domain.UnidadeGestoraId;
 import br.contabil.execucao.domain.repository.ContadorEmpenhoPort;
 import br.contabil.execucao.domain.repository.EmpenhoRepository;
 import br.contabil.execucao.domain.repository.ExecucaoContabilPort;
@@ -69,9 +72,9 @@ public class RegistrarEmpenho {
             TenantId enteId,
             DotacaoId dotacaoId,
             TipoEmpenho tipo,
-            UUID credorId,
-            UUID unidadeGestoraId,
-            UUID contratoId,
+            CredorId credorId,
+            UnidadeGestoraId unidadeGestoraId,
+            ContratoId contratoId,
             Dinheiro valor,
             LocalDate dataFato,
             int exercicio,

@@ -1,9 +1,12 @@
 package br.contabil.execucao.infra;
 
+import br.contabil.execucao.domain.ContratoId;
+import br.contabil.execucao.domain.CredorId;
 import br.contabil.execucao.domain.DotacaoId;
 import br.contabil.execucao.domain.Empenho;
 import br.contabil.execucao.domain.EmpenhoId;
 import br.contabil.execucao.domain.TipoEmpenho;
+import br.contabil.execucao.domain.UnidadeGestoraId;
 import br.contabil.execucao.domain.repository.EmpenhoRepository;
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
@@ -53,9 +56,9 @@ public class PostgresEmpenhoRepository implements EmpenhoRepository {
                 empenho.exercicio(),
                 empenho.tipo().codigo(),
                 empenho.dotacaoId().valor(),
-                empenho.credorId(),
-                empenho.unidadeGestoraId(),
-                empenho.contratoId(),
+                empenho.credorId().valor(),
+                empenho.unidadeGestoraId().valor(),
+                empenho.contratoId() == null ? null : empenho.contratoId().valor(),
                 empenho.valor().valor(),
                 empenho.dataFato(),
                 empenho.classificacaoOrcamentaria(),
@@ -72,6 +75,7 @@ public class PostgresEmpenhoRepository implements EmpenhoRepository {
     }
 
     private static Empenho mapear(TenantId enteId, ResultSet rs) throws SQLException {
+        UUID contratoIdRaw = rs.getObject("contrato_id", UUID.class);
         return Empenho.registrar(
                 new EmpenhoId(rs.getObject("id", UUID.class)),
                 enteId,
@@ -79,9 +83,9 @@ public class PostgresEmpenhoRepository implements EmpenhoRepository {
                 rs.getInt("exercicio"),
                 TipoEmpenho.deCodigo(rs.getString("tipo")),
                 new DotacaoId(rs.getObject("dotacao_id", UUID.class)),
-                rs.getObject("credor_id", UUID.class),
-                rs.getObject("unidade_gestora_id", UUID.class),
-                (UUID) rs.getObject("contrato_id"),
+                new CredorId(rs.getObject("credor_id", UUID.class)),
+                new UnidadeGestoraId(rs.getObject("unidade_gestora_id", UUID.class)),
+                contratoIdRaw == null ? null : new ContratoId(contratoIdRaw),
                 new Dinheiro(rs.getBigDecimal("valor")),
                 rs.getDate("data_fato").toLocalDate(),
                 rs.getString("classificacao_orcamentaria"),

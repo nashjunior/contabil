@@ -9,12 +9,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import br.contabil.execucao.domain.CredorId;
 import br.contabil.execucao.domain.DotacaoId;
 import br.contabil.execucao.domain.Empenho;
 import br.contabil.execucao.domain.ExecucaoInvalidaException;
 import br.contabil.execucao.domain.SaldoDotacao;
 import br.contabil.execucao.domain.SaldoInsuficienteException;
 import br.contabil.execucao.domain.TipoEmpenho;
+import br.contabil.execucao.domain.UnidadeGestoraId;
 import br.contabil.execucao.domain.repository.ContadorEmpenhoPort;
 import br.contabil.execucao.domain.repository.EmpenhoRepository;
 import br.contabil.execucao.domain.repository.ExecucaoContabilPort;
@@ -74,8 +76,8 @@ class RegistrarEmpenhoTest {
 
     private final TenantId enteId = TenantId.de(UUID.randomUUID().toString());
     private final DotacaoId dotacaoId = DotacaoId.novo();
-    private final UUID credorId = UUID.randomUUID();
-    private final UUID unidadeGestoraId = UUID.randomUUID();
+    private final CredorId credorId = CredorId.novo();
+    private final UnidadeGestoraId unidadeGestoraId = UnidadeGestoraId.novo();
     private final LocalDate dataFato = LocalDate.of(2026, 7, 20);
     private static final Recurso RECURSO = new Recurso("execucao:empenho");
 

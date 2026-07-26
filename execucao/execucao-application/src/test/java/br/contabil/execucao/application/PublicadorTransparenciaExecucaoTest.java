@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import br.contabil.execucao.domain.Beneficiario;
+import br.contabil.execucao.domain.CredorId;
 import br.contabil.execucao.domain.DocumentoSuporte;
 import br.contabil.execucao.domain.DotacaoId;
 import br.contabil.execucao.domain.Empenho;
@@ -17,6 +18,7 @@ import br.contabil.execucao.domain.NaturezaPagamento;
 import br.contabil.execucao.domain.Pagamento;
 import br.contabil.execucao.domain.PagamentoId;
 import br.contabil.execucao.domain.TipoEmpenho;
+import br.contabil.execucao.domain.UnidadeGestoraId;
 import br.contabil.plataforma.domain.ChaveIdempotencia;
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
@@ -86,8 +88,8 @@ class PublicadorTransparenciaExecucaoTest {
                 2026,
                 TipoEmpenho.ORDINARIO,
                 DotacaoId.novo(),
-                UUID.randomUUID(),
-                UUID.randomUUID(),
+                CredorId.novo(),
+                UnidadeGestoraId.novo(),
                 null,
                 Dinheiro.de("1500.00"),
                 LocalDate.of(2026, 7, 20),

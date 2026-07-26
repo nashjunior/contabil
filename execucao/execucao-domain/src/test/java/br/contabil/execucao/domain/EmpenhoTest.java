@@ -1,21 +1,23 @@
 package br.contabil.execucao.domain;
 
+import java.time.LocalDate;
+import java.time.Month;
+import java.util.UUID;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
-import java.time.LocalDate;
-import java.util.UUID;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
 
 class EmpenhoTest {
 
     private final TenantId enteId = TenantId.de(UUID.randomUUID().toString());
     private final DotacaoId dotacaoId = DotacaoId.novo();
-    private final UUID credorId = UUID.randomUUID();
-    private final UUID unidadeGestoraId = UUID.randomUUID();
+    private final CredorId credorId = CredorId.novo();
+    private final UnidadeGestoraId unidadeGestoraId = UnidadeGestoraId.novo();
 
     @Test
     @DisplayName("registra empenho ordinário com fato contábil associado")
@@ -33,7 +35,7 @@ class EmpenhoTest {
                 unidadeGestoraId,
                 null,
                 Dinheiro.de("1000.00"),
-                LocalDate.of(2026, 7, 20),
+                LocalDate.of(2026, Month.JULY, 20),
                 "04.122.0001.2001",
                 "0100000000",
                 "empenho de material de expediente",

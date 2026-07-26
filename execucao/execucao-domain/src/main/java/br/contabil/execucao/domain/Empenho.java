@@ -22,9 +22,9 @@ public final class Empenho {
     private final int exercicio;
     private final TipoEmpenho tipo;
     private final DotacaoId dotacaoId;
-    private final UUID credorId;
-    private final UUID unidadeGestoraId;
-    private final UUID contratoId;
+    private final CredorId credorId;
+    private final UnidadeGestoraId unidadeGestoraId;
+    private final ContratoId contratoId;
     private final Dinheiro valor;
     private final LocalDate dataFato;
     private final String classificacaoOrcamentaria;
@@ -39,9 +39,9 @@ public final class Empenho {
             int exercicio,
             TipoEmpenho tipo,
             DotacaoId dotacaoId,
-            UUID credorId,
-            UUID unidadeGestoraId,
-            UUID contratoId,
+            CredorId credorId,
+            UnidadeGestoraId unidadeGestoraId,
+            ContratoId contratoId,
             Dinheiro valor,
             LocalDate dataFato,
             String classificacaoOrcamentaria,
@@ -72,9 +72,9 @@ public final class Empenho {
             int exercicio,
             TipoEmpenho tipo,
             DotacaoId dotacaoId,
-            UUID credorId,
-            UUID unidadeGestoraId,
-            UUID contratoId,
+            CredorId credorId,
+            UnidadeGestoraId unidadeGestoraId,
+            ContratoId contratoId,
             Dinheiro valor,
             LocalDate dataFato,
             String classificacaoOrcamentaria,
@@ -139,15 +139,15 @@ public final class Empenho {
         return dotacaoId;
     }
 
-    public UUID credorId() {
+    public CredorId credorId() {
         return credorId;
     }
 
-    public UUID unidadeGestoraId() {
+    public UnidadeGestoraId unidadeGestoraId() {
         return unidadeGestoraId;
     }
 
-    public UUID contratoId() {
+    public ContratoId contratoId() {
         return contratoId;
     }
 
