@@ -1,18 +1,19 @@
 package br.contabil.razao.application;
 
+import java.time.Clock;
+import java.time.LocalDate;
+import java.util.NoSuchElementException;
+
 import br.contabil.plataforma.domain.TenantId;
 import br.contabil.plataforma.domain.iam.ControleAcesso;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Acao;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Recurso;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
 import br.contabil.razao.domain.FatoContabil;
+import br.contabil.razao.domain.FatoContabilId;
 import br.contabil.razao.domain.repository.ContadorFatoPort;
 import br.contabil.razao.domain.repository.FatoContabilRepository;
 import br.contabil.razao.domain.repository.PeriodoContabilPort;
-import java.time.Clock;
-import java.time.LocalDate;
-import java.util.NoSuchElementException;
-import java.util.UUID;
 
 /**
  * Caso de uso: corrige um fato consolidado por ESTORNO (Regra 3/4) — nunca por
@@ -50,7 +51,7 @@ public class EstornarFatoContabil {
     public FatoContabil executar(
             Sessao usuarioAutenticado,
             TenantId enteId,
-            UUID fatoOriginalId,
+            FatoContabilId fatoOriginalId,
             LocalDate dataCompetencia,
             String historico,
             String origem) {

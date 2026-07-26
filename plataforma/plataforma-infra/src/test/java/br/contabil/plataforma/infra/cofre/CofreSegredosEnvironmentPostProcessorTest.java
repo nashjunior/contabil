@@ -1,15 +1,14 @@
 package br.contabil.plataforma.infra.cofre;
 
+import java.time.Instant;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
-
-import br.contabil.plataforma.domain.cofre.CofreSegredos;
-import br.contabil.plataforma.domain.cofre.CofreSegredos.ContaServico;
-import br.contabil.plataforma.domain.cofre.CofreSegredos.ReferenciaSegredo;
-import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.SpringApplication;
 import org.springframework.mock.env.MockEnvironment;
+
+import br.contabil.plataforma.domain.cofre.CofreSegredos;
 
 class CofreSegredosEnvironmentPostProcessorTest {
 

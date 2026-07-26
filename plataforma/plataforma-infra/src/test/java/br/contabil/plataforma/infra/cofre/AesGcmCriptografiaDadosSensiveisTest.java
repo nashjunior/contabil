@@ -20,7 +20,7 @@ import br.contabil.plataforma.domain.cofre.CriptografiaDadosSensiveis.Referencia
 class AesGcmCriptografiaDadosSensiveisTest {
 
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-07-19T12:00:00Z"), ZoneOffset.UTC);
-    private static final ReferenciaChave CHAVE = new ReferenciaChave("cofre://siafic/f0/kms/dados-sensiveis", 3);
+    private static final ReferenciaChave CHAVE = new ReferenciaChave("cofre://siafic/f0/criptografia/dados-sensiveis", 3);
 
     @Test
     void cifraEDecifraGuardandoReferenciaDeChaveSemTextoClaro() {
@@ -71,6 +71,6 @@ class AesGcmCriptografiaDadosSensiveisTest {
     }
 
     private static ContaServico conta() {
-        return new ContaServico("crypto", Set.of("cofre://siafic/f0/kms"));
+        return new ContaServico("crypto", Set.of("cofre://siafic/f0/criptografia"));
     }
 }

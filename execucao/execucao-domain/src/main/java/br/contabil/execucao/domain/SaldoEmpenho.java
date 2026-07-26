@@ -1,7 +1,8 @@
 package br.contabil.execucao.domain;
 
-import br.contabil.plataforma.domain.Dinheiro;
 import java.util.Objects;
+
+import br.contabil.plataforma.domain.Dinheiro;
 
 /** Snapshot de saldo do empenho usado para travar liquidacao <= empenhado. */
 public record SaldoEmpenho(EmpenhoId empenhoId, Dinheiro valorEmpenhado, Dinheiro valorLiquidado) {

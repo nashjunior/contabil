@@ -18,7 +18,7 @@ O SIAFIC é o **núcleo** obrigatório, mas em torno dele há uma pilha normativ
 
 | Norma | Papel |
 | --- | --- |
-| **Lei 4.320/1964** | Normas gerais de direito financeiro; empenho, liquidação e pagamento (arts. 58–65) |
+| **Lei 4.320/1964** | Normas gerais de direito financeiro; empenho, liquidação e pagamento (arts. 58–65 — art. 58: o empenho é o ato da autoridade competente que cria a obrigação; art. 61: a nota de empenho é o documento extraído do empenho, não o ato em si — base de [ADR-0027](./arquitetura-tecnica/adr/0027-wiring-empenho-assinatura-gate-interativo.md#resolução-do-bloqueio-de-produto--raz-104)) |
 | **CF, arts. 165–169** | PPA, LDO, LOA e execução orçamentária |
 | **PCASP** | Plano de Contas Aplicado ao Setor Público — único e obrigatório para todos os entes |
 | **MCASP** (STN, edição vigente) | Manual de Contabilidade Aplicada ao Setor Público — base técnica da escrituração |

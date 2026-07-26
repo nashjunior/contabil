@@ -1,8 +1,9 @@
 package br.contabil.plataforma.infra.documento;
 
-import br.contabil.plataforma.domain.documento.ArmazenamentoDocumentos;
 import java.net.URI;
 import java.util.Objects;
+
+import br.contabil.plataforma.domain.documento.ArmazenamentoDocumentos;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;

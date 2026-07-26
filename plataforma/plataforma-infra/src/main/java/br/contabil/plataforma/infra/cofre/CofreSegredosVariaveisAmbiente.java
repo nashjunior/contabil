@@ -1,16 +1,17 @@
 package br.contabil.plataforma.infra.cofre;
 
-import br.contabil.plataforma.domain.cofre.CofreSegredos;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.function.UnaryOperator;
 
+import br.contabil.plataforma.domain.cofre.CofreSegredos;
+
 /**
- * Adapter local/dev para o port {@link CofreSegredos}. Em produção, a mesma porta
- * deve ser implementada por Secrets Manager/Vault/HSM; este adapter preserva o contrato
- * de referencia logica e impede fallback literal em config.
+ * Adapter F0 para o port {@link CofreSegredos}: resolve a referencia logica por
+ * variavel de ambiente provida pela esteira/cofre externo do ente, preservando o
+ * contrato e impedindo fallback literal em config.
  */
 public final class CofreSegredosVariaveisAmbiente implements CofreSegredos {
 
@@ -47,7 +48,7 @@ public final class CofreSegredosVariaveisAmbiente implements CofreSegredos {
 
     @Override
     public void rotacionar(ReferenciaSegredo segredo) {
-        throw new UnsupportedOperationException("rotacao deve ocorrer no provedor KMS/HSM/cofre gerenciado");
+        throw new UnsupportedOperationException("rotacao deve ocorrer na esteira/cofre externo do ente");
     }
 
     static String nomeVariavel(ReferenciaSegredo segredo) {

@@ -20,7 +20,7 @@ public interface CriptografiaDadosSensiveis {
         PII_SEGREGADA
     }
 
-    /** Referencia logica da chave KMS/HSM/cofre. Nunca contem material criptografico. */
+    /** Referencia logica da chave no cofre. Nunca contem material criptografico. */
     record ReferenciaChave(String caminho, int versao) {
         public ReferenciaChave {
             Objects.requireNonNull(caminho, "caminho da chave");

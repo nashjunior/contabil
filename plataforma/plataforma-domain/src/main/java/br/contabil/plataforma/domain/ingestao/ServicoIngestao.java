@@ -1,9 +1,10 @@
 package br.contabil.plataforma.domain.ingestao;
 
+import java.util.Objects;
+
 import br.contabil.plataforma.domain.ChaveIdempotencia;
 import br.contabil.plataforma.domain.ErroContrato;
 import br.contabil.plataforma.domain.TenantId;
-import java.util.Objects;
 
 /**
  * Contrato do serviço de <b>Ingestão de integração</b> (doc 11 §Contratos; barramento

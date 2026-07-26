@@ -33,9 +33,12 @@ import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.MfaRequeridoException;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.SemPermissaoException;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
+import br.contabil.razao.domain.ContaContabilId;
 import br.contabil.razao.domain.FatoContabil;
+import br.contabil.razao.domain.FatoContabilId;
 import br.contabil.razao.domain.Lancamento;
 import br.contabil.razao.domain.Natureza;
+import br.contabil.razao.domain.PeriodoContabilId;
 import br.contabil.razao.domain.TipoEvento;
 import br.contabil.razao.domain.repository.ContadorFatoPort;
 import br.contabil.razao.domain.repository.FatoContabilRepository;
@@ -59,7 +62,7 @@ class EstornarFatoContabilTest {
     private EstornarFatoContabil useCase;
 
     private final TenantId enteId = TenantId.de(UUID.randomUUID().toString());
-    private final UUID periodoId = UUID.randomUUID();
+    private final PeriodoContabilId periodoId = PeriodoContabilId.novo();
     private final Clock relogioFixo = Clock.fixed(Instant.parse("2026-07-19T12:00:00Z"), ZoneOffset.UTC);
 
     private Sessao sessaoComMfa() {
@@ -94,8 +97,8 @@ class EstornarFatoContabilTest {
                 "original",
                 "origem",
                 List.of(
-                        Lancamento.de(UUID.randomUUID(), Natureza.DEBITO, Dinheiro.de("300.00")),
-                        Lancamento.de(UUID.randomUUID(), Natureza.CREDITO, Dinheiro.de("300.00"))),
+                        Lancamento.de(ContaContabilId.novo(), Natureza.DEBITO, Dinheiro.de("300.00")),
+                        Lancamento.de(ContaContabilId.novo(), Natureza.CREDITO, Dinheiro.de("300.00"))),
                 relogioFixo);
 
         when(repositorio.buscarPorId(enteId, original.id())).thenReturn(Optional.of(original));
@@ -117,7 +120,7 @@ class EstornarFatoContabilTest {
         when(servicoIdentidade.autorizar(sessao, new ServicoIdentidade.Recurso("razao:fato_contabil"), Acao.ESTORNAR))
                 .thenReturn(true);
 
-        UUID idInexistente = UUID.randomUUID();
+        FatoContabilId idInexistente = FatoContabilId.novo();
         when(repositorio.buscarPorId(enteId, idInexistente)).thenReturn(Optional.empty());
         LocalDate dataEstorno = LocalDate.of(2026, Month.JULY, 19);
 
@@ -132,7 +135,7 @@ class EstornarFatoContabilTest {
         when(servicoIdentidade.autorizar(sessao, new ServicoIdentidade.Recurso("razao:fato_contabil"), Acao.ESTORNAR))
                 .thenReturn(false);
 
-        UUID fatoId = UUID.randomUUID();
+        FatoContabilId fatoId = FatoContabilId.novo();
         LocalDate dataEstorno = LocalDate.of(2026, Month.JULY, 19);
         assertThatThrownBy(() -> useCase.executar(sessao, enteId, fatoId, dataEstorno, "correção", "origem"))
                 .isInstanceOf(SemPermissaoException.class);
@@ -147,7 +150,7 @@ class EstornarFatoContabilTest {
         when(servicoIdentidade.autorizar(sessao, new ServicoIdentidade.Recurso("razao:fato_contabil"), Acao.ESTORNAR))
                 .thenReturn(true);
 
-        UUID fatoId = UUID.randomUUID();
+        FatoContabilId fatoId = FatoContabilId.novo();
         LocalDate dataEstorno = LocalDate.of(2026, Month.JULY, 19);
         assertThatThrownBy(() -> useCase.executar(sessao, enteId, fatoId, dataEstorno, "correção", "origem"))
                 .isInstanceOf(MfaRequeridoException.class);
@@ -166,7 +169,7 @@ class EstornarFatoContabilTest {
                 true,
                 Instant.parse("2030-01-01T00:00:00Z"));
 
-        UUID fatoId = UUID.randomUUID();
+        FatoContabilId fatoId = FatoContabilId.novo();
         LocalDate dataEstorno = LocalDate.of(2026, Month.JULY, 19);
         assertThatThrownBy(() -> useCase.executar(sessaoDeOutroEnte, enteId, fatoId, dataEstorno, "correção", "origem"))
                 .isInstanceOf(SemPermissaoException.class);

@@ -1,19 +1,25 @@
 package br.contabil.plataforma.domain;
 
+import java.time.Instant;
+import java.util.Arrays;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura;
 import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
 import br.contabil.plataforma.domain.cofre.CofreSegredos;
+import br.contabil.plataforma.domain.consulta.ConsultaPaginada;
+import br.contabil.plataforma.domain.consulta.Direcao;
+import br.contabil.plataforma.domain.consulta.JanelaConsulta;
+import br.contabil.plataforma.domain.consulta.Ordenacao;
+import br.contabil.plataforma.domain.consulta.Paginacao;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade;
 import br.contabil.plataforma.domain.ingestao.ServicoIngestao;
 import br.contabil.plataforma.domain.mascaramento.ServicoMascaramento;
-import java.time.Instant;
-import java.util.Arrays;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
 
 /**
  * Testa o <b>contrato</b> dos serviços de plataforma (doc 11 §Contratos), não as
@@ -55,6 +61,27 @@ class ContratosPlataformaTest {
         assertThatIllegalArgumentException().isThrownBy(() -> ChaveIdempotencia.de("  "));
         assertThatExceptionOfType(NullPointerException.class).isThrownBy(() -> ChaveIdempotencia.de(null));
         assertThat(ChaveIdempotencia.de("k-1").valor()).isEqualTo("k-1");
+    }
+
+    @Test
+    @DisplayName("vocabulário de consulta usa records pt-BR defensivos e com teto")
+    void vocabularioConsulta() {
+        var janela = new JanelaConsulta(
+                Instant.parse("2026-01-01T00:00:00Z"),
+                Instant.parse("2026-02-01T00:00:00Z"));
+        var consulta = new ConsultaPaginada<>(
+                janela,
+                1,
+                20,
+                java.util.List.of(new Ordenacao("momento", Direcao.DESC)));
+        var paginacao = new Paginacao<>(1, 20, 1, java.util.List.of("item"));
+
+        assertThat(janela.desde()).isBefore(janela.ate());
+        assertThat(consulta.ordenacoes()).extracting(Ordenacao::campo).containsExactly("momento");
+        assertThat(paginacao.itens()).containsExactly("item");
+        assertThatIllegalArgumentException().isThrownBy(() -> new JanelaConsulta(janela.ate(), janela.desde()));
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> new ConsultaPaginada<>(janela, 1, 101, java.util.List.of()));
     }
 
     @Test

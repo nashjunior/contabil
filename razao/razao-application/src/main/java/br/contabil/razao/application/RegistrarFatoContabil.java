@@ -1,19 +1,20 @@
 package br.contabil.razao.application;
 
+import java.time.Clock;
+import java.time.LocalDate;
+import java.util.List;
+
 import br.contabil.plataforma.domain.TenantId;
 import br.contabil.plataforma.domain.iam.ControleAcesso;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Acao;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Recurso;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
-import br.contabil.razao.domain.repository.ContadorFatoPort;
 import br.contabil.razao.domain.FatoContabil;
-import br.contabil.razao.domain.repository.FatoContabilRepository;
 import br.contabil.razao.domain.Lancamento;
-import br.contabil.razao.domain.repository.PeriodoContabilPort;
 import br.contabil.razao.domain.TipoEvento;
-import java.time.Clock;
-import java.time.LocalDate;
-import java.util.List;
+import br.contabil.razao.domain.repository.ContadorFatoPort;
+import br.contabil.razao.domain.repository.FatoContabilRepository;
+import br.contabil.razao.domain.repository.PeriodoContabilPort;
 
 /**
  * Caso de uso: registra um novo fato contábil (motor-razao-partidas-dobradas.md).

@@ -1,8 +1,9 @@
 package br.contabil.plataforma.domain.mascaramento;
 
+import java.util.Objects;
+
 import br.contabil.plataforma.domain.ErroContrato;
 import br.contabil.plataforma.domain.TenantId;
-import java.util.Objects;
 
 /**
  * Contrato do serviço de <b>Mascaramento</b> de dados pessoais (doc 11 §Contratos;

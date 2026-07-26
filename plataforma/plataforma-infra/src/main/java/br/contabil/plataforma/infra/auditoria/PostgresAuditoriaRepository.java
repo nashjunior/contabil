@@ -1,12 +1,5 @@
 package br.contabil.plataforma.infra.auditoria;
 
-import br.contabil.plataforma.domain.TenantId;
-import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
-import br.contabil.plataforma.domain.auditoria.AuditoriaLeitura;
-import br.contabil.plataforma.domain.auditoria.EventoAuditoria;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -15,11 +8,25 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
+import br.contabil.plataforma.domain.auditoria.AuditoriaLeitura;
+import br.contabil.plataforma.domain.auditoria.EventoAuditoria;
+import br.contabil.plataforma.domain.consulta.ConsultaPaginada;
+import br.contabil.plataforma.domain.consulta.Direcao;
+import br.contabil.plataforma.domain.consulta.Ordenacao;
+import br.contabil.plataforma.domain.consulta.Paginacao;
 
 /**
  * Adapter Postgres da trilha de auditoria F0 (ADR-0005).
@@ -77,34 +84,72 @@ public class PostgresAuditoriaRepository implements AuditoriaEscrita, AuditoriaL
     }
 
     @Override
-    public List<EventoAuditoria> consultar(FiltroAuditoria filtro) {
-        Objects.requireNonNull(filtro, "filtro");
+    public Paginacao<EventoAuditoria> consultar(TenantId ente, ConsultaPaginada<FiltroAuditoria> consulta) {
+        Objects.requireNonNull(ente, "ente");
+        Objects.requireNonNull(consulta, "consulta");
+        FiltroAuditoria filtro = consulta.filtro();
 
-        StringBuilder sql = new StringBuilder(
-                """
-                select ente_id, tipo, ator, recurso, momento, detalhes::text as detalhes
-                  from auditoria_evento
-                 where momento >= ? and momento < ?
-                """);
+        StringBuilder where = new StringBuilder(" where ente_id = ? and momento >= ? and momento < ?");
         List<Object> parametros = new ArrayList<>();
+        parametros.add(ente.valor());
         parametros.add(Timestamp.from(filtro.desde()));
         parametros.add(Timestamp.from(filtro.ate()));
 
-        filtro.ente().ifPresent(ente -> {
-            sql.append(" and ente_id = ?");
-            parametros.add(ente.valor());
-        });
         filtro.tipo().ifPresent(tipo -> {
-            sql.append(" and tipo = ?");
+            where.append(" and tipo = ?");
             parametros.add(tipo);
         });
         filtro.ator().ifPresent(ator -> {
-            sql.append(" and ator = ?");
+            where.append(" and ator = ?");
             parametros.add(ator);
         });
-        sql.append(" order by momento, sequencia");
 
-        return jdbcTemplate.query(sql.toString(), (rs, rowNum) -> mapearEvento(rs), parametros.toArray());
+        Long total = jdbcTemplate.queryForObject(
+                "select count(*) from auditoria_evento" + where,
+                Long.class,
+                parametros.toArray());
+
+        List<Object> parametrosPagina = new ArrayList<>(parametros);
+        parametrosPagina.add(consulta.porPagina());
+        parametrosPagina.add((consulta.pagina() - 1L) * consulta.porPagina());
+
+        String sql =
+                """
+                select ente_id, tipo, ator, recurso, momento, detalhes::text as detalhes
+                  from auditoria_evento
+                """
+                        + where
+                        + ordemSql(consulta.ordenacoes())
+                        + " limit ? offset ?";
+        List<EventoAuditoria> itens =
+                jdbcTemplate.query(sql, (rs, rowNum) -> mapearEvento(rs), parametrosPagina.toArray());
+
+        return new Paginacao<>(consulta.pagina(), consulta.porPagina(), total == null ? 0 : total, itens);
+    }
+
+    private String ordemSql(List<Ordenacao> ordenacoes) {
+        if (ordenacoes.isEmpty()) {
+            return " order by momento, sequencia";
+        }
+        return ordenacoes.stream()
+                .map(this::ordenacaoSql)
+                .reduce(" order by ", (acumulado, ordem) -> acumulado.equals(" order by ")
+                        ? acumulado + ordem
+                        : acumulado + ", " + ordem);
+    }
+
+    private String ordenacaoSql(Ordenacao ordenacao) {
+        String campo = switch (ordenacao.campo()) {
+            case "ente" -> "ente_id";
+            case "tipo" -> "tipo";
+            case "ator" -> "ator";
+            case "recurso" -> "recurso";
+            case "momento" -> "momento";
+            case "sequencia" -> "sequencia";
+            default -> throw new IllegalArgumentException("campo de ordenação de auditoria não suportado: "
+                    + ordenacao.campo());
+        };
+        return campo + (ordenacao.direcao() == Direcao.ASC ? " asc" : " desc");
     }
 
     private EventoAuditoria mapearEvento(ResultSet rs) throws SQLException {

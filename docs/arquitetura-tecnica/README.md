@@ -50,7 +50,7 @@ flowchart TB
     APP --> DB[("Base contabil UNICA<br/>PostgreSQL - ACID, RLS")]
     APP --> OUTBOX[("Outbox transacional<br/>na mesma tx do fato")]
     APP --> AUD[("Trilha WORM<br/>append-only + hash-chain")]
-    APP --> VAULT["Cofre de segredos<br/>KMS/HSM"]
+    APP --> VAULT["Cofre de segredos<br/>env passthrough F0"]
     APP --> OBJ[("Object store / GED<br/>documentos assinados")]
 
     OUTBOX --> BROKER["Broker / fila"]
@@ -82,7 +82,7 @@ flowchart TB
 | **Workers (publishers/ingestão)** | Transparência, PNCP, SICONFI/TCE; ingestão ePING | Stateless, escaláveis, retentativa com backoff, DLQ |
 | **Trilha de auditoria (WORM)** | Log imutável append-only + hash-chain | **Store segregado** do razão; replicação externa; retenção parametrizável |
 | **Object store / GED** | Documentos assinados (PDF/PAdES) | Fora do banco (não BLOB no DB); cifrado em repouso |
-| **Cofre de segredos (KMS/HSM)** | Chaves, credenciais gov.br/PNCP/banco | Sem segredo em código; rotação; contas de serviço de privilégio mínimo |
+| **Cofre de segredos** | Chaves, credenciais gov.br/PNCP/banco | F0 via port + passthrough de ambiente/secret file ([ADR-0024](./adr/0024-cofre-segredos-f0-env-passthrough.md)); sem segredo em código; contas de serviço de privilégio mínimo; KMS/HSM gerenciado escala por fase/tier |
 | **IAM / IdP** | Autenticação e RBAC | **gov.br SSO** (cidadão/servidor) + certificado ICP-Brasil; RBAC/ABAC interno |
 | **Índice de busca** | Busca/filtros da transparência | Índice derivado (reconstruível a partir da base) |
 | **Observabilidade** | Logs, métricas, traces, alertas | Detecção de anomalia (piso F0); correlação por id de transação |
@@ -111,7 +111,7 @@ As decisões são **versionadas** em [`adr/`](./adr/) — uma por arquivo, com *
 
 - [0001](./adr/0001-base-unica-postgresql.md) Base única PostgreSQL · [0002](./adr/0002-monolito-modular.md) Monólito modular · [0003](./adr/0003-multi-tenant-rls.md) Multi-tenant RLS · [0004](./adr/0004-outbox-idempotente.md) Outbox idempotente · [0005](./adr/0005-trilha-append-only-hash-chain.md) Trilha hash-chain · [0006](./adr/0006-dinheiro-decimal.md) Dinheiro decimal
 - [0007](./adr/0007-read-models-cqrs.md) Read models/CQRS · [0008](./adr/0008-assinatura-provedor.md) Assinatura via provedor · [0009](./adr/0009-documentos-object-store.md) Documentos no object store · [0010](./adr/0010-single-writer-failover.md) Single-writer · [0011](./adr/0011-idempotencia-ponta-a-ponta.md) Idempotência ponta a ponta · [0012](./adr/0012-stack-jvm.md) **Stack JVM** · [0013](./adr/0013-persistencia-lote-fail-soft.md) Persistência em lote fail-soft
-- [0014](./adr/0014-contratos-plataforma-ports.md) Contratos de plataforma como ports · [0015](./adr/0015-atribuicao-tenant-explicita-no-contrato.md) Tenant explícito no contrato (`ente`) · [0016](./adr/0016-controle-acesso-mfa-movimentacao-recurso.md) ControleAcesso RBAC+MFA · [0017](./adr/0017-bff-oauth-assinatura-govbr.md) BFF OAuth2 assinatura gov.br · [0018](./adr/0018-object-store-s3-compativel.md) Object store S3-compatível · [0020](./adr/0020-f0-tls-backup-imutavel-restauracao.md) F0: TLS + backup imutável + restauração (0019 não utilizado — ver [índice](./adr/README.md)) · [0021](./adr/0021-contabilizacao-execucao-despesa.md) Contabilização da execução da despesa · [0022](./adr/0022-lote-pagamento-contrato-api-execucao.md) Lote só no pagamento (contrato de API)
+- [0014](./adr/0014-contratos-plataforma-ports.md) Contratos de plataforma como ports · [0015](./adr/0015-atribuicao-tenant-explicita-no-contrato.md) Tenant explícito no contrato (`ente`) · [0016](./adr/0016-controle-acesso-mfa-movimentacao-recurso.md) ControleAcesso RBAC+MFA · [0017](./adr/0017-bff-oauth-assinatura-govbr.md) BFF OAuth2 assinatura gov.br · [0018](./adr/0018-object-store-s3-compativel.md) Object store S3-compatível · [0020](./adr/0020-f0-tls-backup-imutavel-restauracao.md) F0: TLS + backup imutável + restauração (0019 não utilizado — ver [índice](./adr/README.md)) · [0021](./adr/0021-contabilizacao-execucao-despesa.md) Contabilização da execução da despesa · [0022](./adr/0022-lote-pagamento-contrato-api-execucao.md) Lote só no pagamento (contrato de API) · [0023](./adr/0023-gate-aprovacao-pagamento-segregacao.md) Gate de aprovação do pagamento · [0024](./adr/0024-cofre-segredos-f0-env-passthrough.md) Cofre F0 via passthrough · [0025](./adr/0025-building-blocks-taticos-ddd.md) DDD sem hierarquia base
 
 ## 6. Stress test lógico (caso de uso × cenário de falha)
 
@@ -199,7 +199,7 @@ Para cada caso de uso, os cenários de falha e o **comportamento esperado**. Gar
 | `primary` do banco cai | **Failover** com fencing; sem split-brain | Single-writer + réplica promovida (RTO no [NFR](../13-nfr-e-operacao.md)) |
 | Pool de conexões esgota / disco cheio | Degrada com **health check**/circuit breaker; alerta | Observabilidade + limites |
 | Desastre no site primário | Restauração no DR dentro do RPO/RTO | Backup imutável + teste de restauração |
-| Segredo vaza em log/código | Prevenido; rotação | Cofre KMS/HSM; proibição de segredo em código |
+| Segredo vaza em log/código | Prevenido; rotação manual/incidente no F0 | Cofre via port + passthrough de ambiente/secret file; proibição de segredo em código |
 
 ## 7. Riscos e pontos abertos
 

@@ -2,7 +2,7 @@ package br.contabil.razao.domain.repository;
 
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
-import java.util.UUID;
+import br.contabil.razao.domain.ContaContabilId;
 
 /**
  * Saldo como read-model DERIVADO dos lançamentos (ADR-0007) — nunca uma tabela
@@ -11,5 +11,5 @@ import java.util.UUID;
  */
 public interface ConsultaSaldoPort {
 
-    Dinheiro saldoDevedorLiquido(TenantId enteId, UUID contaId);
+    Dinheiro saldoDevedorLiquido(TenantId enteId, ContaContabilId contaId);
 }

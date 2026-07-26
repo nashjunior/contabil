@@ -1,11 +1,12 @@
 package br.contabil.execucao.domain;
 
-import br.contabil.plataforma.domain.Dinheiro;
-import br.contabil.plataforma.domain.TenantId;
 import java.time.LocalDate;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+
+import br.contabil.plataforma.domain.Dinheiro;
+import br.contabil.plataforma.domain.TenantId;
 
 /**
  * Agregado de pagamento da despesa: quita total/parcialmente uma liquidação e

@@ -1,13 +1,13 @@
 package br.contabil.razao.domain;
 
-import br.contabil.plataforma.domain.Dinheiro;
-import br.contabil.plataforma.domain.TenantId;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
+
+import br.contabil.plataforma.domain.Dinheiro;
+import br.contabil.plataforma.domain.TenantId;
 
 /**
  * Agregado raiz do razão contábil de dupla entrada — o evento (fato) que gera
@@ -17,29 +17,29 @@ import java.util.UUID;
  */
 public final class FatoContabil {
 
-    private final UUID id;
+    private final FatoContabilId id;
     private final TenantId enteId;
     private final long numeroSeq;
     private final LocalDate dataCompetencia;
     private final LocalDateTime dataHoraRegistro;
-    private final UUID periodoId;
+    private final PeriodoContabilId periodoId;
     private final TipoEvento tipoEvento;
     private final String historico;
     private final String origem;
-    private final UUID fatoEstornadoId;
+    private final FatoContabilId fatoEstornadoId;
     private final List<Lancamento> lancamentos;
 
     private FatoContabil(
-            UUID id,
+            FatoContabilId id,
             TenantId enteId,
             long numeroSeq,
             LocalDate dataCompetencia,
             LocalDateTime dataHoraRegistro,
-            UUID periodoId,
+            PeriodoContabilId periodoId,
             TipoEvento tipoEvento,
             String historico,
             String origem,
-            UUID fatoEstornadoId,
+            FatoContabilId fatoEstornadoId,
             List<Lancamento> lancamentos) {
         this.id = id;
         this.enteId = enteId;
@@ -88,14 +88,14 @@ public final class FatoContabil {
             TenantId enteId,
             long numeroSeq,
             LocalDate dataCompetencia,
-            UUID periodoId,
+            PeriodoContabilId periodoId,
             TipoEvento tipoEvento,
             String historico,
             String origem,
             List<Lancamento> lancamentos,
             Clock clock) {
         return criar(
-                UUID.randomUUID(),
+                FatoContabilId.novo(),
                 enteId,
                 numeroSeq,
                 dataCompetencia,
@@ -118,14 +118,14 @@ public final class FatoContabil {
             FatoContabil original,
             long numeroSeq,
             LocalDate dataCompetencia,
-            UUID periodoId,
+            PeriodoContabilId periodoId,
             String historico,
             String origem,
             Clock clock) {
         Objects.requireNonNull(original, "fato original não pode ser nulo");
         List<Lancamento> invertidos = original.lancamentos.stream().map(Lancamento::inverter).toList();
         return criar(
-                UUID.randomUUID(),
+                FatoContabilId.novo(),
                 original.enteId,
                 numeroSeq,
                 dataCompetencia,
@@ -140,16 +140,16 @@ public final class FatoContabil {
 
     /** Reconstitui um fato já consolidado, lido do repositório — sem revalidar Σ=Σ. */
     public static FatoContabil reconstituir(
-            UUID id,
+            FatoContabilId id,
             TenantId enteId,
             long numeroSeq,
             LocalDate dataCompetencia,
             LocalDateTime dataHoraRegistro,
-            UUID periodoId,
+            PeriodoContabilId periodoId,
             TipoEvento tipoEvento,
             String historico,
             String origem,
-            UUID fatoEstornadoId,
+            FatoContabilId fatoEstornadoId,
             List<Lancamento> lancamentos) {
         return new FatoContabil(
                 Objects.requireNonNull(id, "id não pode ser nulo"),
@@ -166,16 +166,16 @@ public final class FatoContabil {
     }
 
     private static FatoContabil criar(
-            UUID id,
+            FatoContabilId id,
             TenantId enteId,
             long numeroSeq,
             LocalDate dataCompetencia,
             LocalDateTime dataHoraRegistro,
-            UUID periodoId,
+            PeriodoContabilId periodoId,
             TipoEvento tipoEvento,
             String historico,
             String origem,
-            UUID fatoEstornadoId,
+            FatoContabilId fatoEstornadoId,
             List<Lancamento> lancamentos) {
         Objects.requireNonNull(enteId, "enteId não pode ser nulo");
         Objects.requireNonNull(dataCompetencia, "dataCompetencia não pode ser nula");
@@ -198,7 +198,7 @@ public final class FatoContabil {
                 List.copyOf(lancamentos));
     }
 
-    public UUID id() {
+    public FatoContabilId id() {
         return id;
     }
 
@@ -218,7 +218,7 @@ public final class FatoContabil {
         return dataHoraRegistro;
     }
 
-    public UUID periodoId() {
+    public PeriodoContabilId periodoId() {
         return periodoId;
     }
 
@@ -234,7 +234,7 @@ public final class FatoContabil {
         return origem;
     }
 
-    public UUID fatoEstornadoId() {
+    public FatoContabilId fatoEstornadoId() {
         return fatoEstornadoId;
     }
 

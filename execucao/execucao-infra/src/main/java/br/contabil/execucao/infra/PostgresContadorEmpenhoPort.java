@@ -1,10 +1,12 @@
 package br.contabil.execucao.infra;
 
-import br.contabil.execucao.domain.repository.ContadorEmpenhoPort;
-import br.contabil.plataforma.domain.TenantId;
 import java.util.Objects;
+
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
+
+import br.contabil.execucao.domain.repository.ContadorEmpenhoPort;
+import br.contabil.plataforma.domain.TenantId;
 
 /**
  * Numeração sequencial gapless do empenho por ente/exercício — delega à função

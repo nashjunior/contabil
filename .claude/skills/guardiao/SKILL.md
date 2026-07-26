@@ -24,7 +24,7 @@ Para revisão profunda de código, **invoque o subagente** correspondente (Agent
 - **Razão append-only + Σdébito=Σcrédito** — sem `UPDATE`/`DELETE` de fato/lançamento consolidado; correção por estorno. → `guardiao-arquitetura`
 - **RLS multi-tenant deny-by-default** (`ente_id` + `app.ente_id`). → `guardiao-arquitetura`/`guardiao-seguranca`
 - **Anti-backdating** — timestamp do servidor; competência só no período aberto. → `guardiao-arquitetura`
-- **Segredos só no cofre** (KMS/HSM); nada hardcoded. → `guardiao-seguranca`/`guardiao-iac`
+- **Segredos só no cofre**; F0 aceita passthrough de ambiente/secret file ([ADR-0024](../../../docs/arquitetura-tecnica/adr/0024-cofre-segredos-f0-env-passthrough.md)); nada hardcoded. → `guardiao-seguranca`/`guardiao-iac`
 - **PII mascarada na fronteira pública** (CPF `***.456.***-**`; sem RG/endereço/banco). → `guardiao-seguranca`
 - **Efeito externo via outbox idempotente** — sem chamada externa síncrona na transação. → `guardiao-arquitetura`
 - **Assinatura via abstração de provedor** — nenhuma cripto caseira. → `guardiao-seguranca`

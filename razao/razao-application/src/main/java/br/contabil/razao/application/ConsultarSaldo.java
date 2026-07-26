@@ -1,14 +1,15 @@
 package br.contabil.razao.application;
 
+import java.util.Objects;
+
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
 import br.contabil.plataforma.domain.iam.ControleAcesso;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Acao;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Recurso;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
+import br.contabil.razao.domain.ContaContabilId;
 import br.contabil.razao.domain.repository.ConsultaSaldoPort;
-import java.util.Objects;
-import java.util.UUID;
 
 /**
  * Caso de uso: consulta o saldo devedor líquido de uma conta (motor-razao-partidas-dobradas.md,
@@ -34,7 +35,7 @@ public class ConsultarSaldo {
         this.consultaSaldo = Objects.requireNonNull(consultaSaldo, "consultaSaldo");
     }
 
-    public Dinheiro executar(Sessao usuarioAutenticado, TenantId enteId, UUID contaId) {
+    public Dinheiro executar(Sessao usuarioAutenticado, TenantId enteId, ContaContabilId contaId) {
         controleAcesso.exigir(usuarioAutenticado, enteId, RECURSO_SALDO, Acao.LER);
         return consultaSaldo.saldoDevedorLiquido(enteId, contaId);
     }

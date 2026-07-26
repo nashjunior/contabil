@@ -1,9 +1,10 @@
 package br.contabil.razao.domain.repository;
 
+import java.util.Optional;
+
 import br.contabil.plataforma.domain.TenantId;
 import br.contabil.razao.domain.FatoContabil;
-import java.util.Optional;
-import java.util.UUID;
+import br.contabil.razao.domain.FatoContabilId;
 
 /**
  * Port de persistência do fato contábil. Deliberadamente SEM {@code atualizar}/
@@ -19,5 +20,5 @@ public interface FatoContabilRepository {
 
     void inserir(FatoContabil fato);
 
-    Optional<FatoContabil> buscarPorId(TenantId enteId, UUID id);
+    Optional<FatoContabil> buscarPorId(TenantId enteId, FatoContabilId id);
 }

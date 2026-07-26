@@ -35,6 +35,7 @@ import br.contabil.plataforma.domain.iam.ServicoIdentidade;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
 import br.contabil.razao.application.RegistrarFatoContabil;
+import br.contabil.razao.domain.ContaContabilId;
 import br.contabil.razao.domain.FatoContabil;
 import br.contabil.razao.domain.Lancamento;
 import br.contabil.razao.domain.Natureza;
@@ -157,8 +158,8 @@ class TenantContextWiringIntegrationTest {
                 "fato via pipeline de produção (RAZ-21)",
                 "test",
                 List.of(
-                        Lancamento.de(UUID.fromString(CONTA_A), Natureza.DEBITO, Dinheiro.de("100.00")),
-                        Lancamento.de(UUID.fromString(CONTA_A), Natureza.CREDITO, Dinheiro.de("100.00"))));
+                        Lancamento.de(new ContaContabilId(UUID.fromString(CONTA_A)), Natureza.DEBITO, Dinheiro.de("100.00")),
+                        Lancamento.de(new ContaContabilId(UUID.fromString(CONTA_A)), Natureza.CREDITO, Dinheiro.de("100.00"))));
 
         assertThat(fato.numeroSeq()).isEqualTo(1L);
         assertThat(fato.enteId()).isEqualTo(TenantId.de(ENTE_A));
@@ -174,8 +175,8 @@ class TenantContextWiringIntegrationTest {
                 "fato A",
                 "test",
                 List.of(
-                        Lancamento.de(UUID.fromString(CONTA_A), Natureza.DEBITO, Dinheiro.de("10.00")),
-                        Lancamento.de(UUID.fromString(CONTA_A), Natureza.CREDITO, Dinheiro.de("10.00"))));
+                        Lancamento.de(new ContaContabilId(UUID.fromString(CONTA_A)), Natureza.DEBITO, Dinheiro.de("10.00")),
+                        Lancamento.de(new ContaContabilId(UUID.fromString(CONTA_A)), Natureza.CREDITO, Dinheiro.de("10.00"))));
         FatoContabil fatoB = registrarFatoContabil.executar(
                 sessaoAutenticada(TenantId.de(ENTE_B)),
                 TenantId.de(ENTE_B),
@@ -184,8 +185,8 @@ class TenantContextWiringIntegrationTest {
                 "fato B",
                 "test",
                 List.of(
-                        Lancamento.de(UUID.fromString(CONTA_B), Natureza.DEBITO, Dinheiro.de("20.00")),
-                        Lancamento.de(UUID.fromString(CONTA_B), Natureza.CREDITO, Dinheiro.de("20.00"))));
+                        Lancamento.de(new ContaContabilId(UUID.fromString(CONTA_B)), Natureza.DEBITO, Dinheiro.de("20.00")),
+                        Lancamento.de(new ContaContabilId(UUID.fromString(CONTA_B)), Natureza.CREDITO, Dinheiro.de("20.00"))));
 
         assertThat(fatoA.numeroSeq())
                 .as("contador_fato é isolado por app.ente_id — o pipeline real não pode vazar a sequência de A para B")

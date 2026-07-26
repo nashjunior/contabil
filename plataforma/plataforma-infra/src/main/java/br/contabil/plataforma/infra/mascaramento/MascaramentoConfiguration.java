@@ -1,12 +1,14 @@
 package br.contabil.plataforma.infra.mascaramento;
 
+import java.time.Clock;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
 import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
 import br.contabil.plataforma.domain.mascaramento.ServicoMascaramento;
 import br.contabil.plataforma.domain.mascaramento.ServicoMascaramentoComAuditoria;
 import br.contabil.plataforma.domain.mascaramento.ServicoMascaramentoPadrao;
-import java.time.Clock;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
 /** Composition root da biblioteca única de mascaramento LGPD. */
 @Configuration(proxyBeanMethods = false)

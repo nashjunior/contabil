@@ -1,7 +1,6 @@
 package br.contabil.razao.domain;
 
 import java.util.Objects;
-import java.util.UUID;
 
 import br.contabil.plataforma.domain.Dinheiro;
 
@@ -13,7 +12,7 @@ import br.contabil.plataforma.domain.Dinheiro;
  * recalculada aqui.
  */
 public record LinhaBalancete(
-        UUID contaId,
+        ContaContabilId contaId,
         String codigo,
         String descricao,
         Dinheiro saldoAnterior,

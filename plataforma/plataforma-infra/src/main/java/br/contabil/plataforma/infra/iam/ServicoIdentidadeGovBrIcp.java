@@ -1,12 +1,13 @@
 package br.contabil.plataforma.infra.iam;
 
-import br.contabil.plataforma.domain.TenantId;
-import br.contabil.plataforma.domain.iam.ServicoIdentidade;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+
+import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade;
 
 final class ServicoIdentidadeGovBrIcp implements ServicoIdentidade {
 

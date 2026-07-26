@@ -1,14 +1,16 @@
 package br.contabil.plataforma.infra.cofre;
 
-import br.contabil.plataforma.domain.cofre.CofreSegredos;
-import br.contabil.plataforma.domain.cofre.CriptografiaDadosSensiveis;
 import java.time.Clock;
 import java.util.HashSet;
 import java.util.Set;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import br.contabil.plataforma.domain.cofre.CofreSegredos;
+import br.contabil.plataforma.domain.cofre.CriptografiaDadosSensiveis;
 
 @Configuration(proxyBeanMethods = false)
 public class CofreSegredosConfiguration {
@@ -25,7 +27,7 @@ public class CofreSegredosConfiguration {
             CofreSegredos cofreSegredos,
             Clock clock,
             @Value("${siafic.seguranca.criptografia.conta-servico:siafic-crypto}") String contaServico,
-            @Value("${siafic.seguranca.criptografia.escopos:cofre://siafic/f0/kms}") String escopos) {
+            @Value("${siafic.seguranca.criptografia.escopos:cofre://siafic/f0/criptografia}") String escopos) {
         return new AesGcmCriptografiaDadosSensiveis(
                 cofreSegredos,
                 new CofreSegredos.ContaServico(contaServico, normalizarEscopos(escopos)),

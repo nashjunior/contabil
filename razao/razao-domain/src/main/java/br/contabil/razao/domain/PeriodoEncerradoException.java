@@ -1,7 +1,8 @@
 package br.contabil.razao.domain;
 
-import br.contabil.plataforma.domain.TenantId;
 import java.time.LocalDate;
+
+import br.contabil.plataforma.domain.TenantId;
 
 /**
  * Regra 5 (05-regras-de-negocio.md): período contábil encerrado rejeita novo

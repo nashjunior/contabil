@@ -1,5 +1,7 @@
 package br.contabil;
 
+import java.util.Objects;
+
 import org.springframework.aop.Advisor;
 import org.springframework.aop.aspectj.AspectJExpressionPointcut;
 import org.springframework.aop.support.DefaultPointcutAdvisor;
@@ -37,6 +39,7 @@ public class TransacaoUseCasesConfiguration {
     /** Aplica transação a todo {@code executar(..)} dos use cases da application. */
     @Bean
     public Advisor transacaoUseCasesAdvisor(TransactionManager transactionManager) {
+        Objects.requireNonNull(transactionManager, "transactionManager");
         AspectJExpressionPointcut pointcut = new AspectJExpressionPointcut();
         pointcut.setExpression("execution(* br.contabil..application..*.executar(..))");
         TransactionInterceptor interceptor =

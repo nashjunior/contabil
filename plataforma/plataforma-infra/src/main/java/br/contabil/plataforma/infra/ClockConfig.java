@@ -1,6 +1,7 @@
 package br.contabil.plataforma.infra;
 
 import java.time.Clock;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 

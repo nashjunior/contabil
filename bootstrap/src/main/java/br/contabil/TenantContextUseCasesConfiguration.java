@@ -1,7 +1,5 @@
 package br.contabil;
 
-import br.contabil.plataforma.domain.TenantContext;
-import br.contabil.plataforma.domain.TenantId;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
 import org.springframework.aop.Advisor;
@@ -10,6 +8,9 @@ import org.springframework.aop.support.DefaultPointcutAdvisor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
+
+import br.contabil.plataforma.domain.TenantContext;
+import br.contabil.plataforma.domain.TenantId;
 
 /**
  * Fecha o wiring que faltava para a RLS forçada funcionar (RAZ-21, ADR-0003,
@@ -69,6 +70,7 @@ public class TenantContextUseCasesConfiguration {
         }
 
         @Override
+        @SuppressWarnings("try") // escopoTenant serve só para o close() automático desativar o TenantContext no fim do escopo
         public Object invoke(MethodInvocation invocation) throws Throwable {
             TenantId enteId = extrairTenantId(invocation);
             jdbcTemplate.queryForObject(SQL_SET_TENANT, String.class, enteId.valor().toString());

@@ -1,7 +1,8 @@
 package br.contabil.execucao.domain;
 
-import br.contabil.plataforma.domain.Dinheiro;
 import java.util.Objects;
+
+import br.contabil.plataforma.domain.Dinheiro;
 
 /** Snapshot de saldo da dotação usado para travar empenho <= crédito (Lei 4.320 art. 59). */
 public record SaldoDotacao(DotacaoId dotacaoId, Dinheiro valorAutorizado, Dinheiro valorComprometido) {

@@ -1,15 +1,19 @@
 package br.contabil.execucao.domain;
 
+import java.util.Objects;
+
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
-import java.util.Objects;
 
 /**
  * Agregado de dotação (crédito orçamentário, Lei 4.320/1964 arts. 34/40) — a
- * base que o {@link Empenho} consome (art. 59). F1 cobre só a carga inicial
- * (Fixação: LOA/créditos adicionais); mutar {@code valorAutorizado} por
- * reforço orçamentário fica para issue própria — a V3 migration
- * (RAZ-66) já não concede {@code UPDATE} em {@code dotacao} por ora.
+ * base que o {@link Empenho} consome (art. 59). Fixação (carga da LOA) insere
+ * a dotação; créditos adicionais (arts. 40-46, RAZ-89) somam a
+ * {@code valorAutorizado} de uma dotação já existente por {@code UPDATE}
+ * atômico ({@code DotacaoRepository#aplicarCreditosEmLote}) — a V3 migration
+ * (RAZ-66) já concede {@code UPDATE} em {@code dotacao} ao {@code app_role}
+ * (era exigido pelo {@code select ... for update} do lock de saldo; RAZ-89
+ * reaproveita o mesmo grant para a soma de crédito, sem nova migration).
  *
  * <p>O saldo disponível NÃO é um campo desta classe: é derivado
  * (valorAutorizado − soma dos empenhos vinculados) e consultado via

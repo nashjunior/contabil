@@ -1,13 +1,15 @@
 package br.contabil.execucao.infra;
 
-import br.contabil.execucao.application.SinalizacaoSlaTransparenciaPort;
-import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
-import br.contabil.plataforma.domain.auditoria.EventoAuditoria;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
+
 import org.springframework.stereotype.Component;
+
+import br.contabil.execucao.application.SinalizacaoSlaTransparenciaPort;
+import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
+import br.contabil.plataforma.domain.auditoria.EventoAuditoria;
 
 /**
  * Sinal durável para apuração/alarme do SLA da transparência.

@@ -1,13 +1,16 @@
 package br.contabil.razao.infra;
 
-import br.contabil.plataforma.domain.TenantId;
-import br.contabil.razao.domain.repository.PeriodoContabilPort;
-import br.contabil.razao.domain.PeriodoEncerradoException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
+
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
+
+import br.contabil.plataforma.domain.TenantId;
+import br.contabil.razao.domain.PeriodoEncerradoException;
+import br.contabil.razao.domain.PeriodoContabilId;
+import br.contabil.razao.domain.repository.PeriodoContabilPort;
 
 /**
  * Regra 5: consulta o período contábil da competência informada. Encerrado ou
@@ -27,10 +30,10 @@ public class PostgresPeriodoContabilPort implements PeriodoContabilPort {
     }
 
     @Override
-    public UUID periodoAbertoPara(TenantId enteId, LocalDate dataCompetencia) {
+    public PeriodoContabilId periodoAbertoPara(TenantId enteId, LocalDate dataCompetencia) {
         List<LinhaPeriodo> linhas = jdbcTemplate.query(
                 SQL_PERIODO,
-                (rs, rowNum) -> new LinhaPeriodo(rs.getObject("id", UUID.class), rs.getString("status")),
+                (rs, rowNum) -> new LinhaPeriodo(new PeriodoContabilId(rs.getObject("id", UUID.class)), rs.getString("status")),
                 enteId.valor(),
                 dataCompetencia.getYear(),
                 dataCompetencia.getMonthValue());
@@ -41,5 +44,5 @@ public class PostgresPeriodoContabilPort implements PeriodoContabilPort {
         return linhas.get(0).id();
     }
 
-    private record LinhaPeriodo(UUID id, String status) {}
+    private record LinhaPeriodo(PeriodoContabilId id, String status) {}
 }

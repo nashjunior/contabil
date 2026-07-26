@@ -74,8 +74,9 @@ Cada requisito tem uma **spec de produto detalhada** em [`transversais/`](./tran
 
 Serviço **único** de plataforma, não resolvido ponto a ponto por integração:
 
-- Padrão único (**secrets manager / HSM-backed**); nada de segredo em código, repositório ou config.
-- **Rotação** periódica e sob incidente, com trilha de uso/rotação.
+- **F0:** port único `CofreSegredos` + adapter de passthrough de ambiente/secret file da esteira ([ADR-0024](./arquitetura-tecnica/adr/0024-cofre-segredos-f0-env-passthrough.md)); nada de segredo em código, repositório ou config versionada.
+- **F1/F2/tier enterprise:** Secrets Manager/Vault/KMS/HSM gerenciado, sem mudar o contrato.
+- **Rotação** manual e sob incidente no F0; rotação automática e trilha nativa de uso/rotação escalam por fase/tier.
 - **Tokens de curta duração** com renovação automática.
 - **Contas de serviço** com privilégio mínimo e escopo restrito por integração (gov.br sign, PNCP publish, banco, SICONFI, TCE).
 

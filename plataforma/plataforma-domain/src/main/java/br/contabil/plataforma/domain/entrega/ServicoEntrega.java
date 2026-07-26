@@ -1,9 +1,10 @@
 package br.contabil.plataforma.domain.entrega;
 
-import br.contabil.plataforma.domain.ChaveIdempotencia;
-import br.contabil.plataforma.domain.TenantId;
 import java.util.Objects;
 import java.util.UUID;
+
+import br.contabil.plataforma.domain.ChaveIdempotencia;
+import br.contabil.plataforma.domain.TenantId;
 
 /**
  * Contrato de <b>Publicação/Entrega garantida</b> (doc 11 §Contratos; ADR-0004

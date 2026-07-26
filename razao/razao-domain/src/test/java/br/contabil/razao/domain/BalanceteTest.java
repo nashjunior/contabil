@@ -1,10 +1,9 @@
 package br.contabil.razao.domain;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import java.util.List;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -17,7 +16,7 @@ class BalanceteTest {
 
     private LinhaBalancete linha(String anterior, String debito, String credito, String atual) {
         return new LinhaBalancete(
-                UUID.randomUUID(),
+                ContaContabilId.novo(),
                 "1.1.1",
                 "Caixa",
                 Dinheiro.de(anterior),

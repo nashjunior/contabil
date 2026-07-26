@@ -24,7 +24,7 @@ Conjunto **inegociável** no F0/MVP — o corte de escopo pode adiar riqueza fun
 | `[PISO-SEGURANCA-F0]` — obrigatório no F0 | Escalona (F1/F2) |
 | --- | --- |
 | **MFA** para perfis que movimentam recurso (ordenador, tesouraria, admin) | MFA generalizado a todos os perfis |
-| **Cofre de segredos** + cifra de credenciais/dados bancários (KMS/HSM; sem segredo em código) | Rotação automática, HSM dedicado |
+| **Cofre de segredos** via port único + passthrough de ambiente/secret file da esteira; cifra de credenciais/dados bancários; sem segredo em código/config versionada ([ADR-0024](./arquitetura-tecnica/adr/0024-cofre-segredos-f0-env-passthrough.md)) | Secrets Manager/Vault/KMS/HSM gerenciado, rotação automática, HSM dedicado |
 | **Constraints estruturais no banco** (integridade referencial, saldos ≥ 0, invariante Σdébito=Σcrédito) | — |
 | **Trilha hash-chain** em store segregado (append-only/WORM) | Replicação externa + verificação periódica de integridade |
 | **Backup cifrado + teste de restauração** | DR/air-gap/BCP avançado, cópia geograficamente redundante |
@@ -45,15 +45,15 @@ Conjunto **inegociável** no F0/MVP — o corte de escopo pode adiar riqueza fun
 
 | Fase | Entrega |
 | --- | --- |
-| **F0** | `[PISO-SEGURANCA-F0]` completo; backup cifrado + teste de restauração; TLS; trilha hash-chain; SLA de latência da transparência |
-| **F1** | RPO/RTO testados; criptografia em repouso ampla; MFA generalizado; controles de borda na API; detecção de anomalia ampliada |
-| **F2** | DR/air-gap/BCP exercitado; PAM completo; log de leitura de toda PII; redundância geográfica; recertificação automatizada |
+| **F0** | `[PISO-SEGURANCA-F0]` completo; cofre via passthrough de ambiente/secret file; backup cifrado + teste de restauração; TLS; trilha hash-chain; SLA de latência da transparência |
+| **F1** | RPO/RTO testados; criptografia em repouso ampla; KMS/Secrets Manager gerenciado quando exigido por tier; MFA generalizado; controles de borda na API; detecção de anomalia ampliada |
+| **F2** | DR/air-gap/BCP exercitado; PAM completo; HSM dedicado/rotação automática para entes de maior risco; log de leitura de toda PII; redundância geográfica; recertificação automatizada |
 
 ## Fontes
 
 - Decreto 10.540/2020, arts. 9º (integridade/disponibilidade) e 15 (backup) — [base legal](./02-base-legal.md).
 - LGPD arts. 46–49 (segurança) · Resolução CD/ANPD nº 15/2024 (incidentes) — ver [LGPD](./transversais/04-lgpd.md).
-- Implementação do piso F0 (TLS/backup/restauração): [ADR-0020](./arquitetura-tecnica/adr/0020-f0-tls-backup-imutavel-restauracao.md) · [runbook operacional](./operacao/F0-runbook-tls-backup-restauracao.md).
+- Implementação do piso F0: [ADR-0020](./arquitetura-tecnica/adr/0020-f0-tls-backup-imutavel-restauracao.md) para TLS/backup/restauração · [ADR-0024](./arquitetura-tecnica/adr/0024-cofre-segredos-f0-env-passthrough.md) para cofre/passthrough de ambiente · [runbook operacional](./operacao/F0-runbook-tls-backup-restauracao.md).
 
 > Ressalva: metas de uptime, RPO/RTO e prazos de retenção são **parametrizáveis por contrato/ente** — os valores concretos entram na negociação, não no código.
 

@@ -1,25 +1,27 @@
 package br.contabil.razao.domain;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
-import br.contabil.plataforma.domain.Dinheiro;
-import br.contabil.plataforma.domain.TenantId;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.Month;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import br.contabil.plataforma.domain.Dinheiro;
+import br.contabil.plataforma.domain.TenantId;
 
 class FatoContabilTest {
 
     private final TenantId enteId = TenantId.de(UUID.randomUUID().toString());
-    private final UUID periodoId = UUID.randomUUID();
-    private final UUID contaCaixa = UUID.randomUUID();
-    private final UUID contaReceita = UUID.randomUUID();
+    private final PeriodoContabilId periodoId = PeriodoContabilId.novo();
+    private final ContaContabilId contaCaixa = ContaContabilId.novo();
+    private final ContaContabilId contaReceita = ContaContabilId.novo();
     private final Clock relogioFixo = Clock.fixed(Instant.parse("2026-07-19T12:00:00Z"), ZoneOffset.UTC);
 
     private List<Lancamento> lancamentosBalanceados() {
@@ -34,7 +36,7 @@ class FatoContabilTest {
         FatoContabil fato = FatoContabil.registrar(
                 enteId,
                 1L,
-                LocalDate.of(2026, 7, 1),
+                LocalDate.of(2026, Month.JULY, 1),
                 periodoId,
                 TipoEvento.RECEITA,
                 "Arrecadação de tributo X",
@@ -54,11 +56,12 @@ class FatoContabilTest {
         List<Lancamento> desbalanceado = List.of(
                 Lancamento.de(contaCaixa, Natureza.DEBITO, Dinheiro.de("1000.00")),
                 Lancamento.de(contaReceita, Natureza.CREDITO, Dinheiro.de("900.00")));
+        LocalDate data = LocalDate.of(2026, Month.JULY, 1);
 
         assertThatThrownBy(() -> FatoContabil.registrar(
                         enteId,
                         1L,
-                        LocalDate.of(2026, 7, 1),
+                        data,
                         periodoId,
                         TipoEvento.RECEITA,
                         "historico",
@@ -72,9 +75,10 @@ class FatoContabilTest {
     @DisplayName("rejeita fato com menos de 2 lançamentos")
     void rejeitaFatoComUmSoLancamento() {
         List<Lancamento> umSo = List.of(Lancamento.de(contaCaixa, Natureza.DEBITO, Dinheiro.de("100.00")));
+        LocalDate data = LocalDate.of(2026, Month.JULY, 1);
 
         assertThatThrownBy(() -> FatoContabil.registrar(
-                        enteId, 1L, LocalDate.of(2026, 7, 1), periodoId, TipoEvento.RECEITA,
+                        enteId, 1L, data, periodoId, TipoEvento.RECEITA,
                         "historico", "origem", umSo, relogioFixo))
                 .isInstanceOf(PartidasNaoBalanceadasException.class);
     }
@@ -83,11 +87,13 @@ class FatoContabilTest {
     @DisplayName("lista de lançamentos do fato é imutável (fato consolidado não muta)")
     void lancamentosImutaveis() {
         FatoContabil fato = FatoContabil.registrar(
-                enteId, 1L, LocalDate.of(2026, 7, 1), periodoId, TipoEvento.RECEITA,
+                enteId, 1L, LocalDate.of(2026, Month.JULY, 1), periodoId, TipoEvento.RECEITA,
                 "historico", "origem", lancamentosBalanceados(), relogioFixo);
 
-        assertThatThrownBy(() -> fato.lancamentos()
-                        .add(Lancamento.de(contaCaixa, Natureza.DEBITO, Dinheiro.de("1.00"))))
+        List<Lancamento> lancamentos = fato.lancamentos();
+        Lancamento novo = Lancamento.de(contaCaixa, Natureza.DEBITO, Dinheiro.de("1.00"));
+
+        assertThatThrownBy(() -> lancamentos.add(novo))
                 .isInstanceOf(UnsupportedOperationException.class);
     }
 
@@ -95,11 +101,11 @@ class FatoContabilTest {
     @DisplayName("estorno gera lançamentos invertidos (D<->C) que neutralizam o fato original")
     void estornoNeutralizaFatoOriginal() {
         FatoContabil original = FatoContabil.registrar(
-                enteId, 1L, LocalDate.of(2026, 7, 1), periodoId, TipoEvento.RECEITA,
+                enteId, 1L, LocalDate.of(2026, Month.JULY, 1), periodoId, TipoEvento.RECEITA,
                 "historico original", "origem", lancamentosBalanceados(), relogioFixo);
 
         FatoContabil estorno = FatoContabil.estornar(
-                original, 2L, LocalDate.of(2026, 7, 2), periodoId, "correção do fato 1", "origem", relogioFixo);
+                original, 2L, LocalDate.of(2026, Month.JULY, 2), periodoId, "correção do fato 1", "origem", relogioFixo);
 
         assertThat(estorno.isEstorno()).isTrue();
         assertThat(estorno.fatoEstornadoId()).isEqualTo(original.id());

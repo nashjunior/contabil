@@ -1,9 +1,10 @@
 package br.contabil.razao.domain.repository;
 
-import br.contabil.plataforma.domain.TenantId;
-import br.contabil.razao.domain.PeriodoEncerradoException;
 import java.time.LocalDate;
-import java.util.UUID;
+
+import br.contabil.plataforma.domain.TenantId;
+import br.contabil.razao.domain.PeriodoContabilId;
+import br.contabil.razao.domain.PeriodoEncerradoException;
 
 /**
  * Consulta do período contábil correspondente a uma data de competência
@@ -12,5 +13,5 @@ import java.util.UUID;
  */
 public interface PeriodoContabilPort {
 
-    UUID periodoAbertoPara(TenantId enteId, LocalDate dataCompetencia);
+    PeriodoContabilId periodoAbertoPara(TenantId enteId, LocalDate dataCompetencia);
 }

@@ -1,18 +1,20 @@
 package br.contabil.plataforma.infra.assinatura;
 
+import java.net.URI;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
+import java.util.function.Function;
+
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
 import br.contabil.plataforma.domain.TenantId;
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.DocumentoParaAssinar;
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.ReferenciaDocumento;
 import br.contabil.plataforma.domain.documento.ArmazenamentoDocumentos;
 import br.contabil.plataforma.domain.documento.ArmazenamentoDocumentos.DocumentoTenantInvalidoException;
-import java.net.URI;
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
 /**
  * Ponte entre o object store reutilizável ({@link ArmazenamentoDocumentos}, ADR-0018)

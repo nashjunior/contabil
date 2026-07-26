@@ -38,7 +38,7 @@ record BalanceteResponse(
 
         static Linha de(LinhaBalancete linha) {
             return new Linha(
-                    linha.contaId(),
+                    linha.contaId().valor(),
                     linha.codigo(),
                     linha.descricao(),
                     linha.saldoAnterior().valor(),

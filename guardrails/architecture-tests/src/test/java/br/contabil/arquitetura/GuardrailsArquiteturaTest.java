@@ -267,6 +267,38 @@ class GuardrailsArquiteturaTest {
                   + "plataforma) — módulos podem depender do shared kernel, mas dependência circular "
                   + "entre módulos de negócio quebra a fronteira que permite extração futura");
 
+  /**
+   * RAZ-90/ADR-0022: building blocks táticos entram como vocabulário explícito de domínio
+   * (ex.: {@code consulta.JanelaConsulta}), não como hierarquia genérica herdada por agregados,
+   * value objects ou repositórios.
+   */
+  @ArchTest
+  static final ArchRule dominio_nao_define_hierarquia_de_base_ddd =
+      classes()
+          .that()
+          .resideInAPackage(PKG_DOMAIN)
+          .should(naoTerNomeDeHierarquiaBaseDdd())
+          .because(
+              "RAZ-90/ADR-0022 rejeita supertipos táticos genéricos: o shared kernel fornece "
+                  + "vocabulário concreto de consulta/contrato, e cada agregado mantém sua linguagem própria");
+
+  private static ArchCondition<JavaClass> naoTerNomeDeHierarquiaBaseDdd() {
+    return new ArchCondition<>("não ter nome de hierarquia/base tática genérica de DDD") {
+      @Override
+      public void check(JavaClass classe, ConditionEvents events) {
+        boolean violou = classe.getSimpleName()
+            .matches(
+                "(?i)(EntidadeBase|BaseEntity|EntityBase|AggregateRoot|RaizAgregado|"
+                    + "ObjetoValorBase|ValueObjectBase|RepositorioBase|BaseRepository|"
+                    + "ObjetoDominio|DomainObject|Specification|Especificacao)");
+        if (violou) {
+          events.add(SimpleConditionEvent.violated(
+              classe, classe.getFullName() + " usa nome de hierarquia/base tática genérica de DDD"));
+        }
+      }
+    };
+  }
+
   // ---------------------------------------------------------------------------
   // TRAVA 5 (RAZ-72/RAZ-14) — o instante de registro vem de um Clock INJETADO,
   // nunca do relógio ambiente do processo. Espelha o guardrail de build-time

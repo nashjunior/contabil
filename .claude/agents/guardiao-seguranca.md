@@ -7,7 +7,8 @@ description: >-
   código: PII mascarada na fronteira pública (CPF ***.456.***-**, nunca RG/endereço/banco);
   remuneração nominal permitida (STF Tema 483); tenant derivado de claim gov.br verificado
   (nunca header cru); autorização por objeto (não só filtro de query); segredo nunca
-  hardcoded (só cofre KMS/HSM); base legal ≠ consentimento; trilha para inclusão/alteração
+  hardcoded (só port de cofre; F0 aceita passthrough de ambiente/secret file, KMS/HSM
+  escala por fase/tier); base legal ≠ consentimento; trilha para inclusão/alteração
   E leitura/exportação de PII. Revisa o diff (git) ou um caminho passado. NÃO cobre camadas
   (guardiao-arquitetura) nem modelo nos docs (revisar-ddd). Apenas reporta.
 tools: Read, Grep, Glob, Bash
@@ -54,7 +55,7 @@ Ao ler/mutar entidade por ID, conferir que o `ente_id` da entidade **retornada**
 
 ### 4. Segredos (piso F0)
 
-Nenhuma chave/credencial hardcoded (padrões: `sk-ant-…`, `AKIA[0-9A-Z]{16}`, `BEGIN … PRIVATE KEY`, senha/token literal como default de env). Segredo sempre pela porta do **cofre (KMS/HSM)**; senha com hash forte (Argon2id/bcrypt/scrypt+salt). Segredo em código/config = ❌.
+Nenhuma chave/credencial hardcoded (padrões: `sk-ant-…`, `AKIA[0-9A-Z]{16}`, `BEGIN … PRIVATE KEY`, senha/token literal como default de env). Segredo sempre pela porta do **cofre**; no F0, o adapter aceito é passthrough de ambiente/secret file da esteira ([ADR-0024](../../docs/arquitetura-tecnica/adr/0024-cofre-segredos-f0-env-passthrough.md)); KMS/HSM gerenciado escala por fase/tier. Segredo em código/config = ❌.
 
 ### 5. Dado externo não confiável
 

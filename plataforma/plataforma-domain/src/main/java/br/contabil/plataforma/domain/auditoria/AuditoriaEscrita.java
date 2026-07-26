@@ -1,8 +1,9 @@
 package br.contabil.plataforma.domain.auditoria;
 
-import br.contabil.plataforma.domain.ErroContrato;
 import java.util.Objects;
 import java.util.UUID;
+
+import br.contabil.plataforma.domain.ErroContrato;
 
 /**
  * Contrato de <b>escrita</b> da trilha de auditoria (doc 11 §Contratos; ADR-0005

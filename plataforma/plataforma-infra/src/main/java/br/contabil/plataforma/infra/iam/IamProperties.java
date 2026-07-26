@@ -150,8 +150,9 @@ record IamProperties(
         boolean permite(ServicoIdentidade.Recurso recurso, ServicoIdentidade.Acao acao) {
             String urn = recurso.urn();
             return switch (this) {
-                case LANCADOR -> urn.equals("razao:fato_contabil")
-                        && (acao == ServicoIdentidade.Acao.CRIAR || acao == ServicoIdentidade.Acao.ESTORNAR);
+                case LANCADOR -> (urn.equals("razao:fato_contabil")
+                                && (acao == ServicoIdentidade.Acao.CRIAR || acao == ServicoIdentidade.Acao.ESTORNAR))
+                        || (urn.equals("execucao:empenho") && acao == ServicoIdentidade.Acao.CRIAR);
                 case AUTORIZADOR -> (urn.equals("razao:fato_contabil")
                                 && (acao == ServicoIdentidade.Acao.APROVAR || acao == ServicoIdentidade.Acao.ASSINAR))
                         || (urn.equals("execucao:empenho") && acao == ServicoIdentidade.Acao.ASSINAR);

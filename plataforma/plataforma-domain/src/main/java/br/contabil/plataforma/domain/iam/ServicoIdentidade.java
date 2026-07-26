@@ -1,11 +1,12 @@
 package br.contabil.plataforma.domain.iam;
 
-import br.contabil.plataforma.domain.ErroContrato;
-import br.contabil.plataforma.domain.TenantId;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+
+import br.contabil.plataforma.domain.ErroContrato;
+import br.contabil.plataforma.domain.TenantId;
 
 /**
  * Contrato do serviço de <b>Identidade/RBAC</b> (doc 11 §Contratos; refs

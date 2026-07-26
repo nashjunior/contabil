@@ -1,9 +1,10 @@
 package br.contabil.plataforma.domain.auditoria;
 
-import br.contabil.plataforma.domain.TenantId;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
+
+import br.contabil.plataforma.domain.TenantId;
 
 /**
  * Evento da trilha de auditoria (doc 11 §Contratos; ADR-0005 append-only + hash-chain;

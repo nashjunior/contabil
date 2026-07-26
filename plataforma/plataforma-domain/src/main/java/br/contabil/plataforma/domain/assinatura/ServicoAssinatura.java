@@ -1,11 +1,12 @@
 package br.contabil.plataforma.domain.assinatura;
 
-import br.contabil.plataforma.domain.ErroContrato;
-import br.contabil.plataforma.domain.TenantId;
 import java.net.URI;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+
+import br.contabil.plataforma.domain.ErroContrato;
+import br.contabil.plataforma.domain.TenantId;
 
 /**
  * Contrato do serviço de <b>Assinatura eletrônica</b> (doc 11 §Contratos;

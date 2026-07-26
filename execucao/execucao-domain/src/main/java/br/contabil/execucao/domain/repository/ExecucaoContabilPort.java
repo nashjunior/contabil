@@ -1,5 +1,11 @@
 package br.contabil.execucao.domain.repository;
 
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
+
 import br.contabil.execucao.domain.Beneficiario;
 import br.contabil.execucao.domain.DocumentoSuporte;
 import br.contabil.execucao.domain.EmpenhoId;
@@ -8,11 +14,6 @@ import br.contabil.execucao.domain.NaturezaPagamento;
 import br.contabil.execucao.domain.PagamentoId;
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.UUID;
 
 /**
  * Port de escrituração contábil produzido pela execução.

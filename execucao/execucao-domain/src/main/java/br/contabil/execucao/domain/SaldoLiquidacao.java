@@ -1,7 +1,8 @@
 package br.contabil.execucao.domain;
 
-import br.contabil.plataforma.domain.Dinheiro;
 import java.util.Objects;
+
+import br.contabil.plataforma.domain.Dinheiro;
 
 /** Snapshot de saldo da liquidação usado para travar pagamento <= liquidado. */
 public record SaldoLiquidacao(LiquidacaoId liquidacaoId, Dinheiro valorLiquidado, Dinheiro valorPago) {

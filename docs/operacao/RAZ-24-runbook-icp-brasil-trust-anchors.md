@@ -42,10 +42,12 @@ nunca gerado nem inventado por um agente de código.
 
 ## Como conferir
 
-- Sem o arquivo configurado, a subida do contexto Spring falha rápido
-  (`IllegalStateException`, mensagem aponta para este runbook) — nunca sobe
-  com `ServicoAssinaturaGovBrConfiguration` ligado (`siafic.assinatura.govbr.enabled=true`)
-  e verificação de revogação ausente ou vazia.
+- Sem o arquivo configurado, a assinatura falha rápido na subida do contexto
+  (`IllegalStateException`, mensagem aponta para este runbook) quando
+  `ServicoAssinaturaGovBrConfiguration` estiver ligado. O IAM F0 não consome
+  este bundle: `CredencialCertificadoIcp` usa allowlist de fingerprint
+  provisionado pelo ente, conforme ADR-0016/RAZ-73; PKIX/revogação completa é
+  escopo do fluxo de assinatura ou evolução posterior de IAM.
 - `openssl crl2pkcs7 -nocrl -certfile <bundle.pem> | openssl pkcs7 -print_certs -noout`
   lista os certificados do bundle — confirmar que a cadeia esperada (AC-Raiz +
   intermediárias) está presente antes de configurar o caminho.

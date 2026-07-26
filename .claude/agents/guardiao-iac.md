@@ -21,7 +21,7 @@ Você é o guardião da **infraestrutura como código (IaC / Terraform)** do SIA
 ## Fonte das convenções
 
 - **`docs/13-nfr-e-operacao.md`** — disponibilidade (art. 9º), RPO/RTO, DR/BCP, **backup cifrado imutável/air-gapped** (art. 15), piso de segurança F0.
-- **`docs/arquitetura-tecnica/README.md` §3** — componentes de infra (base única, KMS/HSM, object store, CDN/WAF, ambientes).
+- **`docs/arquitetura-tecnica/README.md` §3** — componentes de infra (base única, cofre de segredos, object store, CDN/WAF, ambientes).
 - **`docs/arquitetura-tecnica/adr/0003-multi-tenant-rls.md`** (isolamento) · **`0010-single-writer-failover.md`** (single-writer).
 - **`docs/transversais/04-lgpd.md`** — segurança/residência (base para a fatia de infra).
 

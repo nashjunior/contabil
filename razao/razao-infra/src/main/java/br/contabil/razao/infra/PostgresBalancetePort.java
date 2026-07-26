@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
 import br.contabil.razao.domain.Balancete;
+import br.contabil.razao.domain.ContaContabilId;
 import br.contabil.razao.domain.LinhaBalancete;
 import br.contabil.razao.domain.repository.BalancetePort;
 
@@ -79,7 +80,7 @@ public class PostgresBalancetePort implements BalancetePort {
                     Dinheiro movimentoCredito = new Dinheiro(rs.getBigDecimal("movimento_credito"));
                     Dinheiro saldoAtual = saldoAnterior.somar(movimentoDebito).subtrair(movimentoCredito);
                     return new LinhaBalancete(
-                            rs.getObject("conta_id", UUID.class),
+                            new ContaContabilId(rs.getObject("conta_id", UUID.class)),
                             rs.getString("codigo"),
                             rs.getString("descricao"),
                             saldoAnterior,

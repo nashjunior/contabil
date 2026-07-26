@@ -1,13 +1,5 @@
 package br.contabil.migration;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
-import br.contabil.plataforma.domain.TenantId;
-import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
-import br.contabil.plataforma.domain.auditoria.AuditoriaLeitura;
-import br.contabil.plataforma.domain.auditoria.EventoAuditoria;
-import br.contabil.plataforma.infra.auditoria.PostgresAuditoriaRepository;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -16,16 +8,26 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+
+import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
+import br.contabil.plataforma.domain.auditoria.AuditoriaLeitura;
+import br.contabil.plataforma.domain.auditoria.EventoAuditoria;
+import br.contabil.plataforma.domain.consulta.ConsultaPaginada;
+import br.contabil.plataforma.infra.auditoria.PostgresAuditoriaRepository;
 
 /**
  * Prova a entrega RAZ-6 no repo real: a trilha de auditoria e append-only,
@@ -81,14 +83,21 @@ class AuditoriaHashChainIntegrationTest {
         var filtro = new AuditoriaLeitura.FiltroAuditoria(
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
                 Instant.parse("2026-01-01T00:00:00Z"),
                 Instant.parse("2027-01-01T00:00:00Z"));
 
         List<EventoAuditoria> eventosVisiveisParaA =
-                executarComoAppLogin(ENTE_A, repositorio -> repositorio.consultar(filtro));
+                executarComoAppLogin(
+                                ENTE_A,
+                                repositorio -> repositorio.consultar(
+                                        TenantId.de(ENTE_A), ConsultaPaginada.primeiraPagina(filtro)))
+                        .itens();
         List<EventoAuditoria> eventosVisiveisParaB =
-                executarComoAppLogin(ENTE_B, repositorio -> repositorio.consultar(filtro));
+                executarComoAppLogin(
+                                ENTE_B,
+                                repositorio -> repositorio.consultar(
+                                        TenantId.de(ENTE_A), ConsultaPaginada.primeiraPagina(filtro)))
+                        .itens();
 
         assertThat(eventosVisiveisParaA)
                 .extracting(EventoAuditoria::ente)

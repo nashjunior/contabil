@@ -1,9 +1,5 @@
 package br.contabil.plataforma.infra.cofre;
 
-import br.contabil.plataforma.domain.cofre.CofreSegredos;
-import br.contabil.plataforma.domain.cofre.CofreSegredos.ContaServico;
-import br.contabil.plataforma.domain.cofre.CofreSegredos.ReferenciaSegredo;
-import br.contabil.plataforma.domain.cofre.CriptografiaDadosSensiveis;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
@@ -12,9 +8,15 @@ import java.time.Clock;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Objects;
+
 import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+
+import br.contabil.plataforma.domain.cofre.CofreSegredos;
+import br.contabil.plataforma.domain.cofre.CofreSegredos.ContaServico;
+import br.contabil.plataforma.domain.cofre.CofreSegredos.ReferenciaSegredo;
+import br.contabil.plataforma.domain.cofre.CriptografiaDadosSensiveis;
 
 public final class AesGcmCriptografiaDadosSensiveis implements CriptografiaDadosSensiveis {
 

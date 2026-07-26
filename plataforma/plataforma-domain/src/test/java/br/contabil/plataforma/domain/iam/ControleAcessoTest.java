@@ -1,11 +1,21 @@
 package br.contabil.plataforma.domain.iam;
 
+import java.time.Instant;
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
+import org.mockito.Mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import br.contabil.plataforma.domain.TenantId;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Acao;
@@ -14,15 +24,6 @@ import br.contabil.plataforma.domain.iam.ServicoIdentidade.MfaRequeridoException
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Recurso;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.SemPermissaoException;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
-import java.time.Instant;
-import java.util.Optional;
-import java.util.UUID;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class ControleAcessoTest {
@@ -56,7 +57,8 @@ class ControleAcessoTest {
         Sessao sessao = sessao(ente, true);
         when(servicoIdentidade.autorizar(sessao, recurso, Acao.CRIAR)).thenReturn(true);
 
-        controleAcesso.exigir(sessao, ente, recurso, Acao.CRIAR);
+        assertThatCode(() -> controleAcesso.exigir(sessao, ente, recurso, Acao.CRIAR))
+                .doesNotThrowAnyException();
     }
 
     @Test
@@ -65,7 +67,8 @@ class ControleAcessoTest {
         Sessao sessao = sessao(ente, false);
         when(servicoIdentidade.autorizar(sessao, recurso, Acao.LER)).thenReturn(true);
 
-        controleAcesso.exigir(sessao, ente, recurso, Acao.LER);
+        assertThatCode(() -> controleAcesso.exigir(sessao, ente, recurso, Acao.LER))
+                .doesNotThrowAnyException();
     }
 
     @Test

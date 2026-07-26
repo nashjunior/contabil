@@ -1,10 +1,13 @@
 package br.contabil.plataforma.domain.auditoria;
 
-import br.contabil.plataforma.domain.TenantId;
 import java.time.Instant;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+
+import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.consulta.ConsultaPaginada;
+import br.contabil.plataforma.domain.consulta.JanelaConsulta;
+import br.contabil.plataforma.domain.consulta.Paginacao;
 
 /**
  * Contrato de <b>leitura</b> da trilha de auditoria (doc 11 §Contratos; ADR-0007
@@ -15,21 +18,33 @@ import java.util.Optional;
 public interface AuditoriaLeitura {
 
     /** Consulta eventos da trilha por filtro, na janela {@code [desde, ate)}. */
-    List<EventoAuditoria> consultar(FiltroAuditoria filtro);
+    Paginacao<EventoAuditoria> consultar(TenantId ente, ConsultaPaginada<FiltroAuditoria> consulta);
 
     /** Filtro de consulta — escopo por ente e recorte por tipo/ator/janela temporal. */
     record FiltroAuditoria(
-            Optional<TenantId> ente,
             Optional<String> tipo,
             Optional<String> ator,
-            Instant desde,
-            Instant ate) {
+            JanelaConsulta janela) {
+        public FiltroAuditoria(
+                Optional<String> tipo,
+                Optional<String> ator,
+                Instant desde,
+                Instant ate) {
+            this(tipo, ator, new JanelaConsulta(desde, ate));
+        }
+
         public FiltroAuditoria {
-            Objects.requireNonNull(ente, "ente (Optional, nunca null)");
             Objects.requireNonNull(tipo, "tipo (Optional, nunca null)");
             Objects.requireNonNull(ator, "ator (Optional, nunca null)");
-            Objects.requireNonNull(desde, "início da janela");
-            Objects.requireNonNull(ate, "fim da janela");
+            Objects.requireNonNull(janela, "janela");
+        }
+
+        public Instant desde() {
+            return janela.desde();
+        }
+
+        public Instant ate() {
+            return janela.ate();
         }
     }
 }

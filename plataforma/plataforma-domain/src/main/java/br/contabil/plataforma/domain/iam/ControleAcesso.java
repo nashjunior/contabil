@@ -1,9 +1,10 @@
 package br.contabil.plataforma.domain.iam;
 
-import br.contabil.plataforma.domain.TenantId;
 import java.util.EnumSet;
 import java.util.Objects;
 import java.util.Set;
+
+import br.contabil.plataforma.domain.TenantId;
 
 /**
  * Ponto único onde um caso de uso protegido pede permissão antes de agir

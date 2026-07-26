@@ -1,8 +1,5 @@
 package br.contabil.assinatura;
 
-import br.contabil.plataforma.domain.TenantId;
-import br.contabil.plataforma.domain.iam.ServicoIdentidade;
-import jakarta.servlet.http.HttpSession;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -11,9 +8,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,11 +18,13 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade;
+import jakarta.servlet.http.HttpSession;
+
 @RestController
 @RequestMapping("/assinatura/oauth")
 final class AssinaturaGovBrOAuthController {
-
-    private static final Logger LOG = LoggerFactory.getLogger(AssinaturaGovBrOAuthController.class);
 
     private final AssinaturaGovBrOAuthProperties properties;
     private final RepositorioSessaoAssinaturaGovBr repositorio;
@@ -54,17 +51,10 @@ final class AssinaturaGovBrOAuthController {
     @GetMapping("/iniciar")
     ResponseEntity<?> iniciar(HttpSession sessao) {
         properties.exigirConfiguracaoCompleta();
-        TenantId ente;
-        try {
-            ente = resolvedorSessao.enteAutenticado(sessao);
-        } catch (ServicoIdentidade.MfaRequeridoException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("erro", e.codigo()));
-        } catch (ServicoIdentidade.NaoAutenticadoException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("erro", e.codigo()));
-        }
+        TenantId ente = resolvedorSessao.enteAutenticado(sessao);
         RepositorioSessaoAssinaturaGovBr.FluxoPendente fluxo =
                 repositorio.iniciar(sessao, ente);
-        URI destino = UriComponentsBuilder.fromUri(properties.authorizationUri())
+        URI destino = UriComponentsBuilder.fromUri(Objects.requireNonNull(properties.authorizationUri(), "authorizationUri"))
                 .queryParam("response_type", "code")
                 .queryParam("client_id", properties.clientId())
                 .queryParam("redirect_uri", properties.redirectUri().toString())
@@ -73,7 +63,7 @@ final class AssinaturaGovBrOAuthController {
                 .queryParam("code_challenge", codeChallenge(fluxo.codeVerifier()))
                 .queryParam("code_challenge_method", "S256")
                 .build()
-                .encode(StandardCharsets.UTF_8)
+                .encode()
                 .toUri();
         return ResponseEntity.status(HttpStatus.FOUND).header(HttpHeaders.LOCATION, destino.toString()).build();
     }
@@ -105,23 +95,14 @@ final class AssinaturaGovBrOAuthController {
         try {
             token = clienteToken.trocarCodigoPorToken(code, fluxo.codeVerifier());
         } catch (IllegalStateException e) {
-            String correlationId = UUID.randomUUID().toString();
-            LOG.error("Falha ao trocar code OAuth2 por token gov.br [correlationId={}]", correlationId, e);
-            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-                    .body(Map.of("erro", "oauth_provedor_indisponivel", "correlationId", correlationId));
+            throw new AssinaturaGovBrOAuthProvedorIndisponivelException(e);
         }
-        ServicoIdentidade.Sessao sessaoIam;
-        try {
-            sessaoIam = servicoIdentidade.autenticar(new ServicoIdentidade.CredencialGovBr(token.accessToken()));
-            if (!sessaoIam.ente().equals(fluxo.ente())) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("erro", "ente_divergente"));
-            }
-            sessoesIam.gravarVerificada(sessao, sessaoIam);
-        } catch (ServicoIdentidade.MfaRequeridoException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("erro", e.codigo()));
-        } catch (ServicoIdentidade.NaoAutenticadoException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("erro", e.codigo()));
+        ServicoIdentidade.Sessao sessaoIam =
+                servicoIdentidade.autenticar(new ServicoIdentidade.CredencialGovBr(token.accessToken()));
+        if (!sessaoIam.ente().equals(fluxo.ente())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("erro", "ente_divergente"));
         }
+        sessoesIam.gravarVerificada(sessao, sessaoIam);
         repositorio.guardarToken(sessao, fluxo.ente(), token);
         return ResponseEntity.noContent().build();
     }

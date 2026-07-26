@@ -1,12 +1,13 @@
 package br.contabil.razao.infra;
 
-import br.contabil.plataforma.domain.Dinheiro;
-import br.contabil.plataforma.domain.TenantId;
-import br.contabil.razao.domain.repository.ConsultaSaldoPort;
 import java.math.BigDecimal;
-import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
+
+import br.contabil.plataforma.domain.Dinheiro;
+import br.contabil.plataforma.domain.TenantId;
+import br.contabil.razao.domain.ContaContabilId;
+import br.contabil.razao.domain.repository.ConsultaSaldoPort;
 
 /**
  * Lê o saldo da view {@code saldo_conta} (razao-contabil-schema.md) — read-model
@@ -26,12 +27,12 @@ public class PostgresConsultaSaldoPort implements ConsultaSaldoPort {
     }
 
     @Override
-    public Dinheiro saldoDevedorLiquido(TenantId enteId, UUID contaId) {
+    public Dinheiro saldoDevedorLiquido(TenantId enteId, ContaContabilId contaId) {
         BigDecimal saldo = jdbcTemplate.query(
                 SQL_SALDO,
                 rs -> rs.next() ? rs.getBigDecimal("saldo_devedor_liquido") : null,
                 enteId.valor(),
-                contaId);
+                contaId.valor());
         return saldo == null ? Dinheiro.zero() : new Dinheiro(saldo);
     }
 }

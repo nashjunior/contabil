@@ -1,6 +1,5 @@
 package br.contabil.plataforma.domain.auditoria;
 
-import br.contabil.plataforma.domain.TenantId;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.Instant;
@@ -11,6 +10,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+
+import br.contabil.plataforma.domain.TenantId;
 
 /**
  * Detecção mínima de anomalia do piso F0 (docs/13-nfr-e-operacao.md §Piso de segurança F0;

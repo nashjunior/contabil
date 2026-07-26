@@ -1,29 +1,5 @@
 package br.contabil;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
-
-import br.contabil.plataforma.domain.Dinheiro;
-import br.contabil.plataforma.domain.TenantContext;
-import br.contabil.plataforma.domain.TenantId;
-import br.contabil.plataforma.domain.iam.ControleAcesso;
-import br.contabil.plataforma.domain.iam.ServicoIdentidade;
-import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
-import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
-import br.contabil.razao.application.RegistrarFatoContabil;
-import br.contabil.razao.domain.Lancamento;
-import br.contabil.razao.domain.Natureza;
-import br.contabil.razao.domain.TipoEvento;
-import br.contabil.razao.domain.repository.ContadorFatoPort;
-import br.contabil.razao.domain.repository.FatoContabilRepository;
-import br.contabil.razao.domain.repository.PeriodoContabilPort;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -33,12 +9,39 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+
 import org.aopalliance.intercept.MethodInterceptor;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.Test;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.InOrder;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 import org.springframework.aop.Advisor;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
+
+import br.contabil.plataforma.domain.Dinheiro;
+import br.contabil.plataforma.domain.TenantContext;
+import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.iam.ControleAcesso;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
+import br.contabil.razao.application.RegistrarFatoContabil;
+import br.contabil.razao.domain.ContaContabilId;
+import br.contabil.razao.domain.Lancamento;
+import br.contabil.razao.domain.Natureza;
+import br.contabil.razao.domain.PeriodoContabilId;
+import br.contabil.razao.domain.TipoEvento;
+import br.contabil.razao.domain.repository.ContadorFatoPort;
+import br.contabil.razao.domain.repository.FatoContabilRepository;
+import br.contabil.razao.domain.repository.PeriodoContabilPort;
 
 /**
  * Testa o advisor de RAZ-21 isolado (Spring AOP em memória via {@link ProxyFactory},
@@ -65,7 +68,7 @@ class TenantContextUseCasesConfigurationTest {
         Clock relogioFixo = Clock.fixed(Instant.parse("2026-07-19T12:00:00Z"), ZoneOffset.UTC);
 
         TenantId enteId = TenantId.de(UUID.randomUUID().toString());
-        UUID periodoId = UUID.randomUUID();
+        PeriodoContabilId periodoId = PeriodoContabilId.novo();
         LocalDate dataCompetencia = LocalDate.of(2026, 7, 1);
         AtomicReference<Optional<TenantId>> tenantContextDuranteAChamada = new AtomicReference<>();
         when(periodoContabil.periodoAbertoPara(enteId, dataCompetencia)).thenAnswer(invocacao -> {
@@ -94,8 +97,8 @@ class TenantContextUseCasesConfigurationTest {
                 "histórico",
                 "origem",
                 List.of(
-                        Lancamento.de(UUID.randomUUID(), Natureza.DEBITO, Dinheiro.de("10.00")),
-                        Lancamento.de(UUID.randomUUID(), Natureza.CREDITO, Dinheiro.de("10.00"))));
+                        Lancamento.de(ContaContabilId.novo(), Natureza.DEBITO, Dinheiro.de("10.00")),
+                        Lancamento.de(ContaContabilId.novo(), Natureza.CREDITO, Dinheiro.de("10.00"))));
 
         InOrder ordem = inOrder(jdbcTemplate, periodoContabil, repositorio);
         ordem.verify(jdbcTemplate)

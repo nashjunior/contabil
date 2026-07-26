@@ -3,6 +3,8 @@ package br.contabil.consulta;
 import java.util.Objects;
 
 import org.springframework.core.MethodParameter;
+import org.springframework.lang.NonNull;
+import org.springframework.lang.Nullable;
 import org.springframework.web.bind.support.WebDataBinderFactory;
 import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
@@ -40,16 +42,16 @@ final class SessaoAutenticadaHttpResolver implements HandlerMethodArgumentResolv
     }
 
     @Override
-    public boolean supportsParameter(MethodParameter parameter) {
+    public boolean supportsParameter(@NonNull MethodParameter parameter) {
         return Sessao.class.equals(parameter.getParameterType());
     }
 
     @Override
     public Object resolveArgument(
-            MethodParameter parameter,
-            ModelAndViewContainer mavContainer,
-            NativeWebRequest webRequest,
-            WebDataBinderFactory binderFactory) {
+            @NonNull MethodParameter parameter,
+            @Nullable ModelAndViewContainer mavContainer,
+            @NonNull NativeWebRequest webRequest,
+            @Nullable WebDataBinderFactory binderFactory) {
         return autenticar(webRequest);
     }
 

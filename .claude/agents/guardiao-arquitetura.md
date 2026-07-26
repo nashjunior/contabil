@@ -69,6 +69,7 @@ Cada módulo tem `domain/ application/ infra/`. Dependências apontam **para den
 ### Entities & Value Objects
 
 - Entity com factory (`criar`/`create`) e invariantes no construtor; **imutável** onde a regra pede (fato consolidado não muta). VO valida e lança erro de domínio (não retorna null silencioso).
+- **Referência de identidade é tipo forte** (`record XxxId(UUID valor)`, estilo `EmpenhoId`/`DotacaoId`), não `UUID` cru — o compilador barra transposição de ids (ex.: `registrar(credorId, unidadeGestoraId, contratoId)` com três `UUID` seguidos). **Exceções:** (a) o `valor` dentro do próprio wrapper; (b) FK **cross-módulo** que não pode importar o tipo do outro módulo (`fatoContabilId` em execução→razão, ADR-0002); (c) id técnico de correlação (`idTransacao`, sessão MFA). FK de identidade como `UUID` cru no domínio = ⚠️ (a trava dura vive no guardrail ArchUnit `*Id ≠ UUID`).
 - Documento assinado referenciado por FK ao fato; PDF no **object store/GED**, não BLOB no banco (ADR-0009).
 
 ## Cheiros (vigiar, não bloquear)

@@ -1,5 +1,5 @@
 # Configuração base do sistema contábil (Razão / SIAFIC).
-# Segredos vêm do cofre/KMS/HSM e são injetados via ambiente no runtime.
+# Segredos vêm do port de cofre e, no F0, são injetados via ambiente/secret file no runtime.
 spring:
   application:
     name: razao

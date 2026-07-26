@@ -1,7 +1,8 @@
 package br.contabil.plataforma.domain.documento;
 
-import br.contabil.plataforma.domain.ErroContrato;
 import java.net.URI;
+
+import br.contabil.plataforma.domain.ErroContrato;
 
 /**
  * Porta de armazenamento de documentos binários em object store/GED (ADR-0009 —

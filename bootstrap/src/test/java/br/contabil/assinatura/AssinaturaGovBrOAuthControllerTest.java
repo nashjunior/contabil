@@ -1,12 +1,5 @@
 package br.contabil.assinatura;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-
-import br.contabil.plataforma.domain.TenantId;
-import br.contabil.plataforma.domain.iam.ServicoIdentidade;
-import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
-import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
@@ -22,6 +15,9 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -30,6 +26,11 @@ import org.springframework.mock.web.MockHttpSession;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.util.UriComponentsBuilder;
+
+import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
 
 class AssinaturaGovBrOAuthControllerTest {
 
@@ -110,7 +111,7 @@ class AssinaturaGovBrOAuthControllerTest {
     }
 
     @Test
-    void callbackComFalhaDoProvedorGovBrDevolveBadGatewayComCorrelationId() {
+    void callbackComFalhaDoProvedorGovBrPropagaProvedorIndisponivelSemMapearNoController() {
         var fixture = fixture();
         MockHttpSession sessao = new MockHttpSession();
         TenantId ente = new TenantId(UUID.randomUUID());
@@ -118,13 +119,10 @@ class AssinaturaGovBrOAuthControllerTest {
         fixture.cliente().falharComProximaChamada();
         String state = stateDe(fixture.controller().iniciar(sessao));
 
-        var resposta = fixture.controller().callback("codigo-autorizacao", state, null, null, sessao);
+        assertThatExceptionOfType(AssinaturaGovBrOAuthProvedorIndisponivelException.class)
+                .isThrownBy(() -> fixture.controller().callback("codigo-autorizacao", state, null, null, sessao))
+                .withCauseInstanceOf(IllegalStateException.class);
 
-        assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
-        @SuppressWarnings("unchecked")
-        var corpo = (java.util.Map<String, String>) resposta.getBody();
-        assertThat(corpo).containsEntry("erro", "oauth_provedor_indisponivel");
-        assertThat(corpo.get("correlationId")).isNotBlank();
         // nao guarda token nenhum apos falha do provedor
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setSession(sessao);
@@ -134,14 +132,12 @@ class AssinaturaGovBrOAuthControllerTest {
     }
 
     @Test
-    void iniciarSemSessaoIamVerificadaFalhaFechado() {
+    void iniciarSemSessaoIamVerificadaPropagaNaoAutenticadoSemMapearNoController() {
         var fixture = fixture();
         MockHttpSession sessao = new MockHttpSession();
 
-        var resposta = fixture.controller().iniciar(sessao);
-
-        assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
-        assertThat(resposta.getBody()).isEqualTo(java.util.Map.of("erro", "nao_autenticado"));
+        assertThatExceptionOfType(ServicoIdentidade.NaoAutenticadoException.class)
+                .isThrownBy(() -> fixture.controller().iniciar(sessao));
     }
 
     @Test

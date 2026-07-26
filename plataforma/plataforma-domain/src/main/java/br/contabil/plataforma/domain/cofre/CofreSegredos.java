@@ -1,18 +1,18 @@
 package br.contabil.plataforma.domain.cofre;
 
-import br.contabil.plataforma.domain.ErroContrato;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Set;
 
+import br.contabil.plataforma.domain.ErroContrato;
+
 /**
  * Contrato do <b>Cofre de segredos</b> (doc 11 §Cofre/gestão de segredos).
  *
- * <p>Serviço <b>único</b> de plataforma (secrets manager / HSM-backed): nada de segredo
- * em código, repositório ou config. Contas de serviço com <b>privilégio mínimo</b> e
- * escopo restrito por integração; <b>tokens de curta duração</b> renováveis;
- * <b>rotação</b> periódica e sob incidente. Todo uso/rotação gera evento
- * ({@code uso}/{@code rotacao}) na trilha de auditoria.
+ * <p>Serviço <b>único</b> de plataforma: nada de segredo em código, repositório ou
+ * config versionada. No F0, a implementação aceita é passthrough de ambiente/secret file
+ * da esteira; Secrets Manager/Vault/KMS/HSM entra por outro adapter sem mudar o port.
+ * Contas de serviço usam <b>privilégio mínimo</b> e escopo restrito por integração.
  */
 public interface CofreSegredos {
 

@@ -22,6 +22,7 @@ import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
 import br.contabil.razao.application.ConsultarSaldo;
 import br.contabil.razao.application.GerarBalancete;
 import br.contabil.razao.domain.Balancete;
+import br.contabil.razao.domain.ContaContabilId;
 import br.contabil.razao.domain.LinhaBalancete;
 
 /**
@@ -53,7 +54,8 @@ class RazaoConsultaControllerTest {
         UUID enteId = UUID.randomUUID();
         UUID contaId = UUID.randomUUID();
         Sessao sessao = sessaoDe(new TenantId(enteId));
-        when(consultarSaldo.executar(sessao, new TenantId(enteId), contaId)).thenReturn(Dinheiro.de("1234.56"));
+        when(consultarSaldo.executar(sessao, new TenantId(enteId), new ContaContabilId(contaId)))
+                .thenReturn(Dinheiro.de("1234.56"));
 
         SaldoContaResponse resposta = controller().saldo(enteId, contaId, sessao);
 
@@ -66,7 +68,7 @@ class RazaoConsultaControllerTest {
         UUID enteId = UUID.randomUUID();
         UUID contaId = UUID.randomUUID();
         Sessao sessao = sessaoDe(new TenantId(enteId));
-        when(consultarSaldo.executar(sessao, new TenantId(enteId), contaId))
+        when(consultarSaldo.executar(sessao, new TenantId(enteId), new ContaContabilId(contaId)))
                 .thenThrow(new SemPermissaoException("sem_permissao"));
 
         assertThatThrownBy(() -> controller().saldo(enteId, contaId, sessao)).isInstanceOf(SemPermissaoException.class);
@@ -82,7 +84,7 @@ class RazaoConsultaControllerTest {
                 2026,
                 3,
                 List.of(new LinhaBalancete(
-                        contaId,
+                        new ContaContabilId(contaId),
                         "1.1.1.01.01",
                         "Caixa",
                         Dinheiro.de("100.00"),

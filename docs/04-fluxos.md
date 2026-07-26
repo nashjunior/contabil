@@ -82,7 +82,7 @@ flowchart TD
 
 **Cardinalidade:** `1 dotação → N empenhos` · `1 empenho → N liquidações` · `1 liquidação → N pagamentos`.
 
-**Travas:** `data de competência segue o fato gerador (Lei 4.320 art. 35), podendo ser retroativa dentro do período aberto; data-hora de registro é o relógio do servidor, imutável (base da trilha); vedado registrar/alterar em período encerrado e vedado alterar o timestamp de registro` · `documento de suporte obrigatório na liquidação` · `beneficiário exigido no pagamento; folha é dispensada de beneficiário linha-a-linha apenas no gate de pagamento consolidado, mas a remuneração individualizada por servidor é exposta na transparência (STF Tema 483)` · `empenho + reforços ≤ crédito da dotação (art. 59)`.
+**Travas:** `data de competência segue o fato gerador (Lei 4.320 art. 35), podendo ser retroativa dentro do período aberto; data-hora de registro é o relógio do servidor, imutável (base da trilha); vedado registrar/alterar em período encerrado e vedado alterar o timestamp de registro` · `documento de suporte obrigatório na liquidação` · `beneficiário exigido no pagamento; folha é dispensada de beneficiário linha-a-linha apenas no gate de pagamento consolidado, mas a remuneração individualizada por servidor é exposta na transparência (STF Tema 483)` · `empenho + reforços ≤ crédito da dotação (art. 59)` · `liquidação e pagamento referenciam o empenho pelo estado contábil (REGISTRADO), independentemente do estado de assinatura da nota de empenho — PENDENTE_ASSINATURA não bloqueia a esteira (ADR-0027, resolução RAZ-104)`.
 
 Detalhamento das entidades no [modelo de dados](./10-modelo-dados.md).
 

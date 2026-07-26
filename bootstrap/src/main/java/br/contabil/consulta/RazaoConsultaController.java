@@ -13,6 +13,7 @@ import br.contabil.plataforma.domain.TenantId;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
 import br.contabil.razao.application.ConsultarSaldo;
 import br.contabil.razao.application.GerarBalancete;
+import br.contabil.razao.domain.ContaContabilId;
 
 /**
  * Borda HTTP fina dos use cases de consulta do razão (RAZ-101): só adapta
@@ -37,7 +38,7 @@ final class RazaoConsultaController {
     @GetMapping("/saldo")
     SaldoContaResponse saldo(
             @PathVariable("enteId") UUID enteId, @RequestParam("contaId") UUID contaId, Sessao sessao) {
-        var saldo = consultarSaldo.executar(sessao, new TenantId(enteId), contaId);
+        var saldo = consultarSaldo.executar(sessao, new TenantId(enteId), new ContaContabilId(contaId));
         return new SaldoContaResponse(contaId, saldo.valor());
     }
 

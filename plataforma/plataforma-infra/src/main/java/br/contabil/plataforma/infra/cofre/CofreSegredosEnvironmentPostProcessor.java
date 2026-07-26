@@ -1,18 +1,20 @@
 package br.contabil.plataforma.infra.cofre;
 
-import br.contabil.plataforma.domain.cofre.CofreSegredos;
-import br.contabil.plataforma.domain.cofre.CofreSegredos.ContaServico;
-import br.contabil.plataforma.domain.cofre.CofreSegredos.ReferenciaSegredo;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.env.EnvironmentPostProcessor;
 import org.springframework.core.Ordered;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.MapPropertySource;
+
+import br.contabil.plataforma.domain.cofre.CofreSegredos;
+import br.contabil.plataforma.domain.cofre.CofreSegredos.ContaServico;
+import br.contabil.plataforma.domain.cofre.CofreSegredos.ReferenciaSegredo;
 
 /**
  * Resolve referencias logicas de segredo antes do auto-wiring do Spring Boot.

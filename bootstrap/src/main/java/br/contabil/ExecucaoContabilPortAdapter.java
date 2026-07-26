@@ -1,7 +1,15 @@
 package br.contabil;
 
+import java.time.Clock;
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Component;
+
 import br.contabil.execucao.domain.repository.ExecucaoContabilPort;
 import br.contabil.plataforma.domain.TenantId;
+import br.contabil.razao.domain.ContaContabilId;
 import br.contabil.razao.domain.FatoContabil;
 import br.contabil.razao.domain.Lancamento;
 import br.contabil.razao.domain.Natureza;
@@ -9,11 +17,6 @@ import br.contabil.razao.domain.TipoEvento;
 import br.contabil.razao.domain.repository.ContadorFatoPort;
 import br.contabil.razao.domain.repository.FatoContabilRepository;
 import br.contabil.razao.domain.repository.PeriodoContabilPort;
-import java.time.Clock;
-import java.util.List;
-import java.util.UUID;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Component;
 
 /**
  * Ponte {@code execucao} -> {@code razao}: única classe do monólito que conhece
@@ -64,14 +67,14 @@ public class ExecucaoContabilPortAdapter implements ExecucaoContabilPort {
 
     @Override
     public UUID registrarEmpenho(SolicitacaoEscrituracaoEmpenho solicitacao) {
-        UUID contaCreditoDisponivel = resolverConta(solicitacao.enteId(), CODIGO_CREDITO_DISPONIVEL);
-        UUID contaEmpenhadoALiquidar = resolverConta(solicitacao.enteId(), CODIGO_CREDITO_EMPENHADO_A_LIQUIDAR);
+        ContaContabilId contaCreditoDisponivel = resolverConta(solicitacao.enteId(), CODIGO_CREDITO_DISPONIVEL);
+        ContaContabilId contaEmpenhadoALiquidar = resolverConta(solicitacao.enteId(), CODIGO_CREDITO_EMPENHADO_A_LIQUIDAR);
 
         List<Lancamento> lancamentos = List.of(
                 Lancamento.de(contaEmpenhadoALiquidar, Natureza.DEBITO, solicitacao.valor()),
                 Lancamento.de(contaCreditoDisponivel, Natureza.CREDITO, solicitacao.valor()));
 
-        UUID periodoId = periodoContabil.periodoAbertoPara(solicitacao.enteId(), solicitacao.dataFato());
+        var periodoId = periodoContabil.periodoAbertoPara(solicitacao.enteId(), solicitacao.dataFato());
         long numeroSeq = contadorFato.proximoNumeroSeq(solicitacao.enteId());
 
         FatoContabil fato = FatoContabil.registrar(
@@ -86,7 +89,7 @@ public class ExecucaoContabilPortAdapter implements ExecucaoContabilPort {
                 clock);
 
         fatoContabilRepositorio.inserir(fato);
-        return fato.id();
+        return fato.id().valor();
     }
 
     @Override
@@ -99,12 +102,12 @@ public class ExecucaoContabilPortAdapter implements ExecucaoContabilPort {
         throw new UnsupportedOperationException("RAZ-67: roteiro de contabilização do pagamento ainda não implementado");
     }
 
-    private UUID resolverConta(TenantId enteId, String codigoPcasp) {
+    private ContaContabilId resolverConta(TenantId enteId, String codigoPcasp) {
         List<UUID> ids = jdbcTemplate.query(
                 SQL_RESOLVER_CONTA, (rs, rowNum) -> rs.getObject("id", UUID.class), enteId.valor(), codigoPcasp);
         if (ids.isEmpty()) {
             throw new ContaPcaspNaoEncontradaException(enteId, codigoPcasp);
         }
-        return ids.get(0);
+        return new ContaContabilId(ids.get(0));
     }
 }

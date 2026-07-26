@@ -1,10 +1,15 @@
 package br.contabil.consulta;
 
+import java.util.UUID;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import br.contabil.assinatura.AssinaturaGovBrOAuthProvedorIndisponivelException;
 import br.contabil.execucao.domain.EmpenhoAssinaturaConflitanteException;
 import br.contabil.execucao.domain.ExecucaoInvalidaException;
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.CertificadoInvalidoException;
@@ -29,6 +34,8 @@ import br.contabil.razao.domain.PeriodoEncerradoException;
  */
 @RestControllerAdvice
 class ErroContratoExceptionHandler {
+
+    private static final Logger LOG = LoggerFactory.getLogger(ErroContratoExceptionHandler.class);
 
     @ExceptionHandler(NaoAutenticadoException.class)
     ResponseEntity<ErroResponse> naoAutenticado(NaoAutenticadoException e) {
@@ -70,5 +77,15 @@ class ErroContratoExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErroResponse(e.codigo()));
     }
 
+    @ExceptionHandler(AssinaturaGovBrOAuthProvedorIndisponivelException.class)
+    ResponseEntity<ErroComCorrelacaoResponse> oauthProvedorIndisponivel(AssinaturaGovBrOAuthProvedorIndisponivelException e) {
+        String correlationId = UUID.randomUUID().toString();
+        LOG.error("Falha ao trocar code OAuth2 por token gov.br [correlationId={}]", correlationId, e);
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(new ErroComCorrelacaoResponse(e.codigo(), correlationId));
+    }
+
     record ErroResponse(String erro) {}
+
+    record ErroComCorrelacaoResponse(String erro, String correlationId) {}
 }

@@ -1,16 +1,18 @@
 package br.contabil.plataforma.infra.documento;
 
-import br.contabil.plataforma.domain.documento.ArmazenamentoDocumentos;
-import br.contabil.plataforma.domain.cofre.CofreSegredos;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import br.contabil.plataforma.domain.cofre.CofreSegredos;
+import br.contabil.plataforma.domain.documento.ArmazenamentoDocumentos;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;

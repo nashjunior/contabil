@@ -1,9 +1,5 @@
 package br.contabil.plataforma.infra.assinatura;
 
-import br.contabil.plataforma.domain.assinatura.ServicoAssinatura;
-import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.DocumentoParaAssinar;
-import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
-import br.contabil.plataforma.domain.auditoria.EventoAuditoria;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
 import java.time.Instant;
@@ -15,6 +11,11 @@ import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+
+import br.contabil.plataforma.domain.assinatura.ServicoAssinatura;
+import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.DocumentoParaAssinar;
+import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
+import br.contabil.plataforma.domain.auditoria.EventoAuditoria;
 
 /**
  * {@link ServicoAssinatura} F0: provedor único gov.br avançada

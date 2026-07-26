@@ -1,12 +1,26 @@
 package br.contabil.razao.application;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
+import org.mockito.Mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
@@ -17,28 +31,17 @@ import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.MfaRequeridoException;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.SemPermissaoException;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
+import br.contabil.razao.domain.ContaContabilId;
 import br.contabil.razao.domain.FatoContabil;
 import br.contabil.razao.domain.Lancamento;
 import br.contabil.razao.domain.Natureza;
 import br.contabil.razao.domain.PartidasNaoBalanceadasException;
+import br.contabil.razao.domain.PeriodoContabilId;
 import br.contabil.razao.domain.PeriodoEncerradoException;
 import br.contabil.razao.domain.TipoEvento;
 import br.contabil.razao.domain.repository.ContadorFatoPort;
 import br.contabil.razao.domain.repository.FatoContabilRepository;
 import br.contabil.razao.domain.repository.PeriodoContabilPort;
-import java.time.Clock;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class RegistrarFatoContabilTest {
@@ -58,7 +61,7 @@ class RegistrarFatoContabilTest {
     private RegistrarFatoContabil useCase;
 
     private final TenantId enteId = TenantId.de(UUID.randomUUID().toString());
-    private final UUID periodoId = UUID.randomUUID();
+    private final PeriodoContabilId periodoId = PeriodoContabilId.novo();
     private final LocalDate dataCompetencia = LocalDate.of(2026, 7, 1);
     private static final ServicoIdentidade.Recurso RECURSO = new ServicoIdentidade.Recurso("razao:fato_contabil");
 
@@ -71,8 +74,8 @@ class RegistrarFatoContabilTest {
 
     private List<Lancamento> lancamentosBalanceados() {
         return List.of(
-                Lancamento.de(UUID.randomUUID(), Natureza.DEBITO, Dinheiro.de("500.00")),
-                Lancamento.de(UUID.randomUUID(), Natureza.CREDITO, Dinheiro.de("500.00")));
+                Lancamento.de(ContaContabilId.novo(), Natureza.DEBITO, Dinheiro.de("500.00")),
+                Lancamento.de(ContaContabilId.novo(), Natureza.CREDITO, Dinheiro.de("500.00")));
     }
 
     private Sessao sessao(boolean mfaConcluido) {
@@ -108,8 +111,8 @@ class RegistrarFatoContabilTest {
         when(servicoIdentidade.autorizar(sessao, RECURSO, Acao.CRIAR)).thenReturn(true);
 
         List<Lancamento> desbalanceado = List.of(
-                Lancamento.de(UUID.randomUUID(), Natureza.DEBITO, Dinheiro.de("500.00")),
-                Lancamento.de(UUID.randomUUID(), Natureza.CREDITO, Dinheiro.de("400.00")));
+                Lancamento.de(ContaContabilId.novo(), Natureza.DEBITO, Dinheiro.de("500.00")),
+                Lancamento.de(ContaContabilId.novo(), Natureza.CREDITO, Dinheiro.de("400.00")));
 
         assertThatThrownBy(() -> useCase.executar(
                         sessao, enteId, dataCompetencia, TipoEvento.RECEITA, "historico", "origem", desbalanceado))

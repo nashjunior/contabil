@@ -1,21 +1,5 @@
 package br.contabil;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
-import br.contabil.plataforma.domain.Dinheiro;
-import br.contabil.plataforma.domain.TenantId;
-import br.contabil.plataforma.domain.iam.ServicoIdentidade;
-import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
-import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
-import br.contabil.razao.application.ConsultarSaldo;
-import br.contabil.razao.application.EstornarFatoContabil;
-import br.contabil.razao.application.RegistrarFatoContabil;
-import br.contabil.razao.domain.FatoContabil;
-import br.contabil.razao.domain.Lancamento;
-import br.contabil.razao.domain.Natureza;
-import br.contabil.razao.domain.TipoEvento;
-import br.contabil.razao.domain.repository.ConsultaSaldoPort;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -29,6 +13,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -44,6 +31,21 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+
+import br.contabil.plataforma.domain.Dinheiro;
+import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
+import br.contabil.razao.application.ConsultarSaldo;
+import br.contabil.razao.application.EstornarFatoContabil;
+import br.contabil.razao.application.RegistrarFatoContabil;
+import br.contabil.razao.domain.ContaContabilId;
+import br.contabil.razao.domain.FatoContabil;
+import br.contabil.razao.domain.Lancamento;
+import br.contabil.razao.domain.Natureza;
+import br.contabil.razao.domain.TipoEvento;
+import br.contabil.razao.domain.repository.ConsultaSaldoPort;
 
 /**
  * RAZ-52: fecha o gap multi-tenant do ciclo completo do razão — {@link TenantContextWiringIntegrationTest}
@@ -195,14 +197,14 @@ class RazaoMultiTenantE2EIntegrationTest {
                 sessaoAutenticada(enteA), enteA, LocalDate.of(2026, 1, 10), TipoEvento.EMPENHO,
                 "empenho ente A (RAZ-52)", "test",
                 List.of(
-                        Lancamento.de(contaDebitoA, Natureza.DEBITO, Dinheiro.de("500.00")),
-                        Lancamento.de(contaCreditoA, Natureza.CREDITO, Dinheiro.de("500.00"))));
+                        Lancamento.de(new ContaContabilId(contaDebitoA), Natureza.DEBITO, Dinheiro.de("500.00")),
+                        Lancamento.de(new ContaContabilId(contaCreditoA), Natureza.CREDITO, Dinheiro.de("500.00"))));
         registrarFatoContabil.executar(
                 sessaoAutenticada(enteB), enteB, LocalDate.of(2026, 1, 11), TipoEvento.EMPENHO,
                 "empenho ente B (RAZ-52)", "test",
                 List.of(
-                        Lancamento.de(contaDebitoB, Natureza.DEBITO, Dinheiro.de("300.00")),
-                        Lancamento.de(contaCreditoB, Natureza.CREDITO, Dinheiro.de("300.00"))));
+                        Lancamento.de(new ContaContabilId(contaDebitoB), Natureza.DEBITO, Dinheiro.de("300.00")),
+                        Lancamento.de(new ContaContabilId(contaCreditoB), Natureza.CREDITO, Dinheiro.de("300.00"))));
 
         assertThat(saldoDevedorLiquidoViaRls(enteA, contaDebitoA)).isEqualByComparingTo("500.00");
         assertThat(saldoDevedorLiquidoViaRls(enteB, contaDebitoB)).isEqualByComparingTo("300.00");
@@ -236,14 +238,14 @@ class RazaoMultiTenantE2EIntegrationTest {
                 sessaoAutenticada(enteA), enteA, LocalDate.of(2026, 1, 12), TipoEvento.RECEITA,
                 "fato A visivel só para A", "test",
                 List.of(
-                        Lancamento.de(contaA, Natureza.DEBITO, Dinheiro.de("10.00")),
-                        Lancamento.de(contaA, Natureza.CREDITO, Dinheiro.de("10.00"))));
+                        Lancamento.de(new ContaContabilId(contaA), Natureza.DEBITO, Dinheiro.de("10.00")),
+                        Lancamento.de(new ContaContabilId(contaA), Natureza.CREDITO, Dinheiro.de("10.00"))));
         registrarFatoContabil.executar(
                 sessaoAutenticada(enteB), enteB, LocalDate.of(2026, 1, 12), TipoEvento.RECEITA,
                 "fato B visivel só para B", "test",
                 List.of(
-                        Lancamento.de(contaB, Natureza.DEBITO, Dinheiro.de("20.00")),
-                        Lancamento.de(contaB, Natureza.CREDITO, Dinheiro.de("20.00"))));
+                        Lancamento.de(new ContaContabilId(contaB), Natureza.DEBITO, Dinheiro.de("20.00")),
+                        Lancamento.de(new ContaContabilId(contaB), Natureza.CREDITO, Dinheiro.de("20.00"))));
 
         List<String> entesVisiveisParaA = fatoContabilEnteIdsSobRls(enteA);
 
@@ -274,14 +276,14 @@ class RazaoMultiTenantE2EIntegrationTest {
                 sessaoAutenticada(enteA), enteA, LocalDate.of(2026, 1, 13), TipoEvento.EMPENHO,
                 "A#1", "test",
                 List.of(
-                        Lancamento.de(contaA, Natureza.DEBITO, Dinheiro.de("1.00")),
-                        Lancamento.de(contaA, Natureza.CREDITO, Dinheiro.de("1.00"))));
+                        Lancamento.de(new ContaContabilId(contaA), Natureza.DEBITO, Dinheiro.de("1.00")),
+                        Lancamento.de(new ContaContabilId(contaA), Natureza.CREDITO, Dinheiro.de("1.00"))));
         FatoContabil fatoB1 = registrarFatoContabil.executar(
                 sessaoAutenticada(enteB), enteB, LocalDate.of(2026, 1, 13), TipoEvento.EMPENHO,
                 "B#1", "test",
                 List.of(
-                        Lancamento.de(contaB, Natureza.DEBITO, Dinheiro.de("1.00")),
-                        Lancamento.de(contaB, Natureza.CREDITO, Dinheiro.de("1.00"))));
+                        Lancamento.de(new ContaContabilId(contaB), Natureza.DEBITO, Dinheiro.de("1.00")),
+                        Lancamento.de(new ContaContabilId(contaB), Natureza.CREDITO, Dinheiro.de("1.00"))));
         // estorno de A intercalado ANTES do próximo registro de B — se a numeração
         // vazasse entre entes, o próximo numeroSeq de B pularia por causa do estorno de A.
         FatoContabil estornoA1 = estornarFatoContabil.executar(
@@ -290,8 +292,8 @@ class RazaoMultiTenantE2EIntegrationTest {
                 sessaoAutenticada(enteB), enteB, LocalDate.of(2026, 1, 14), TipoEvento.EMPENHO,
                 "B#2", "test",
                 List.of(
-                        Lancamento.de(contaB, Natureza.DEBITO, Dinheiro.de("1.00")),
-                        Lancamento.de(contaB, Natureza.CREDITO, Dinheiro.de("1.00"))));
+                        Lancamento.de(new ContaContabilId(contaB), Natureza.DEBITO, Dinheiro.de("1.00")),
+                        Lancamento.de(new ContaContabilId(contaB), Natureza.CREDITO, Dinheiro.de("1.00"))));
 
         assertThat(estornoA1.numeroSeq())
                 .as("estorno consome o próximo numero_seq de A, contíguo ao registro anterior de A")
@@ -318,8 +320,8 @@ class RazaoMultiTenantE2EIntegrationTest {
                         sessaoAutenticada(enteA), enteB, LocalDate.of(2026, 1, 16), TipoEvento.EMPENHO,
                         descricao, "test",
                         List.of(
-                                Lancamento.de(contaB, Natureza.DEBITO, Dinheiro.de("999.00")),
-                                Lancamento.de(contaB, Natureza.CREDITO, Dinheiro.de("999.00")))))
+                                Lancamento.de(new ContaContabilId(contaB), Natureza.DEBITO, Dinheiro.de("999.00")),
+                                Lancamento.de(new ContaContabilId(contaB), Natureza.CREDITO, Dinheiro.de("999.00")))))
                 .as("anti-BOLA: tenant da sessão (A) não bate com o tenant da requisição (B)")
                 .isInstanceOf(ServicoIdentidade.SemPermissaoException.class);
 
@@ -348,10 +350,10 @@ class RazaoMultiTenantE2EIntegrationTest {
                 sessaoAutenticada(enteA), enteA, LocalDate.of(2026, 1, 17), TipoEvento.RECEITA,
                 "aquece a conexão pooled com app.ente_id setado", "test",
                 List.of(
-                        Lancamento.de(contaA, Natureza.DEBITO, Dinheiro.de("5.00")),
-                        Lancamento.de(contaA, Natureza.CREDITO, Dinheiro.de("5.00"))));
+                        Lancamento.de(new ContaContabilId(contaA), Natureza.DEBITO, Dinheiro.de("5.00")),
+                        Lancamento.de(new ContaContabilId(contaA), Natureza.CREDITO, Dinheiro.de("5.00"))));
 
-        assertThatThrownBy(() -> consultaSaldoPort.saldoDevedorLiquido(enteA, contaA))
+        assertThatThrownBy(() -> consultaSaldoPort.saldoDevedorLiquido(enteA, new ContaContabilId(contaA)))
                 .as("achado RAZ-52: bypass do port direto ainda falha fechado (nunca devolve dado "
                         + "de outro tenant) — mas como exceção, não como consulta vazia; ver javadoc da classe")
                 .isInstanceOf(DataAccessException.class);
@@ -377,17 +379,18 @@ class RazaoMultiTenantE2EIntegrationTest {
                 sessaoAutenticada(enteA), enteA, LocalDate.of(2026, 1, 18), TipoEvento.RECEITA,
                 "RAZ-59 saldo via use case", "test",
                 List.of(
-                        Lancamento.de(contaDebitoA, Natureza.DEBITO, Dinheiro.de("42.00")),
-                        Lancamento.de(contaCreditoA, Natureza.CREDITO, Dinheiro.de("42.00"))));
+                        Lancamento.de(new ContaContabilId(contaDebitoA), Natureza.DEBITO, Dinheiro.de("42.00")),
+                        Lancamento.de(new ContaContabilId(contaCreditoA), Natureza.CREDITO, Dinheiro.de("42.00"))));
         // chamada direta ao port (mesmo padrão do teste 5) para deixar app.ente_id "usado e
         // revertido para vazio" na conexão antes de provar que o use case ainda funciona.
-        assertThatThrownBy(() -> consultaSaldoPort.saldoDevedorLiquido(enteA, contaDebitoA))
+        assertThatThrownBy(() -> consultaSaldoPort.saldoDevedorLiquido(enteA, new ContaContabilId(contaDebitoA)))
                 .isInstanceOf(DataAccessException.class);
 
-        Dinheiro saldoA = consultarSaldo.executar(sessaoAutenticada(enteA), enteA, contaDebitoA);
+        Dinheiro saldoA = consultarSaldo.executar(sessaoAutenticada(enteA), enteA, new ContaContabilId(contaDebitoA));
 
         assertThat(saldoA).isEqualByComparingTo(Dinheiro.de("42.00"));
-        assertThatThrownBy(() -> consultarSaldo.executar(sessaoAutenticada(enteB), enteA, contaDebitoA))
+        assertThatThrownBy(() ->
+                        consultarSaldo.executar(sessaoAutenticada(enteB), enteA, new ContaContabilId(contaDebitoA)))
                 .as("anti-BOLA: sessão do ente B não pode consultar saldo em nome do ente A via ConsultarSaldo")
                 .isInstanceOf(ServicoIdentidade.SemPermissaoException.class);
     }

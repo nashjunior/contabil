@@ -7,7 +7,9 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.regex.Matcher;
@@ -17,7 +19,9 @@ import br.contabil.plataforma.domain.iam.ServicoIdentidade;
 
 final class VerificadorCertificadoIcp {
 
-    private static final Pattern CPF_NO_SUBJECT = Pattern.compile("(?:SERIALNUMBER|OID\\.2\\.16\\.76\\.1\\.3\\.1)=([^,]+)");
+    private static final Pattern CPF_NO_SUBJECT = Pattern.compile(
+            "(?:SERIALNUMBER|OID\\.2\\.16\\.76\\.1\\.3\\.1|OID\\.2\\.5\\.4\\.5)=([^,]+)",
+            Pattern.CASE_INSENSITIVE);
     private static final String PEM_INICIO_CERT = "-----BEGIN CERTIFICATE-----";
     private static final String PEM_FIM_CERT = "-----END CERTIFICATE-----";
 
@@ -30,14 +34,11 @@ final class VerificadorCertificadoIcp {
     }
 
     IdentidadeVerificada verificar(String cadeiaCertificadoPem) {
-        X509Certificate certificado = certificado(cadeiaCertificadoPem);
+        List<X509Certificate> cadeia = certificados(cadeiaCertificadoPem);
+        X509Certificate certificado = cadeia.getFirst();
         try {
             certificado.checkValidity(java.util.Date.from(Instant.now(clock)));
-            String fingerprint = sha256(certificado.getEncoded());
-            if (!properties.certificadosConfiaveisSha256().contains(fingerprint)) {
-                throw new ServicoIdentidade.NaoAutenticadoException(
-                        "certificado ICP-Brasil nao provisionado como confiavel");
-            }
+            validarFingerprintProvisionado(certificado);
             String cpf = extrairCpf(certificado);
             return new IdentidadeVerificada(cpf, null, null, true, certificado.getNotAfter().toInstant());
         } catch (ServicoIdentidade.NaoAutenticadoException e) {
@@ -47,26 +48,51 @@ final class VerificadorCertificadoIcp {
         }
     }
 
-    private X509Certificate certificado(String pem) {
+    private List<X509Certificate> certificados(String pem) {
         try {
-            String primeiro = Objects.requireNonNull(pem, "pem").split(PEM_FIM_CERT)[0] + PEM_FIM_CERT;
-            String normalizado = primeiro
-                    .replace(PEM_INICIO_CERT, "")
-                    .replace(PEM_FIM_CERT, "")
-                    .replaceAll("\\s", "");
-            byte[] der = Base64.getDecoder().decode(normalizado);
-            return (X509Certificate) CertificateFactory.getInstance("X.509")
-                    .generateCertificate(new ByteArrayInputStream(der));
+            String texto = Objects.requireNonNull(pem, "pem");
+            List<X509Certificate> certificados = new ArrayList<>();
+            int inicioBusca = 0;
+            while (true) {
+                int inicio = texto.indexOf(PEM_INICIO_CERT, inicioBusca);
+                if (inicio < 0) {
+                    break;
+                }
+                int fim = texto.indexOf(PEM_FIM_CERT, inicio);
+                if (fim < 0) {
+                    throw new ServicoIdentidade.NaoAutenticadoException("cadeia ICP-Brasil malformada");
+                }
+                String bloco = texto.substring(inicio + PEM_INICIO_CERT.length(), fim).replaceAll("\\s", "");
+                byte[] der = Base64.getDecoder().decode(bloco);
+                certificados.add((X509Certificate) CertificateFactory.getInstance("X.509")
+                        .generateCertificate(new ByteArrayInputStream(der)));
+                inicioBusca = fim + PEM_FIM_CERT.length();
+            }
+            if (certificados.isEmpty()) {
+                throw new ServicoIdentidade.NaoAutenticadoException("cadeia ICP-Brasil vazia");
+            }
+            return List.copyOf(certificados);
         } catch (CertificateException e) {
             throw new ServicoIdentidade.NaoAutenticadoException("cadeia ICP-Brasil malformada");
         }
     }
 
+    private void validarFingerprintProvisionado(X509Certificate certificado) throws Exception {
+        String fingerprint = sha256(certificado.getEncoded());
+        if (!properties.certificadosConfiaveisSha256().contains(fingerprint)) {
+            throw new ServicoIdentidade.NaoAutenticadoException(
+                    "certificado ICP-Brasil nao provisionado como confiavel");
+        }
+    }
+
     private String extrairCpf(X509Certificate certificado) {
-        String subject = certificado.getSubjectX500Principal().getName();
-        Matcher matcher = CPF_NO_SUBJECT.matcher(subject);
-        if (matcher.find()) {
-            return IamProperties.normalizarCpf(matcher.group(1));
+        for (String subject : List.of(
+                certificado.getSubjectX500Principal().getName(),
+                certificado.getSubjectX500Principal().getName("RFC1779"))) {
+            Matcher matcher = CPF_NO_SUBJECT.matcher(subject);
+            if (matcher.find()) {
+                return IamProperties.normalizarCpf(matcher.group(1));
+            }
         }
         throw new ServicoIdentidade.NaoAutenticadoException("certificado ICP-Brasil sem CPF no titular");
     }

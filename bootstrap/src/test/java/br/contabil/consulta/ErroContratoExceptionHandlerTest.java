@@ -8,6 +8,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 
+import br.contabil.assinatura.AssinaturaGovBrOAuthProvedorIndisponivelException;
 import br.contabil.execucao.domain.ExecucaoInvalidaException;
 import br.contabil.plataforma.domain.TenantId;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.DesafioMfa;
@@ -60,5 +61,15 @@ class ErroContratoExceptionHandlerTest {
 
         assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         assertThat(resposta.getBody().erro()).isEqualTo("periodo_encerrado");
+    }
+
+    @Test
+    void oauthProvedorIndisponivelDevolve502ComCorrelationId() {
+        var resposta = handler.oauthProvedorIndisponivel(
+                new AssinaturaGovBrOAuthProvedorIndisponivelException(new IllegalStateException("token endpoint 503")));
+
+        assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
+        assertThat(resposta.getBody().erro()).isEqualTo("oauth_provedor_indisponivel");
+        assertThat(resposta.getBody().correlationId()).isNotBlank();
     }
 }

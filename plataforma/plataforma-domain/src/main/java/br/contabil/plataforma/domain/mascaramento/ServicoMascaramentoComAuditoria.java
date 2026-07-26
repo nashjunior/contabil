@@ -1,12 +1,13 @@
 package br.contabil.plataforma.domain.mascaramento;
 
-import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
-import br.contabil.plataforma.domain.auditoria.EventoAuditoria;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+
+import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
+import br.contabil.plataforma.domain.auditoria.EventoAuditoria;
 
 /**
  * Decorador que fecha a cobertura mínima de trilha do piso F0 para PII (13-nfr §piso;

@@ -1,13 +1,16 @@
 package br.contabil.plataforma.infra.iam;
 
-import br.contabil.plataforma.domain.iam.ControleAcesso;
-import br.contabil.plataforma.domain.iam.ServicoIdentidade;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Clock;
+
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import br.contabil.plataforma.domain.iam.ControleAcesso;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade;
 
 /**
  * Wiring de IAM (ADR-0002 / AGENTS.md): {@link ServicoIdentidade} é o adapter

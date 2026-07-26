@@ -1,32 +1,19 @@
 package br.contabil;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
-import br.contabil.plataforma.domain.Dinheiro;
-import br.contabil.plataforma.domain.TenantId;
-import br.contabil.plataforma.domain.iam.ServicoIdentidade;
-import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
-import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
-import br.contabil.razao.application.EstornarFatoContabil;
-import br.contabil.razao.application.RegistrarFatoContabil;
-import br.contabil.razao.domain.FatoContabil;
-import br.contabil.razao.domain.Lancamento;
-import br.contabil.razao.domain.Natureza;
-import br.contabil.razao.domain.PartidasNaoBalanceadasException;
-import br.contabil.razao.domain.PeriodoEncerradoException;
-import br.contabil.razao.domain.TipoEvento;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -41,6 +28,22 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+
+import br.contabil.plataforma.domain.Dinheiro;
+import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
+import br.contabil.razao.application.EstornarFatoContabil;
+import br.contabil.razao.application.RegistrarFatoContabil;
+import br.contabil.razao.domain.ContaContabilId;
+import br.contabil.razao.domain.FatoContabil;
+import br.contabil.razao.domain.Lancamento;
+import br.contabil.razao.domain.Natureza;
+import br.contabil.razao.domain.PartidasNaoBalanceadasException;
+import br.contabil.razao.domain.PeriodoContabilId;
+import br.contabil.razao.domain.PeriodoEncerradoException;
+import br.contabil.razao.domain.TipoEvento;
 
 /**
  * RAZ-27: fecha o gap registrado no Javadoc de {@code GoldSetConformidadeContabilTest}
@@ -166,8 +169,8 @@ class RegistrarEstornarFatoContabilIntegrationTest {
                 "empenho via pipeline real (RAZ-27)",
                 "test",
                 List.of(
-                        Lancamento.de(contaDebito, Natureza.DEBITO, Dinheiro.de("1000.00")),
-                        Lancamento.de(contaCredito, Natureza.CREDITO, Dinheiro.de("1000.00"))));
+                        Lancamento.de(new ContaContabilId(contaDebito), Natureza.DEBITO, Dinheiro.de("1000.00")),
+                        Lancamento.de(new ContaContabilId(contaCredito), Natureza.CREDITO, Dinheiro.de("1000.00"))));
 
         assertThat(saldoDevedorLiquidoViaRls(enteId, contaDebito))
                 .as("debito refletido no saldo derivado sob RLS apos o registro pelo pipeline real")
@@ -208,8 +211,8 @@ class RegistrarEstornarFatoContabilIntegrationTest {
                 "competencia janeiro",
                 "test",
                 List.of(
-                        Lancamento.de(contaDebito, Natureza.DEBITO, Dinheiro.de("50.00")),
-                        Lancamento.de(contaCredito, Natureza.CREDITO, Dinheiro.de("50.00"))));
+                        Lancamento.de(new ContaContabilId(contaDebito), Natureza.DEBITO, Dinheiro.de("50.00")),
+                        Lancamento.de(new ContaContabilId(contaCredito), Natureza.CREDITO, Dinheiro.de("50.00"))));
         FatoContabil fatoFevereiro = registrarFatoContabil.executar(
                 sessaoAutenticada(enteId),
                 enteId,
@@ -218,15 +221,15 @@ class RegistrarEstornarFatoContabilIntegrationTest {
                 "competencia fevereiro",
                 "test",
                 List.of(
-                        Lancamento.de(contaDebito, Natureza.DEBITO, Dinheiro.de("70.00")),
-                        Lancamento.de(contaCredito, Natureza.CREDITO, Dinheiro.de("70.00"))));
+                        Lancamento.de(new ContaContabilId(contaDebito), Natureza.DEBITO, Dinheiro.de("70.00")),
+                        Lancamento.de(new ContaContabilId(contaCredito), Natureza.CREDITO, Dinheiro.de("70.00"))));
 
         assertThat(fatoJaneiro.periodoId())
                 .as("10/01 cai no periodo de janeiro - derivado da data de competencia, nunca recebido como argumento")
-                .isEqualTo(UUID.fromString(PERIODO_JANEIRO));
+                .isEqualTo(new PeriodoContabilId(UUID.fromString(PERIODO_JANEIRO)));
         assertThat(fatoFevereiro.periodoId())
                 .as("10/02 cai no periodo de fevereiro - mesmo ente e use case, periodo muda so pela data de competencia")
-                .isEqualTo(UUID.fromString(PERIODO_FEVEREIRO));
+                .isEqualTo(new PeriodoContabilId(UUID.fromString(PERIODO_FEVEREIRO)));
     }
 
     // ------------------------------------------------------------------
@@ -238,8 +241,8 @@ class RegistrarEstornarFatoContabilIntegrationTest {
     void partidasDesbalanceadasPropagaComoExcecaoDeDominioSemTocarOBanco() {
         TenantId enteId = TenantId.de(ENTE);
         List<Lancamento> desbalanceado = List.of(
-                Lancamento.de(UUID.randomUUID(), Natureza.DEBITO, Dinheiro.de("100.00")),
-                Lancamento.de(UUID.randomUUID(), Natureza.CREDITO, Dinheiro.de("40.00")));
+                Lancamento.de(ContaContabilId.novo(), Natureza.DEBITO, Dinheiro.de("100.00")),
+                Lancamento.de(ContaContabilId.novo(), Natureza.CREDITO, Dinheiro.de("40.00")));
 
         assertThatThrownBy(() -> registrarFatoContabil.executar(
                         sessaoAutenticada(enteId), enteId, LocalDate.of(2026, 1, 12), TipoEvento.EMPENHO,
@@ -261,8 +264,8 @@ class RegistrarEstornarFatoContabilIntegrationTest {
                         "tentativa em periodo encerrado via pipeline real",
                         "test",
                         List.of(
-                                Lancamento.de(UUID.randomUUID(), Natureza.DEBITO, Dinheiro.de("10.00")),
-                                Lancamento.de(UUID.randomUUID(), Natureza.CREDITO, Dinheiro.de("10.00")))))
+                                Lancamento.de(ContaContabilId.novo(), Natureza.DEBITO, Dinheiro.de("10.00")),
+                                Lancamento.de(ContaContabilId.novo(), Natureza.CREDITO, Dinheiro.de("10.00")))))
                 .as("PostgresPeriodoContabilPort rejeita antes do INSERT chegar ao banco - excecao de dominio, "
                         + "nao a mensagem crua da trigger de periodo encerrado (essa e a trava vista por "
                         + "RazaoContabilTravasTest, aqui via SQL cru)")
