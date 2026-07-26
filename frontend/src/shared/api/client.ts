@@ -97,4 +97,57 @@ export const execucaoClient = {
     post<PagamentoResponse>('/execucao/pagamentos', body, contexto),
   consultarExecucaoOrcamentaria: (exercicio: number, mes: number, contexto: GovbrContexto) =>
     get<ExecucaoOrcamentariaResponse>('/execucao/orcamentaria', { exercicio, mes }, contexto),
+  consultarFilaAprovacao: (
+    params: {
+      statusAprovacao?: 'pendente' | 'aprovada' | 'devolvida';
+      cursor?: string;
+      limit?: number;
+      fonte?: string;
+      dataInicio?: string;
+      dataFim?: string;
+      valorMin?: string;
+      valorMax?: string;
+    },
+    contexto: GovbrContexto,
+  ) => {
+    const query: Record<string, string | number> = {};
+    if (params.statusAprovacao) query['statusAprovacao'] = params.statusAprovacao;
+    if (params.cursor) query['cursor'] = params.cursor;
+    if (params.limit != null) query['limit'] = params.limit;
+    if (params.fonte) query['fonte'] = params.fonte;
+    if (params.dataInicio) query['dataInicio'] = params.dataInicio;
+    if (params.dataFim) query['dataFim'] = params.dataFim;
+    if (params.valorMin) query['valorMin'] = params.valorMin;
+    if (params.valorMax) query['valorMax'] = params.valorMax;
+    return get<FilaAprovacaoResponse>('/execucao/liquidacoes', query, contexto);
+  },
+  consultarTrilhaLiquidacao: (liquidacaoId: string, contexto: GovbrContexto) =>
+    get<TrilhaResponse>(`/execucao/liquidacoes/${liquidacaoId}/trilha`, {}, contexto),
+};
+
+export type SaldoContaResponse = components['schemas']['SaldoContaResponse'];
+export type BalanceteResponse = components['schemas']['BalanceteResponse'];
+export type LinhaBalancete = components['schemas']['LinhaBalancete'];
+export type ContaResumo = components['schemas']['ContaResumo'];
+export type ContasResponse = components['schemas']['ContasResponse'];
+export type FilaAprovacaoResponse = components['schemas']['FilaAprovacaoResponse'];
+export type ItemFilaAprovacao = components['schemas']['ItemFilaAprovacao'];
+export type TrilhaResponse = components['schemas']['TrilhaResponse'];
+export type EventoTrilha = components['schemas']['EventoTrilha'];
+
+export const razaoClient = {
+  consultarSaldo: (contaId: string, contexto: GovbrContexto) =>
+    get<SaldoContaResponse>('/razao/saldo', { contaId }, contexto),
+  consultarBalancete: (exercicio: number, mes: number, contexto: GovbrContexto) =>
+    get<BalanceteResponse>('/razao/balancete', { exercicio, mes }, contexto),
+  consultarContas: (
+    params: { busca?: string; cursor?: string; limit?: number },
+    contexto: GovbrContexto,
+  ) => {
+    const query: Record<string, string | number> = {};
+    if (params.busca) query['busca'] = params.busca;
+    if (params.cursor) query['cursor'] = params.cursor;
+    if (params.limit != null) query['limit'] = params.limit;
+    return get<ContasResponse>('/razao/contas', query, contexto);
+  },
 };
