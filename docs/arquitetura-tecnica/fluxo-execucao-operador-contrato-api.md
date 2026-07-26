@@ -1,8 +1,10 @@
 # Fluxo do operador e contrato de API — execução da despesa (F1)
 
-[← Arquitetura técnica](./README.md) · [Execução orçamentária (domínio, RAZ-65)](./execucao-orcamentaria-despesa.md) · [ADR-0022 Lote de pagamento](./adr/0022-lote-pagamento-contrato-api-execucao.md) · [ADR-0013 fail-soft](./adr/0013-persistencia-lote-fail-soft.md) · [ADR-0016 RBAC+MFA](./adr/0016-controle-acesso-mfa-movimentacao-recurso.md)
+[← Arquitetura técnica](./README.md) · [Execução orçamentária (domínio, RAZ-65)](./execucao-orcamentaria-despesa.md) · [ADR-0022 Lote de pagamento](./adr/0022-lote-pagamento-contrato-api-execucao.md) · [ADR-0023 Gate de aprovação](./adr/0023-gate-aprovacao-pagamento-segregacao.md) · [ADR-0013 fail-soft](./adr/0013-persistencia-lote-fail-soft.md) · [ADR-0016 RBAC+MFA](./adr/0016-controle-acesso-mfa-movimentacao-recurso.md)
 
-> Design de **produto/UX** (RAZ-79) sobre o domínio já modelado em [RAZ-65](./execucao-orcamentaria-despesa.md) e parcialmente implementado (RAZ-66 empenho *in progress*, RAZ-67 liquidação/pagamento *done*). Objetivo: mapear o fluxo do **operador** (não do agregado) — quem faz o quê, em que tela, com que payload — e fechar o **contrato de API** que a UI vai consumir. **Este documento não constrói tela**; é o contrato contra o qual a tela nasce depois. Report-first: cruzar com Aurélio antes de qualquer implementação de front-end.
+> Design de **produto/UX** (RAZ-79) sobre o domínio já modelado em [RAZ-65](./execucao-orcamentaria-despesa.md) e parcialmente implementado (RAZ-66 empenho *in progress*, RAZ-67 liquidação/pagamento *done*). Objetivo: mapear o fluxo do **operador** (não do agregado) — quem faz o quê, em que tela, com que payload — e fechar o **contrato de API** que a UI vai consumir. **Este documento não constrói tela**; é o contrato contra o qual a tela nasce depois.
+>
+> **Ratificado (RAZ-88, Aurélio, 2026-07-26):** a decisão de lote (§4) foi confirmada sem ajuste em [ADR-0022](./adr/0022-lote-pagamento-contrato-api-execucao.md) (Aceita). O gate de aprovação (§2/§6.6), que este documento deixava como proposta em aberto, foi decidido em [ADR-0023](./adr/0023-gate-aprovacao-pagamento-segregacao.md) (Aceita): é um segundo gate transacional, não só RBAC. O contrato abaixo pode ser tratado como **definitivo**; a materialização do gate no backend é RAZ-92 (issue própria, ainda backlog).
 
 ---
 
@@ -26,7 +28,7 @@ A [Regra 9](../05-regras-de-negocio.md) já fixa a matriz: **quem lança não au
 | **Tesoureiro / financeiro** | Pagamento — efetiva a baixa (individual ou em lote) após aprovação | `CRIAR` sobre `execucao:pagamento` | — **nunca** quem aprovou |
 | **Administrador de acesso (IAM)** | RBAC dos quatro papéis acima | fora do domínio de execução | **nunca** nenhum dos quatro — não opera financeiro |
 
-> **Gap de implementação a registrar (não é escopo deste doc corrigir):** o [fluxo 2](../04-fluxos.md#2-execução-da-despesa) já desenha o gate `H["Autorização do ordenador (alçada)"]` antes do pagamento, mas `RegistrarPagamento` (RAZ-67, hoje) só checa `Acao.CRIAR` — não há um estágio `APROVAR` distinto em código. Este documento **propõe** o `APROVAR` como ação de contrato (linha acima); materializá-lo no `ControleAcesso`/use case é trabalho de backend a abrir como issue própria (ver [§7](#7-abertos-e-riscos)), não algo que a UI pode fingir que já existe.
+> **Decidido em [ADR-0023](./adr/0023-gate-aprovacao-pagamento-segregacao.md):** o [fluxo 2](../04-fluxos.md#2-execução-da-despesa) já desenha o gate `H["Autorização do ordenador (alçada)"]` antes do pagamento; `RegistrarPagamento` (RAZ-67, hoje) só checa `Acao.CRIAR` — o `APROVAR` distinto acima **ainda não está em código**, mas deixou de ser proposta: é decisão ratificada (RBAC sozinho não basta, precisa do segundo gate transacional). Materialização = **RAZ-92** (issue de backend filha de RAZ-79, backlog).
 
 A UI reflete isso como **duas telas de fila** por natureza — "minhas pendências para lançar" e "minhas pendências para aprovar/pagar" — nunca uma ação de aprovar exposta a quem lançou o item (o botão nem aparece; a checagem real continua no `ControleAcesso`, a UI só evita o clique inútil).
 
@@ -81,7 +83,7 @@ Pagamento:   [aprovado] → [enfileirado p/ escrituração] → [efetivado]
 Documento (empenho/OB): [pendente de assinatura] → [assinado] | [falha — reassinar]  (ADR-0008, UC4)
 ```
 
-Nenhum desses é um campo solto: `[emitido]`/`[anulado]` etc. **derivam** de `saldoALiquidar`/`saldoAPagar` e da presença de `fatoContabilId`; a UI não guarda estado próprio de workflow, só projeta o que os endpoints de consulta devolvem (evita a UI divergir do saldo operacional, que é a trava real).
+Nenhum desses é um campo solto: `[emitido]`/`[anulado]` etc. **derivam** de `saldoALiquidar`/`saldoAPagar` e da presença de `fatoContabilId`; a UI não guarda estado próprio de workflow, só projeta o que os endpoints de consulta devolvem (evita a UI divergir do saldo operacional, que é a trava real). Exceção: `aguardando_aprovacao → aprovada | devolvida` da liquidação **não** é derivado — pelo [ADR-0023](./adr/0023-gate-aprovacao-pagamento-segregacao.md) é **estado forte**, transicionado só pela ação `AprovarPagamento` (RAZ-92); a UI não infere essa transição de nenhum saldo.
 
 ---
 
@@ -288,13 +290,14 @@ Acao: CRIAR sobre execucao:liquidacao
 GET /entes/{enteId}/execucao/liquidacoes/{id}
 GET /entes/{enteId}/execucao/liquidacoes?empenhoId=&status=&cursor=&limit=
 ```
-`status` na resposta (`registrada|aguardando_aprovacao|aprovada|devolvida|paga_parcial|paga_total`) é campo de **leitura derivada** (read model), nunca aceito em escrita — evita a UI "settar" um estado que devia vir de uma ação de domínio.
+`status` na resposta (`registrada|aguardando_aprovacao|aprovada|devolvida|paga_parcial|paga_total`) nunca é aceito em escrita neste endpoint — evita a UI "settar" um estado que devia vir de uma ação de domínio. `registrada|paga_parcial|paga_total` são **leitura derivada** (read model, de `saldoALiquidar`/`saldoAPagar`); `aprovada|devolvida` são **estado forte** transicionado só por `POST .../aprovacao` ([§6.6](#66-aprovação-ação-aprovar-adr-0023), [ADR-0023](./adr/0023-gate-aprovacao-pagamento-segregacao.md)).
 
 ### 6.5 Pagamento — individual e em lote
 
 ```
 POST /entes/{enteId}/execucao/pagamentos
-Acao: CRIAR sobre execucao:pagamento (requer aprovação prévia — ver gap §2)
+Acao: CRIAR sobre execucao:pagamento (pré-condição: liquidação em status "aprovada" — ADR-0023;
+                                       senão 409 pagamento_nao_aprovado)
 
 {
   "liquidacaoId": "uuid",
@@ -337,32 +340,36 @@ Acao: CRIAR sobre execucao:pagamento (mesma ação; o lote não é um recurso à
 - `207 Multi-Status` sinaliza sucesso parcial no protocolo, não só no corpo — um proxy/cliente HTTP que só olha o status já sabe que não é "tudo ok" nem "tudo falhou".
 - Só `toInsert`/`errors`: não há `toUpdate`/`toDelete` porque pagamento não se corrige por update (estorno é endpoint próprio, fora deste desenho — RAZ-65 §"o que não faz parte").
 - Cada item do lote é **uma chamada isolada e atômica** ao mesmo caso de uso do endpoint individual — o lote em si não abre uma transação guarda-chuva (isso reintroduziria o "um item ruim derruba os outros 31" que o ADR-0013 existe para evitar).
+- A pré-condição `aprovada` (ADR-0023) vale **item a item** dentro do lote — uma liquidação ainda `aguardando_aprovacao` cai em `errors[]` com `pagamento_nao_aprovado`, não trava o restante.
 
 ```
 GET /entes/{enteId}/execucao/pagamentos/{id}
 GET /entes/{enteId}/execucao/pagamentos?liquidacaoId=&ordemBancaria=&cursor=&limit=
 ```
 
-### 6.6 Aprovação (o gate que falta em código — contrato proposto)
+### 6.6 Aprovação (ação APROVAR, ADR-0023)
+
+Decidido, ainda **não implementado** — RAZ-92 materializa o use case `AprovarPagamento` que este contrato pressupõe.
 
 ```
 POST /entes/{enteId}/execucao/liquidacoes/{id}/aprovacao
-Acao: APROVAR sobre execucao:pagamento
+Acao: APROVAR sobre execucao:pagamento (recusa auto-aprovação: aprovador != autor
+                                          do empenho/liquidação da cadeia — ADR-0023)
 { "decisao": "aprovar | devolver", "motivo": "obrigatório se devolver" }
 → 200 { "liquidacaoId": "uuid", "status": "aprovada | devolvida" }
 ```
-Sem lote nesta ação por ora — o §5.3 mostra seleção múltipla na fila, mas isso é conveniência de front-end (N chamadas sequenciais ou um `Promise.allSettled` no client); não é contrato de lote no servidor enquanto o volume de aprovações (dezenas/dia) não justificar o mesmo tratamento que o pagamento recebeu. Se crescer, é o mesmo padrão do §6.5 — decisão fica registrada aqui para não repetir a análise.
+Sem lote nesta ação por ora — o §5.3 mostra seleção múltipla na fila, mas isso é conveniência de front-end (N chamadas sequenciais ou um `Promise.allSettled` no client); não é contrato de lote no servidor enquanto o volume de aprovações (dezenas/dia) não justificar o mesmo tratamento que o pagamento recebeu. Se crescer, é o mesmo padrão do §6.5 — decisão fica registrada aqui para não repetir a análise. (Ratificado em ADR-0023: alçada por valor fica fora desta fase; gate é binário aprovar/devolver.)
 
 ---
 
 ## 7. Abertos e riscos
 
 - **`Dotacao` como agregado não existe em código ainda** (só `DotacaoId`/`SaldoDotacao`) — a carga da LOA que popula `valorAutorizado` é pré-requisito funcional de qualquer tela de empenho e não está desenhada aqui (seguir ADR-0013 quando for feita — é ingestão em lote legítima, diferente da decisão do §4).
-- **Gate de `APROVAR` para pagamento não existe em `ControleAcesso`/`RegistrarPagamento` hoje** — §2 e §6.6 propõem o contrato; falta abrir issue de backend para materializá-lo (ou confirmar com Aurélio/Gustavo se a alçada fica só na Regra 9 organizacional sem enforcement adicional no código do pagamento em si — precisa decisão, não estou assumindo).
-- **Alçada por valor** (quem pode aprovar até que teto) não está modelada em nenhum port hoje — se o produto quiser diferenciar alçada por cargo/valor, é RBAC com atributo extra (ABAC), fora do escopo deste contrato v1.
+- **Gate de `APROVAR` para pagamento decidido, não implementado** — [ADR-0023](./adr/0023-gate-aprovacao-pagamento-segregacao.md) fecha a decisão de arquitetura; a materialização (`AprovarPagamento` + pré-condição em `RegistrarPagamento`) é **RAZ-92**, issue de backend filha de RAZ-79, ainda em `backlog` — front-end não deve construir a tela do §5.3/§6.6 assumindo o endpoint disponível sem checar o status de RAZ-92 primeiro.
+- **Alçada por valor** (quem pode aprovar até que teto) explicitamente **fora da v1** por ADR-0023 — não está modelada em nenhum port hoje; se o produto quiser diferenciar alçada por cargo/valor, é RBAC com atributo extra (ABAC), decisão futura própria.
 - **Reforço/anulação de empenho e estorno** ficam fora deste contrato (RAZ-65 já os marca como issues próprias) — quando chegarem, seguem a mesma convenção (endpoint de ação, não PATCH).
 - Números de exemplo (`2026NE00341`, `2026LQ00118`) nos wireframes são ilustrativos — o formato canônico de exibição do número sequencial (prefixo por tipo de documento) ainda não foi decidido em nenhum ADR; **revalidar com Aurélio** antes de fixar em tela real.
 
 ---
 
-[← Arquitetura técnica](./README.md) · [Execução orçamentária (domínio)](./execucao-orcamentaria-despesa.md) · [ADR-0022](./adr/0022-lote-pagamento-contrato-api-execucao.md) · [ADR-0013](./adr/0013-persistencia-lote-fail-soft.md)
+[← Arquitetura técnica](./README.md) · [Execução orçamentária (domínio)](./execucao-orcamentaria-despesa.md) · [ADR-0022](./adr/0022-lote-pagamento-contrato-api-execucao.md) · [ADR-0023](./adr/0023-gate-aprovacao-pagamento-segregacao.md) · [ADR-0013](./adr/0013-persistencia-lote-fail-soft.md)
