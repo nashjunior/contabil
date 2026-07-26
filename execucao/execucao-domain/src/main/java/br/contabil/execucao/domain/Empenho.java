@@ -4,7 +4,6 @@ import java.net.URI;
 import java.time.LocalDate;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.UUID;
 
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
@@ -40,7 +39,7 @@ public final class Empenho {
     private final String classificacaoOrcamentaria;
     private final String fonteRecurso;
     private final String historico;
-    private final UUID fatoContabilId;
+    private final ReferenciaFatoContabil fatoContabilId;
     private final Cpf autor;
     private final StatusEmpenho status;
     private final Optional<URI> documentoPendenteUri;
@@ -61,7 +60,7 @@ public final class Empenho {
             String classificacaoOrcamentaria,
             String fonteRecurso,
             String historico,
-            UUID fatoContabilId,
+            ReferenciaFatoContabil fatoContabilId,
             Cpf autor,
             StatusEmpenho status,
             Optional<URI> documentoPendenteUri,
@@ -102,7 +101,7 @@ public final class Empenho {
             String classificacaoOrcamentaria,
             String fonteRecurso,
             String historico,
-            UUID fatoContabilId,
+            ReferenciaFatoContabil fatoContabilId,
             Cpf autor) {
         return reconstituir(
                 id,
@@ -142,7 +141,7 @@ public final class Empenho {
             String classificacaoOrcamentaria,
             String fonteRecurso,
             String historico,
-            UUID fatoContabilId,
+            ReferenciaFatoContabil fatoContabilId,
             Cpf autor,
             StatusEmpenho status,
             Optional<URI> documentoPendenteUri,
@@ -163,7 +162,7 @@ public final class Empenho {
                 textoObrigatorio(classificacaoOrcamentaria, "classificação orçamentária"),
                 textoObrigatorio(fonteRecurso, "fonte de recurso"),
                 textoObrigatorio(historico, "histórico"),
-                Objects.requireNonNull(fatoContabilId, "fatoContabilId não pode ser nulo"),
+                Objects.requireNonNull(fatoContabilId, "fatoContabilId não pode ser nula"),
                 Objects.requireNonNull(autor, "autor não pode ser nulo"),
                 Objects.requireNonNull(status, "status não pode ser nulo"),
                 Objects.requireNonNull(documentoPendenteUri, "documentoPendenteUri (Optional) não pode ser nulo"),
@@ -294,7 +293,7 @@ public final class Empenho {
         return historico;
     }
 
-    public UUID fatoContabilId() {
+    public ReferenciaFatoContabil fatoContabilId() {
         return fatoContabilId;
     }
 

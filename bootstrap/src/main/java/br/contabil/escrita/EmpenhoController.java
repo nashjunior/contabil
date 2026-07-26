@@ -103,7 +103,7 @@ final class EmpenhoController {
                     empenho.classificacaoOrcamentaria(),
                     empenho.fonteRecurso(),
                     empenho.historico(),
-                    empenho.fatoContabilId());
+                    empenho.fatoContabilId().valor());
         }
     }
 }

@@ -6,12 +6,12 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
 
 import br.contabil.execucao.domain.DocumentoSuporte;
 import br.contabil.execucao.domain.EmpenhoId;
 import br.contabil.execucao.domain.Liquidacao;
 import br.contabil.execucao.domain.LiquidacaoId;
+import br.contabil.execucao.domain.ReferenciaFatoContabil;
 import br.contabil.execucao.domain.repository.ExecucaoContabilPort;
 import br.contabil.execucao.domain.repository.ExecucaoContabilPort.SolicitacaoEscrituracaoLiquidacao;
 import br.contabil.execucao.domain.repository.LiquidacaoRepository;
@@ -76,7 +76,7 @@ public class RegistrarLiquidacao {
         saldoEmpenho.exigirSaldoParaLiquidar(valor);
 
         LiquidacaoId liquidacaoId = LiquidacaoId.novo();
-        UUID fatoContabilId = escrituracao.registrarLiquidacao(new SolicitacaoEscrituracaoLiquidacao(
+        ReferenciaFatoContabil fatoContabilId = escrituracao.registrarLiquidacao(new SolicitacaoEscrituracaoLiquidacao(
                 enteId, liquidacaoId, empenhoId, dataCompetencia, valor, documentosSuporte, historico));
 
         Liquidacao liquidacao = Liquidacao.registrar(
@@ -87,7 +87,7 @@ public class RegistrarLiquidacao {
                 valor,
                 documentosSuporte,
                 historico,
-                fatoContabilId,
+                fatoContabilId.valor(),
                 usuarioAutenticado.titular());
         repositorio.inserir(liquidacao);
         publicacaoTransparencia.publicar(liquidacao, usuarioAutenticado);
@@ -99,7 +99,7 @@ public class RegistrarLiquidacao {
                 Instant.now(clock),
                 Map.of(
                         "empenhoId", empenhoId.valor().toString(),
-                        "fatoContabilId", fatoContabilId.toString(),
+                        "fatoContabilId", fatoContabilId.valor().toString(),
                         "valor", valor.valor().toPlainString())));
         return liquidacao;
     }

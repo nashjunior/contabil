@@ -6,7 +6,6 @@ import java.time.LocalDate;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.UUID;
 
 import br.contabil.execucao.domain.Beneficiario;
 import br.contabil.execucao.domain.ExecucaoInvalidaException;
@@ -16,6 +15,7 @@ import br.contabil.execucao.domain.NaturezaPagamento;
 import br.contabil.execucao.domain.Pagamento;
 import br.contabil.execucao.domain.PagamentoId;
 import br.contabil.execucao.domain.PagamentoNaoAprovadoException;
+import br.contabil.execucao.domain.ReferenciaFatoContabil;
 import br.contabil.execucao.domain.StatusAprovacao;
 import br.contabil.execucao.domain.repository.ExecucaoContabilPort;
 import br.contabil.execucao.domain.repository.ExecucaoContabilPort.SolicitacaoEscrituracaoPagamento;
@@ -96,7 +96,7 @@ public class RegistrarPagamento {
         saldoLiquidacao.exigirSaldoParaPagar(valor);
 
         PagamentoId pagamentoId = PagamentoId.novo();
-        UUID fatoContabilId = escrituracao.registrarPagamento(new SolicitacaoEscrituracaoPagamento(
+        ReferenciaFatoContabil fatoContabilId = escrituracao.registrarPagamento(new SolicitacaoEscrituracaoPagamento(
                 enteId,
                 pagamentoId,
                 liquidacaoId,
@@ -117,7 +117,7 @@ public class RegistrarPagamento {
                 beneficiario,
                 ordemBancaria,
                 historico,
-                fatoContabilId);
+                fatoContabilId.valor());
         repositorio.inserir(pagamento);
         publicacaoTransparencia.publicar(pagamento, usuarioAutenticado);
         auditoria.append(new EventoAuditoria(
@@ -128,7 +128,7 @@ public class RegistrarPagamento {
                 Instant.now(clock),
                 Map.of(
                         "liquidacaoId", liquidacaoId.valor().toString(),
-                        "fatoContabilId", fatoContabilId.toString(),
+                        "fatoContabilId", fatoContabilId.valor().toString(),
                         "natureza", natureza.name(),
                         "valor", valor.valor().toPlainString())));
         return pagamento;

@@ -13,6 +13,7 @@ import br.contabil.execucao.domain.CredorId;
 import br.contabil.execucao.domain.DotacaoId;
 import br.contabil.execucao.domain.Empenho;
 import br.contabil.execucao.domain.ExecucaoInvalidaException;
+import br.contabil.execucao.domain.ReferenciaFatoContabil;
 import br.contabil.execucao.domain.SaldoDotacao;
 import br.contabil.execucao.domain.SaldoInsuficienteException;
 import br.contabil.execucao.domain.TipoEmpenho;
@@ -113,7 +114,7 @@ class RegistrarEmpenhoTest {
     @DisplayName("consulta saldo da dotação, escritura fato contábil e persiste empenho")
     void registraComSucesso() {
         Sessao sessao = sessao(true);
-        UUID fatoContabilId = UUID.randomUUID();
+        ReferenciaFatoContabil fatoContabilId = new ReferenciaFatoContabil(UUID.randomUUID());
         when(servicoIdentidade.autorizar(sessao, RECURSO, Acao.CRIAR)).thenReturn(true);
         when(saldos.saldoDotacao(enteId, dotacaoId))
                 .thenReturn(new SaldoDotacao(dotacaoId, Dinheiro.de("5000.00"), Dinheiro.de("1000.00")));
@@ -146,7 +147,7 @@ class RegistrarEmpenhoTest {
         assertThat(evento.getValue().tipo()).isEqualTo("execucao_empenho_registrado");
         assertThat(evento.getValue().detalhes())
                 .containsEntry("dotacaoId", dotacaoId.valor().toString())
-                .containsEntry("fatoContabilId", fatoContabilId.toString())
+                .containsEntry("fatoContabilId", fatoContabilId.valor().toString())
                 .containsEntry("valor", "1500.00");
     }
 

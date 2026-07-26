@@ -31,6 +31,7 @@ import br.contabil.execucao.domain.Empenho;
 import br.contabil.execucao.domain.EmpenhoId;
 import br.contabil.execucao.domain.ExecucaoInvalidaException;
 import br.contabil.execucao.domain.GeradorNotaEmpenhoPdf;
+import br.contabil.execucao.domain.ReferenciaFatoContabil;
 import br.contabil.execucao.domain.TipoEmpenho;
 import br.contabil.execucao.domain.UnidadeGestoraId;
 import br.contabil.execucao.domain.repository.EmpenhoRepository;
@@ -85,7 +86,7 @@ class GerarDocumentoEmpenhoTest {
                 "04.122.0001.2001",
                 "0100000000",
                 "empenho de material de expediente",
-                UUID.randomUUID(),
+                new ReferenciaFatoContabil(UUID.randomUUID()),
                 new Cpf("12345678901"));
     }
 

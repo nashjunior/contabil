@@ -33,6 +33,7 @@ import br.contabil.execucao.domain.EmpenhoId;
 import br.contabil.execucao.domain.ExecucaoInvalidaException;
 import br.contabil.execucao.domain.Liquidacao;
 import br.contabil.execucao.domain.LiquidacaoId;
+import br.contabil.execucao.domain.ReferenciaFatoContabil;
 import br.contabil.execucao.domain.StatusAprovacao;
 import br.contabil.execucao.domain.TipoEmpenho;
 import br.contabil.execucao.domain.UnidadeGestoraId;
@@ -112,7 +113,7 @@ class AprovarPagamentoTest {
                 "04.122.0001.2001",
                 "0100000000",
                 "empenho da NF 123",
-                UUID.randomUUID(),
+                new ReferenciaFatoContabil(UUID.randomUUID()),
                 autorEmpenho);
     }
 

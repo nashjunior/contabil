@@ -32,6 +32,7 @@ import br.contabil.execucao.domain.LiquidacaoId;
 import br.contabil.execucao.domain.NaturezaPagamento;
 import br.contabil.execucao.domain.Pagamento;
 import br.contabil.execucao.domain.PagamentoId;
+import br.contabil.execucao.domain.ReferenciaFatoContabil;
 import br.contabil.execucao.domain.TipoEmpenho;
 import br.contabil.execucao.domain.UnidadeGestoraId;
 import br.contabil.plataforma.domain.ChaveIdempotencia;
@@ -97,7 +98,7 @@ class PublicadorTransparenciaExecucaoTest {
                 "04.122.0001.2001",
                 "0100000000",
                 "empenho de material",
-                UUID.randomUUID(),
+                new ReferenciaFatoContabil(UUID.randomUUID()),
                 new Cpf("11111111111"));
 
         publicador.publicar(empenho, sessao);

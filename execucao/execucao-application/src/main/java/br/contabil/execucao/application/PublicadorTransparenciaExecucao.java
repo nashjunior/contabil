@@ -120,7 +120,7 @@ public final class PublicadorTransparenciaExecucao implements PublicacaoTranspar
                 campo("credorId", empenho.credorId().valor().toString()),
                 campo("unidadeGestoraId", empenho.unidadeGestoraId().valor().toString()),
                 campoCru("contratoId", campoOpcional(empenho.contratoId() == null ? null : empenho.contratoId().valor())),
-                campo("fatoContabilId", empenho.fatoContabilId().toString()),
+                campo("fatoContabilId", empenho.fatoContabilId().valor().toString()),
                 campo("dataFato", empenho.dataFato().toString()),
                 campo("classificacaoOrcamentaria", empenho.classificacaoOrcamentaria()),
                 campo("fonteRecurso", empenho.fonteRecurso()),

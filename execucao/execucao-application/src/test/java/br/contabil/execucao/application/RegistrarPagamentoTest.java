@@ -32,6 +32,7 @@ import br.contabil.execucao.domain.LiquidacaoId;
 import br.contabil.execucao.domain.NaturezaPagamento;
 import br.contabil.execucao.domain.Pagamento;
 import br.contabil.execucao.domain.PagamentoNaoAprovadoException;
+import br.contabil.execucao.domain.ReferenciaFatoContabil;
 import br.contabil.execucao.domain.SaldoInsuficienteException;
 import br.contabil.execucao.domain.SaldoLiquidacao;
 import br.contabil.execucao.domain.StatusAprovacao;
@@ -120,7 +121,7 @@ class RegistrarPagamentoTest {
     @DisplayName("consulta saldo, escritura fato contábil e persiste pagamento")
     void registraComSucesso() {
         Sessao sessao = sessao();
-        UUID fatoContabilId = UUID.randomUUID();
+        ReferenciaFatoContabil fatoContabilId = new ReferenciaFatoContabil(UUID.randomUUID());
         when(servicoIdentidade.autorizar(sessao, RECURSO, Acao.CRIAR)).thenReturn(true);
         when(liquidacaoRepositorio.buscarPorId(enteId, liquidacaoId))
                 .thenReturn(Optional.of(liquidacaoComStatus(StatusAprovacao.APROVADA)));
@@ -141,7 +142,7 @@ class RegistrarPagamentoTest {
                 "pagamento NF 123");
 
         assertThat(pagamento.liquidacaoId()).isEqualTo(liquidacaoId);
-        assertThat(pagamento.fatoContabilId()).isEqualTo(fatoContabilId);
+        assertThat(pagamento.fatoContabilId()).isEqualTo(fatoContabilId.valor());
         verify(repositorio).inserir(pagamento);
         verify(publicacaoTransparencia).publicar(pagamento, sessao);
         ArgumentCaptor<EventoAuditoria> evento = ArgumentCaptor.forClass(EventoAuditoria.class);
@@ -149,7 +150,7 @@ class RegistrarPagamentoTest {
         assertThat(evento.getValue().tipo()).isEqualTo("execucao_pagamento_registrado");
         assertThat(evento.getValue().detalhes())
                 .containsEntry("liquidacaoId", liquidacaoId.valor().toString())
-                .containsEntry("fatoContabilId", fatoContabilId.toString())
+                .containsEntry("fatoContabilId", fatoContabilId.valor().toString())
                 .containsEntry("natureza", "ORCAMENTARIO")
                 .containsEntry("valor", "300.00")
                 .doesNotContainValue(fornecedor.cpfCnpj());

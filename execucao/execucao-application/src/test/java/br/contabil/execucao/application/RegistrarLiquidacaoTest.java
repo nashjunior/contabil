@@ -27,6 +27,7 @@ import br.contabil.execucao.domain.DocumentoSuporte;
 import br.contabil.execucao.domain.EmpenhoId;
 import br.contabil.execucao.domain.ExecucaoInvalidaException;
 import br.contabil.execucao.domain.Liquidacao;
+import br.contabil.execucao.domain.ReferenciaFatoContabil;
 import br.contabil.execucao.domain.SaldoEmpenho;
 import br.contabil.execucao.domain.SaldoInsuficienteException;
 import br.contabil.execucao.domain.repository.ExecucaoContabilPort;
@@ -92,7 +93,7 @@ class RegistrarLiquidacaoTest {
     @DisplayName("consulta saldo, escritura fato contábil e persiste liquidação")
     void registraComSucesso() {
         Sessao sessao = sessao(true);
-        UUID fatoContabilId = UUID.randomUUID();
+        ReferenciaFatoContabil fatoContabilId = new ReferenciaFatoContabil(UUID.randomUUID());
         when(servicoIdentidade.autorizar(sessao, RECURSO, Acao.CRIAR)).thenReturn(true);
         when(saldos.saldoEmpenho(enteId, empenhoId))
                 .thenReturn(new SaldoEmpenho(empenhoId, Dinheiro.de("1000.00"), Dinheiro.de("200.00")));
@@ -109,7 +110,7 @@ class RegistrarLiquidacaoTest {
                 "liquidação NF 123");
 
         assertThat(liquidacao.empenhoId()).isEqualTo(empenhoId);
-        assertThat(liquidacao.fatoContabilId()).isEqualTo(fatoContabilId);
+        assertThat(liquidacao.fatoContabilId()).isEqualTo(fatoContabilId.valor());
         verify(repositorio).inserir(liquidacao);
         verify(publicacaoTransparencia).publicar(liquidacao, sessao);
         ArgumentCaptor<EventoAuditoria> evento = ArgumentCaptor.forClass(EventoAuditoria.class);
@@ -117,7 +118,7 @@ class RegistrarLiquidacaoTest {
         assertThat(evento.getValue().tipo()).isEqualTo("execucao_liquidacao_registrada");
         assertThat(evento.getValue().detalhes())
                 .containsEntry("empenhoId", empenhoId.valor().toString())
-                .containsEntry("fatoContabilId", fatoContabilId.toString())
+                .containsEntry("fatoContabilId", fatoContabilId.valor().toString())
                 .containsEntry("valor", "300.00");
     }
 

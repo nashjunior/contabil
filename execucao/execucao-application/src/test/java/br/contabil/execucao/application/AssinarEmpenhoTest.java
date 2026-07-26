@@ -32,6 +32,7 @@ import br.contabil.execucao.domain.Empenho;
 import br.contabil.execucao.domain.EmpenhoAssinaturaConflitanteException;
 import br.contabil.execucao.domain.EmpenhoId;
 import br.contabil.execucao.domain.ExecucaoInvalidaException;
+import br.contabil.execucao.domain.ReferenciaFatoContabil;
 import br.contabil.execucao.domain.TipoEmpenho;
 import br.contabil.execucao.domain.UnidadeGestoraId;
 import br.contabil.execucao.domain.repository.EmpenhoRepository;
@@ -107,7 +108,7 @@ class AssinarEmpenhoTest {
                         "04.122.0001.2001",
                         "0100000000",
                         "empenho de material de expediente",
-                        UUID.randomUUID(),
+                        new ReferenciaFatoContabil(UUID.randomUUID()),
                         new Cpf("11122233344"))
                 .marcarPendenteAssinatura(documentoPendenteUri);
     }
@@ -188,7 +189,7 @@ class AssinarEmpenhoTest {
         Empenho registrado = Empenho.registrar(
                 empenhoId, enteId, 1L, 2026, TipoEmpenho.ORDINARIO, DotacaoId.novo(), CredorId.novo(),
                 UnidadeGestoraId.novo(), null, Dinheiro.de("1000.00"), LocalDate.of(2026, 7, 20),
-                "04.122.0001.2001", "0100000000", "empenho", UUID.randomUUID(), new Cpf("11122233344"));
+                "04.122.0001.2001", "0100000000", "empenho", new ReferenciaFatoContabil(UUID.randomUUID()), new Cpf("11122233344"));
 
         when(servicoIdentidade.autorizar(sessao, RECURSO, Acao.ASSINAR)).thenReturn(true);
         when(repositorio.buscarPorId(enteId, empenhoId)).thenReturn(Optional.of(registrado));

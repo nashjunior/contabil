@@ -6,6 +6,7 @@ import br.contabil.execucao.domain.DocumentoAssinadoEmpenho;
 import br.contabil.execucao.domain.DotacaoId;
 import br.contabil.execucao.domain.Empenho;
 import br.contabil.execucao.domain.EmpenhoId;
+import br.contabil.execucao.domain.ReferenciaFatoContabil;
 import br.contabil.execucao.domain.StatusEmpenho;
 import br.contabil.execucao.domain.TipoEmpenho;
 import br.contabil.execucao.domain.UnidadeGestoraId;
@@ -104,7 +105,7 @@ public class PostgresEmpenhoRepository implements EmpenhoRepository {
                 empenho.classificacaoOrcamentaria(),
                 empenho.fonteRecurso(),
                 empenho.historico(),
-                empenho.fatoContabilId(),
+                empenho.fatoContabilId().valor(),
                 empenho.autor().numero());
     }
 
@@ -166,7 +167,7 @@ public class PostgresEmpenhoRepository implements EmpenhoRepository {
                 rs.getString("classificacao_orcamentaria"),
                 rs.getString("fonte_recurso"),
                 rs.getString("historico"),
-                rs.getObject("fato_contabil_id", UUID.class),
+                new ReferenciaFatoContabil(rs.getObject("fato_contabil_id", UUID.class)),
                 new Cpf(rs.getString("autor_cpf")),
                 StatusEmpenho.valueOf(rs.getString("status").toUpperCase(Locale.ROOT)),
                 documentoPendenteUriRaw == null ? Optional.empty() : Optional.of(URI.create(documentoPendenteUriRaw)),

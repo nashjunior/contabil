@@ -27,7 +27,7 @@ class EmpenhoTest {
     @Test
     @DisplayName("registra empenho ordinário com fato contábil associado")
     void registraEmpenhoValido() {
-        UUID fatoContabilId = UUID.randomUUID();
+        ReferenciaFatoContabil fatoContabilId = new ReferenciaFatoContabil(UUID.randomUUID());
 
         Empenho empenho = Empenho.registrar(
                 EmpenhoId.novo(),
@@ -148,7 +148,7 @@ class EmpenhoTest {
                 "04.122.0001.2001",
                 "0100000000",
                 "empenho de material de expediente",
-                UUID.randomUUID(),
+                new ReferenciaFatoContabil(UUID.randomUUID()),
                 autor);
     }
 
@@ -188,7 +188,7 @@ class EmpenhoTest {
                         "04.122.0001.2001",
                         "0100000000",
                         "empenho inválido",
-                        UUID.randomUUID(),
+                        new ReferenciaFatoContabil(UUID.randomUUID()),
                         autor))
                 .isInstanceOf(ExecucaoInvalidaException.class)
                 .hasMessageContaining("positivo");
@@ -212,7 +212,7 @@ class EmpenhoTest {
                         "04.122.0001.2001",
                         "0100000000",
                         "   ",
-                        UUID.randomUUID(),
+                        new ReferenciaFatoContabil(UUID.randomUUID()),
                         autor))
                 .isInstanceOf(IllegalArgumentException.class);
     }

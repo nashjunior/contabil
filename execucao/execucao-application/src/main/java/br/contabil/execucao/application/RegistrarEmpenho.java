@@ -5,13 +5,13 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
 
 import br.contabil.execucao.domain.ContratoId;
 import br.contabil.execucao.domain.CredorId;
 import br.contabil.execucao.domain.DotacaoId;
 import br.contabil.execucao.domain.Empenho;
 import br.contabil.execucao.domain.EmpenhoId;
+import br.contabil.execucao.domain.ReferenciaFatoContabil;
 import br.contabil.execucao.domain.TipoEmpenho;
 import br.contabil.execucao.domain.UnidadeGestoraId;
 import br.contabil.execucao.domain.repository.ContadorEmpenhoPort;
@@ -94,7 +94,7 @@ public class RegistrarEmpenho {
         saldoDotacao.exigirSaldoParaComprometer(valor);
 
         EmpenhoId empenhoId = EmpenhoId.novo();
-        UUID fatoContabilId = escrituracao.registrarEmpenho(
+        ReferenciaFatoContabil fatoContabilId = escrituracao.registrarEmpenho(
                 new SolicitacaoEscrituracaoEmpenho(enteId, empenhoId, dataFato, valor, historico));
         long numeroSequencial = contadorEmpenho.proximoNumero(enteId, exercicio);
 
@@ -128,7 +128,7 @@ public class RegistrarEmpenho {
                 Instant.now(clock),
                 Map.of(
                         "dotacaoId", dotacaoId.valor().toString(),
-                        "fatoContabilId", fatoContabilId.toString(),
+                        "fatoContabilId", fatoContabilId.valor().toString(),
                         "valor", valor.valor().toPlainString())));
         return empenho;
     }

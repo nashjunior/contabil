@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
+import br.contabil.execucao.domain.ReferenciaFatoContabil;
 import br.contabil.execucao.domain.repository.ExecucaoContabilPort;
 import br.contabil.plataforma.domain.TenantId;
 import br.contabil.razao.domain.ContaContabilId;
@@ -71,7 +72,7 @@ public class ExecucaoContabilPortAdapter implements ExecucaoContabilPort {
     }
 
     @Override
-    public UUID registrarEmpenho(SolicitacaoEscrituracaoEmpenho solicitacao) {
+    public ReferenciaFatoContabil registrarEmpenho(SolicitacaoEscrituracaoEmpenho solicitacao) {
         ContaContabilId contaCreditoDisponivel = resolverConta(solicitacao.enteId(), CODIGO_CREDITO_DISPONIVEL);
         ContaContabilId contaEmpenhadoALiquidar = resolverConta(solicitacao.enteId(), CODIGO_CREDITO_EMPENHADO_A_LIQUIDAR);
 
@@ -94,7 +95,7 @@ public class ExecucaoContabilPortAdapter implements ExecucaoContabilPort {
                 clock);
 
         fatoContabilRepositorio.inserir(fato);
-        return fato.id().valor();
+        return new ReferenciaFatoContabil(fato.id().valor());
     }
 
     /**
@@ -105,7 +106,7 @@ public class ExecucaoContabilPortAdapter implements ExecucaoContabilPort {
      * subsistema isoladamente.
      */
     @Override
-    public UUID registrarLiquidacao(SolicitacaoEscrituracaoLiquidacao solicitacao) {
+    public ReferenciaFatoContabil registrarLiquidacao(SolicitacaoEscrituracaoLiquidacao solicitacao) {
         ContaContabilId contaVpd = resolverConta(solicitacao.enteId(), CODIGO_VPD);
         ContaContabilId contaFornecedoresAPagar = resolverConta(solicitacao.enteId(), CODIGO_FORNECEDORES_A_PAGAR);
         ContaContabilId contaEmpenhadoALiquidar = resolverConta(solicitacao.enteId(), CODIGO_CREDITO_EMPENHADO_A_LIQUIDAR);
@@ -133,7 +134,7 @@ public class ExecucaoContabilPortAdapter implements ExecucaoContabilPort {
                 clock);
 
         fatoContabilRepositorio.inserir(fato);
-        return fato.id().valor();
+        return new ReferenciaFatoContabil(fato.id().valor());
     }
 
     /**
@@ -142,7 +143,7 @@ public class ExecucaoContabilPortAdapter implements ExecucaoContabilPort {
      * pagar", abre o "empenhado pago"). Mesma regra da liquidação: um fato só, Σ=Σ pelo total.
      */
     @Override
-    public UUID registrarPagamento(SolicitacaoEscrituracaoPagamento solicitacao) {
+    public ReferenciaFatoContabil registrarPagamento(SolicitacaoEscrituracaoPagamento solicitacao) {
         ContaContabilId contaFornecedoresAPagar = resolverConta(solicitacao.enteId(), CODIGO_FORNECEDORES_A_PAGAR);
         ContaContabilId contaCaixaEBancos = resolverConta(solicitacao.enteId(), CODIGO_CAIXA_E_BANCOS);
         ContaContabilId contaEmpenhadoLiquidadoAPagar =
@@ -170,7 +171,7 @@ public class ExecucaoContabilPortAdapter implements ExecucaoContabilPort {
                 clock);
 
         fatoContabilRepositorio.inserir(fato);
-        return fato.id().valor();
+        return new ReferenciaFatoContabil(fato.id().valor());
     }
 
     private ContaContabilId resolverConta(TenantId enteId, String codigoPcasp) {
