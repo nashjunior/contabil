@@ -42,8 +42,9 @@
 | [0035](./0035-bff-login-oidc-govbr.md) | BFF de login OIDC gov.br (autenticação geral, não assinatura): `authorization_code`+PKCE server-side no `bootstrap`, asserção guardada no servidor, cookie `HttpOnly` ao SPA, resolvedor stateless com *fallback* aditivo por cookie | Aceita |
 | [0036](./0036-design-system-pacote-independente.md) | Design system como pacote npm independente (`@siafic/design-system`) no workspace de frontend: tokens DTCG, pipeline build-tokens, componentes base; app importa via pacote, não contém o DS | Aceita |
 | [0037](./0037-isolamento-e-guarda-commits-concorrentes-agentes.md) | Commits concorrentes de agentes: isolamento por worktree/branch, proibição de `git add -A`/`.` e guarda `commit-msg` que bloqueia deleção não reconhecida de arquivo do HEAD (índice git stale) | Aceita |
+| [0038](./0038-contrato-api-dotacao-upstream-empenho.md) | Contrato de API da Dotação (upstream do empenho): `GET /entes/{ente}/execucao/dotacoes` com saldo inline (sem N+1 a `/saldo`) + `POST /dotacoes:lote` espelhando `IngerirDotacoes`; estreita RAZ-136 (listagem de dotação sai do F2); sem "saldo bloqueado" enquanto Reserva não for modelada | Aceita |
 
-> **Nota:** o número **0019 não foi utilizado** — reservado durante execução paralela de agentes e nunca materializado em arquivo (o **mesmo** padrão-raiz endereçado pelo [ADR-0037](./0037-isolamento-e-guarda-commits-concorrentes-agentes.md)). Não renumerar os ADRs existentes (a numeração é histórica/imutável, mesmo princípio do ADR); o próximo ADR novo continua a partir do 0037.
+> **Nota:** o número **0019 não foi utilizado** — reservado durante execução paralela de agentes e nunca materializado em arquivo (o **mesmo** padrão-raiz endereçado pelo [ADR-0037](./0037-isolamento-e-guarda-commits-concorrentes-agentes.md)). Não renumerar os ADRs existentes (a numeração é histórica/imutável, mesmo princípio do ADR); o próximo ADR novo continua a partir do 0038.
 
 ## Como adicionar/mudar uma decisão
 
