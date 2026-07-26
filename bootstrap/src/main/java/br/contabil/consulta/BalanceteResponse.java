@@ -1,19 +1,26 @@
 package br.contabil.consulta;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
+import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.razao.domain.Balancete;
 import br.contabil.razao.domain.LinhaBalancete;
 
-/** Corpo HTTP de {@code GET .../razao/balancete} — RAZ-101. */
+/**
+ * Corpo HTTP de {@code GET .../razao/balancete} — RAZ-101. Valores são
+ * {@link Dinheiro} (serializados como string decimal de 2 casas pelo
+ * {@link DinheiroJacksonModule} — RAZ-79 §6.1 / ADR-0030 §2). Cada linha expõe
+ * {@code naturezaSaldo} (D/C, a natureza <i>natural</i> da conta PCASP — ADR-0030
+ * §5): a UI sinaliza a anomalia "conta devedora com saldo credor" pela natureza
+ * da conta, não pelo sinal do {@code saldoAtual}.
+ */
 record BalanceteResponse(
         int exercicio,
         int mes,
         List<Linha> linhas,
-        BigDecimal totalMovimentoDebito,
-        BigDecimal totalMovimentoCredito,
+        Dinheiro totalMovimentoDebito,
+        Dinheiro totalMovimentoCredito,
         boolean confere) {
 
     static BalanceteResponse de(Balancete balancete) {
@@ -22,8 +29,8 @@ record BalanceteResponse(
                 balancete.exercicio(),
                 balancete.mes(),
                 linhas,
-                balancete.totalMovimentoDebito().valor(),
-                balancete.totalMovimentoCredito().valor(),
+                balancete.totalMovimentoDebito(),
+                balancete.totalMovimentoCredito(),
                 balancete.confere());
     }
 
@@ -31,20 +38,22 @@ record BalanceteResponse(
             UUID contaId,
             String codigo,
             String descricao,
-            BigDecimal saldoAnterior,
-            BigDecimal movimentoDebito,
-            BigDecimal movimentoCredito,
-            BigDecimal saldoAtual) {
+            String naturezaSaldo,
+            Dinheiro saldoAnterior,
+            Dinheiro movimentoDebito,
+            Dinheiro movimentoCredito,
+            Dinheiro saldoAtual) {
 
         static Linha de(LinhaBalancete linha) {
             return new Linha(
                     linha.contaId().valor(),
                     linha.codigo(),
                     linha.descricao(),
-                    linha.saldoAnterior().valor(),
-                    linha.movimentoDebito().valor(),
-                    linha.movimentoCredito().valor(),
-                    linha.saldoAtual().valor());
+                    linha.naturezaSaldo(),
+                    linha.saldoAnterior(),
+                    linha.movimentoDebito(),
+                    linha.movimentoCredito(),
+                    linha.saldoAtual());
         }
     }
 }
