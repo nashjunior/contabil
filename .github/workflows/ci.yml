@@ -30,10 +30,12 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       # ./gradlew check roda: testes unitários de todos os módulos, os
-      # guardrails ArchUnit (GuardrailsArquiteturaTest) e os guardrails de
-      # integração com Postgres real via Testcontainers (RazaoContabilTravasTest,
-      # RazaoRlsCrossTenantForeignKeyTest, VazamentoCrossTenantRlsTest) — o
-      # runner do GitHub Actions já vem com Docker disponível.
+      # guardrails ArchUnit (GuardrailsArquiteturaTest — inclui a trava do Clock
+      # injetado, RAZ-72) e os guardrails de integração com Postgres real via
+      # Testcontainers (RazaoContabilTravasTest, RazaoRlsCrossTenantForeignKeyTest,
+      # VazamentoCrossTenantRlsTest e a reversibilidade de migração Flyway up→down→up,
+      # ReversibilidadeMigracaoFlywayTest — RAZ-72) — o runner do GitHub Actions já
+      # vem com Docker disponível.
       - name: ./gradlew check
         run: ./gradlew check --no-daemon
 

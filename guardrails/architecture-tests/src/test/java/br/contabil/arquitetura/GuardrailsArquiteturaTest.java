@@ -1,5 +1,18 @@
 package br.contabil.arquitetura;
 
+import com.tngtech.archunit.core.domain.JavaClass;
+import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.domain.JavaConstructorCall;
+import com.tngtech.archunit.core.domain.JavaMethod;
+import com.tngtech.archunit.core.domain.JavaMethodCall;
+import com.tngtech.archunit.core.importer.ImportOption;
+import com.tngtech.archunit.junit.AnalyzeClasses;
+import com.tngtech.archunit.junit.ArchTest;
+import com.tngtech.archunit.lang.ArchCondition;
+import com.tngtech.archunit.lang.ArchRule;
+import com.tngtech.archunit.lang.ConditionEvents;
+import com.tngtech.archunit.lang.SimpleConditionEvent;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.fields;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
@@ -8,32 +21,26 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
 import static com.tngtech.archunit.library.Architectures.layeredArchitecture;
 import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 
-import com.tngtech.archunit.core.domain.JavaClasses;
-import com.tngtech.archunit.core.domain.JavaMethod;
-import com.tngtech.archunit.core.importer.ImportOption;
-import com.tngtech.archunit.junit.AnalyzeClasses;
-import com.tngtech.archunit.junit.ArchTest;
-import com.tngtech.archunit.lang.ArchCondition;
-import com.tngtech.archunit.lang.ArchRule;
-import com.tngtech.archunit.lang.ConditionEvents;
-import com.tngtech.archunit.lang.SimpleConditionEvent;
-
 /**
  * Guardrails estruturais que FALHAM o build (arquitetura-tecnica §8).
  *
  * <p>Executa sobre TODO o bytecode de produção do monólito modular (ADR-0002). Rodado por
  * {@code ./gradlew check}. Uma violação = build vermelho, sem exceção configurável no código.
  *
- * <p>Cobre 3 das 5 travas da RAZ-2:
+ * <p>Cobre as travas de build-time da §8:
  * <ol>
  *   <li>ADR-0006 — dinheiro é decimal; proibido float/double;</li>
  *   <li>fronteiras de camada domain/application/infra (ADR-0002);</li>
- *   <li>repositório do razão append-only (sem update/delete).</li>
+ *   <li>repositório do razão append-only (sem update/delete);</li>
+ *   <li>isolamento cross-módulo sem ciclo (RAZ-17);</li>
+ *   <li>instante de registro vem de Clock injetado, nunca do relógio ambiente (RAZ-72/RAZ-14).</li>
  * </ol>
- * As outras duas (vazamento cross-tenant/RLS e gitleaks) vivem, respectivamente, em {@code
- * bootstrap/src/test/java/br/contabil/migration/VazamentoCrossTenantRlsTest.java} (Postgres
- * real via Testcontainers, roda em {@code ./gradlew check}) e em {@code .gitleaks.toml} +
- * {@code .github/workflows/ci.yml} (RAZ-16, bloqueante — ADR-0003).
+ * As travas de CI vivem em testes Testcontainers irmãos (todos em {@code ./gradlew check}):
+ * vazamento cross-tenant/RLS em {@code
+ * bootstrap/src/test/java/br/contabil/migration/VazamentoCrossTenantRlsTest.java} (RAZ-16,
+ * ADR-0003) e reversibilidade de migração Flyway (up→down→up) em {@code
+ * bootstrap/src/test/java/br/contabil/migration/ReversibilidadeMigracaoFlywayTest.java}
+ * (RAZ-72); gitleaks em {@code .gitleaks.toml} + {@code .github/workflows/ci.yml}.
  */
 // Não usar DoNotIncludeJars: os módulos de produção chegam como JAR via project(...),
 // e o filtro packages="br.contabil" já restringe a análise ao nosso código.
@@ -259,6 +266,76 @@ class GuardrailsArquiteturaTest {
               "ADR-0002: monólito modular com fronteiras internas explícitas (execução, razão, "
                   + "plataforma) — módulos podem depender do shared kernel, mas dependência circular "
                   + "entre módulos de negócio quebra a fronteira que permite extração futura");
+
+  // ---------------------------------------------------------------------------
+  // TRAVA 5 (RAZ-72/RAZ-14) — o instante de registro vem de um Clock INJETADO,
+  // nunca do relógio ambiente do processo. Espelha o guardrail de build-time
+  // "proibir data/timestamp do cliente para registro (usar Clock injetado)"
+  // prometido em arquitetura-tecnica §8. Sem esta regra, a única defesa mecânica
+  // seria a trava 3b no banco (trigger forca_data_hora_registro) — uma camada só,
+  // aquém da defesa em profundidade que o doc promete. now(Clock)/clock.instant()
+  // são PERMITIDOS (o horário do servidor determinístico/testável); as fontes
+  // ambientes (now() sem Clock, new Date(), System.currentTimeMillis()) não.
+  // ---------------------------------------------------------------------------
+
+  /** Domínio e aplicação não leem o relógio do ambiente — o instante vem do Clock injetado. */
+  @ArchTest
+  static final ArchRule registro_usa_clock_injetado =
+      classes()
+          .that()
+          .resideInAnyPackage(PKG_DOMAIN, PKG_APPLICATION)
+          .should(naoLerRelogioDoAmbiente())
+          .because(
+              "RAZ-14/RAZ-72 (arquitetura-tecnica §8): o instante de registro contábil vem de um "
+                  + "Clock injetado (now(Clock)/clock.instant()), nunca do relógio ambiente — "
+                  + "LocalDateTime.now()/Instant.now()/new Date()/System.currentTimeMillis() abririam "
+                  + "brecha de backdating que o build não pegaria; a trava 3b no banco (trigger "
+                  + "forca_data_hora_registro) é a última linha de defesa, não a única");
+
+  private static ArchCondition<JavaClass> naoLerRelogioDoAmbiente() {
+    return new ArchCondition<>("obter o instante de um Clock injetado, não do relógio do ambiente") {
+      @Override
+      public void check(JavaClass classe, ConditionEvents events) {
+        for (JavaMethodCall chamada : classe.getMethodCallsFromSelf()) {
+          if (ehLeituraDeRelogioAmbiente(chamada)) {
+            events.add(SimpleConditionEvent.violated(chamada, chamada.getDescription()));
+          }
+        }
+        for (JavaConstructorCall chamada : classe.getConstructorCallsFromSelf()) {
+          if (ehConstrucaoDeTempoAmbiente(chamada)) {
+            events.add(SimpleConditionEvent.violated(chamada, chamada.getDescription()));
+          }
+        }
+      }
+    };
+  }
+
+  /**
+   * Chamada a fonte de tempo ambiente. As formas {@code now(Clock)} de {@code java.time} são
+   * PERMITIDAS — é exatamente o Clock injetado; só as variantes sem Clock (relógio do sistema)
+   * e {@code System.currentTimeMillis()}/{@code nanoTime()}/{@code Calendar.getInstance()} contam.
+   */
+  private static boolean ehLeituraDeRelogioAmbiente(JavaMethodCall chamada) {
+    String dono = chamada.getTarget().getOwner().getFullName();
+    String metodo = chamada.getName();
+    if (dono.startsWith("java.time.") && metodo.equals("now")) {
+      return chamada.getTarget().getRawParameterTypes().stream()
+          .noneMatch(tipo -> tipo.getFullName().equals("java.time.Clock"));
+    }
+    if (dono.equals("java.lang.System")
+        && (metodo.equals("currentTimeMillis") || metodo.equals("nanoTime"))) {
+      return true;
+    }
+    return dono.equals("java.util.Calendar") && metodo.equals("getInstance");
+  }
+
+  /** {@code new Date()}/{@code new GregorianCalendar()} sem argumento capturam o relógio do sistema. */
+  private static boolean ehConstrucaoDeTempoAmbiente(JavaConstructorCall chamada) {
+    String dono = chamada.getTarget().getOwner().getFullName();
+    boolean semArgumentos = chamada.getTarget().getRawParameterTypes().isEmpty();
+    return semArgumentos
+        && (dono.equals("java.util.Date") || dono.equals("java.util.GregorianCalendar"));
+  }
 
   // Guard extra: garante que o import realmente analisou classes (evita "regra que passa vazia").
   // Idioma ArchUnit: método @ArchTest recebendo JavaClasses.
