@@ -10,6 +10,7 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
+    "prepare": "node scripts/check-contrast.mjs && node scripts/build-tokens.mjs",
     "tokens:contrast": "node scripts/check-contrast.mjs",
     "tokens:build": "npm run tokens:contrast && node scripts/build-tokens.mjs",
     "typecheck": "npm run tokens:build && tsc --noEmit"
