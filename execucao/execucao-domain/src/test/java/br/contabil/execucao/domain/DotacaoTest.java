@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 class DotacaoTest {
 
     private final TenantId enteId = TenantId.de(UUID.randomUUID().toString());
-    private final UUID unidadeGestoraId = UUID.randomUUID();
+    private final UnidadeGestoraId unidadeGestoraId = UnidadeGestoraId.novo();
 
     @Test
     @DisplayName("Fixação: carga da LOA registra a dotação vinculada ao exercício")

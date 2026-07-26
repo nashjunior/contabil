@@ -3,7 +3,6 @@ package br.contabil.execucao.domain;
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
 import java.util.Objects;
-import java.util.UUID;
 
 /**
  * Agregado de dotação (crédito orçamentário, Lei 4.320/1964 arts. 34/40) — a
@@ -26,7 +25,7 @@ public final class Dotacao {
     private final int exercicio;
     private final String classificacaoOrcamentaria;
     private final String fonteRecurso;
-    private final UUID unidadeGestoraId;
+    private final UnidadeGestoraId unidadeGestoraId;
     private final Dinheiro valorAutorizado;
 
     private Dotacao(
@@ -35,7 +34,7 @@ public final class Dotacao {
             int exercicio,
             String classificacaoOrcamentaria,
             String fonteRecurso,
-            UUID unidadeGestoraId,
+            UnidadeGestoraId unidadeGestoraId,
             Dinheiro valorAutorizado) {
         this.id = id;
         this.enteId = enteId;
@@ -52,7 +51,7 @@ public final class Dotacao {
             int exercicio,
             String classificacaoOrcamentaria,
             String fonteRecurso,
-            UUID unidadeGestoraId,
+            UnidadeGestoraId unidadeGestoraId,
             Dinheiro valorAutorizado) {
         validarValorAutorizado(valorAutorizado);
         return new Dotacao(
@@ -100,7 +99,7 @@ public final class Dotacao {
         return fonteRecurso;
     }
 
-    public UUID unidadeGestoraId() {
+    public UnidadeGestoraId unidadeGestoraId() {
         return unidadeGestoraId;
     }
 

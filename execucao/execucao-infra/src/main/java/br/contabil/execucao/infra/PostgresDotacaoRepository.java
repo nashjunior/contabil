@@ -2,6 +2,7 @@ package br.contabil.execucao.infra;
 
 import br.contabil.execucao.domain.Dotacao;
 import br.contabil.execucao.domain.DotacaoId;
+import br.contabil.execucao.domain.UnidadeGestoraId;
 import br.contabil.execucao.domain.repository.DotacaoRepository;
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
@@ -47,7 +48,7 @@ public class PostgresDotacaoRepository implements DotacaoRepository {
                 dotacao.exercicio(),
                 dotacao.classificacaoOrcamentaria(),
                 dotacao.fonteRecurso(),
-                dotacao.unidadeGestoraId(),
+                dotacao.unidadeGestoraId().valor(),
                 dotacao.valorAutorizado().valor());
     }
 
@@ -65,7 +66,7 @@ public class PostgresDotacaoRepository implements DotacaoRepository {
                 rs.getInt("exercicio"),
                 rs.getString("classificacao_orcamentaria"),
                 rs.getString("fonte_recurso"),
-                rs.getObject("unidade_gestora_id", UUID.class),
+                new UnidadeGestoraId(rs.getObject("unidade_gestora_id", UUID.class)),
                 new Dinheiro(rs.getBigDecimal("valor_autorizado")));
     }
 }
