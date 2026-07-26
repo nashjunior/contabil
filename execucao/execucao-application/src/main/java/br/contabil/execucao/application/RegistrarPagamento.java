@@ -1,13 +1,25 @@
 package br.contabil.execucao.application;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
+
 import br.contabil.execucao.domain.Beneficiario;
+import br.contabil.execucao.domain.ExecucaoInvalidaException;
 import br.contabil.execucao.domain.Liquidacao;
 import br.contabil.execucao.domain.LiquidacaoId;
 import br.contabil.execucao.domain.NaturezaPagamento;
 import br.contabil.execucao.domain.Pagamento;
 import br.contabil.execucao.domain.PagamentoId;
+import br.contabil.execucao.domain.PagamentoNaoAprovadoException;
+import br.contabil.execucao.domain.StatusAprovacao;
 import br.contabil.execucao.domain.repository.ExecucaoContabilPort;
 import br.contabil.execucao.domain.repository.ExecucaoContabilPort.SolicitacaoEscrituracaoPagamento;
+import br.contabil.execucao.domain.repository.LiquidacaoRepository;
 import br.contabil.execucao.domain.repository.PagamentoRepository;
 import br.contabil.execucao.domain.repository.SaldosExecucaoPort;
 import br.contabil.plataforma.domain.Dinheiro;
@@ -18,13 +30,6 @@ import br.contabil.plataforma.domain.iam.ControleAcesso;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Acao;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Recurso;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
-import java.time.Clock;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.UUID;
 
 /**
  * Caso de uso: registra pagamento total ou parcial de uma liquidação.
@@ -38,6 +43,7 @@ public class RegistrarPagamento {
     private static final Recurso RECURSO_PAGAMENTO = new Recurso("execucao:pagamento");
 
     private final ControleAcesso controleAcesso;
+    private final LiquidacaoRepository liquidacaoRepositorio;
     private final SaldosExecucaoPort saldos;
     private final ExecucaoContabilPort escrituracao;
     private final PagamentoRepository repositorio;
@@ -47,6 +53,7 @@ public class RegistrarPagamento {
 
     public RegistrarPagamento(
             ControleAcesso controleAcesso,
+            LiquidacaoRepository liquidacaoRepositorio,
             SaldosExecucaoPort saldos,
             ExecucaoContabilPort escrituracao,
             PagamentoRepository repositorio,
@@ -54,6 +61,7 @@ public class RegistrarPagamento {
             AuditoriaEscrita auditoria,
             Clock clock) {
         this.controleAcesso = controleAcesso;
+        this.liquidacaoRepositorio = liquidacaoRepositorio;
         this.saldos = saldos;
         this.escrituracao = escrituracao;
         this.repositorio = repositorio;
@@ -75,6 +83,15 @@ public class RegistrarPagamento {
         controleAcesso.exigir(usuarioAutenticado, enteId, RECURSO_PAGAMENTO, Acao.CRIAR);
 
         Pagamento.validarEntrada(valor, natureza, beneficiario, ordemBancaria, historico);
+
+        Liquidacao liquidacao = liquidacaoRepositorio
+                .buscarPorId(enteId, liquidacaoId)
+                .orElseThrow(() -> new ExecucaoInvalidaException(
+                        "liquidacao_nao_encontrada", "liquidação %s não encontrada para o ente".formatted(liquidacaoId)));
+        if (liquidacao.statusAprovacao() != StatusAprovacao.APROVADA) {
+            throw new PagamentoNaoAprovadoException(liquidacaoId, liquidacao.statusAprovacao());
+        }
+
         var saldoLiquidacao = saldos.saldoLiquidacao(enteId, liquidacaoId);
         saldoLiquidacao.exigirSaldoParaPagar(valor);
 

@@ -1,10 +1,12 @@
 package br.contabil.execucao.domain;
 
-import br.contabil.plataforma.domain.Dinheiro;
-import br.contabil.plataforma.domain.TenantId;
 import java.time.LocalDate;
 import java.util.Objects;
 import java.util.UUID;
+
+import br.contabil.plataforma.domain.Dinheiro;
+import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
 
 /**
  * Agregado de empenho (Lei 4.320/1964 art. 58-60): compromete crédito da
@@ -31,6 +33,7 @@ public final class Empenho {
     private final String fonteRecurso;
     private final String historico;
     private final UUID fatoContabilId;
+    private final Cpf autor;
 
     private Empenho(
             EmpenhoId id,
@@ -47,7 +50,8 @@ public final class Empenho {
             String classificacaoOrcamentaria,
             String fonteRecurso,
             String historico,
-            UUID fatoContabilId) {
+            UUID fatoContabilId,
+            Cpf autor) {
         this.id = id;
         this.enteId = enteId;
         this.numeroSequencial = numeroSequencial;
@@ -63,6 +67,7 @@ public final class Empenho {
         this.fonteRecurso = fonteRecurso;
         this.historico = historico;
         this.fatoContabilId = fatoContabilId;
+        this.autor = autor;
     }
 
     public static Empenho registrar(
@@ -80,7 +85,8 @@ public final class Empenho {
             String classificacaoOrcamentaria,
             String fonteRecurso,
             String historico,
-            UUID fatoContabilId) {
+            UUID fatoContabilId,
+            Cpf autor) {
         validarValor(valor, "valor do empenho");
         return new Empenho(
                 Objects.requireNonNull(id, "id não pode ser nulo"),
@@ -97,7 +103,8 @@ public final class Empenho {
                 textoObrigatorio(classificacaoOrcamentaria, "classificação orçamentária"),
                 textoObrigatorio(fonteRecurso, "fonte de recurso"),
                 textoObrigatorio(historico, "histórico"),
-                Objects.requireNonNull(fatoContabilId, "fatoContabilId não pode ser nulo"));
+                Objects.requireNonNull(fatoContabilId, "fatoContabilId não pode ser nulo"),
+                Objects.requireNonNull(autor, "autor não pode ser nulo"));
     }
 
     public static void validarValor(Dinheiro valor, String campo) {
@@ -173,5 +180,10 @@ public final class Empenho {
 
     public UUID fatoContabilId() {
         return fatoContabilId;
+    }
+
+    /** CPF de quem registrou o empenho — checado pelo gate de aprovação (ADR-0023, veda auto-aprovação). */
+    public Cpf autor() {
+        return autor;
     }
 }

@@ -4,7 +4,7 @@
 
 > Design de **produto/UX** (RAZ-79) sobre o domínio já modelado em [RAZ-65](./execucao-orcamentaria-despesa.md) e parcialmente implementado (RAZ-66 empenho *in progress*, RAZ-67 liquidação/pagamento *done*). Objetivo: mapear o fluxo do **operador** (não do agregado) — quem faz o quê, em que tela, com que payload — e fechar o **contrato de API** que a UI vai consumir. **Este documento não constrói tela**; é o contrato contra o qual a tela nasce depois.
 >
-> **Ratificado (RAZ-88, Aurélio, 2026-07-26):** a decisão de lote (§4) foi confirmada sem ajuste em [ADR-0022](./adr/0022-lote-pagamento-contrato-api-execucao.md) (Aceita). O gate de aprovação (§2/§6.6), que este documento deixava como proposta em aberto, foi decidido em [ADR-0023](./adr/0023-gate-aprovacao-pagamento-segregacao.md) (Aceita): é um segundo gate transacional, não só RBAC. O contrato abaixo pode ser tratado como **definitivo**; a materialização do gate no backend é RAZ-92 (issue própria, ainda backlog).
+> **Ratificado (RAZ-88, Aurélio, 2026-07-26):** a decisão de lote (§4) foi confirmada sem ajuste em [ADR-0022](./adr/0022-lote-pagamento-contrato-api-execucao.md) (Aceita). O gate de aprovação (§2/§6.6), que este documento deixava como proposta em aberto, foi decidido em [ADR-0023](./adr/0023-gate-aprovacao-pagamento-segregacao.md) (Aceita): é um segundo gate transacional, não só RBAC. O contrato abaixo pode ser tratado como **definitivo**; a materialização do gate no backend foi entregue em **RAZ-92** (`AprovarPagamento` + pré-condição em `RegistrarPagamento` — falta só o controller HTTP, mesma lacuna dos demais endpoints de execução).
 
 ---
 
@@ -28,7 +28,7 @@ A [Regra 9](../05-regras-de-negocio.md) já fixa a matriz: **quem lança não au
 | **Tesoureiro / financeiro** | Pagamento — efetiva a baixa (individual ou em lote) após aprovação | `CRIAR` sobre `execucao:pagamento` | — **nunca** quem aprovou |
 | **Administrador de acesso (IAM)** | RBAC dos quatro papéis acima | fora do domínio de execução | **nunca** nenhum dos quatro — não opera financeiro |
 
-> **Decidido em [ADR-0023](./adr/0023-gate-aprovacao-pagamento-segregacao.md):** o [fluxo 2](../04-fluxos.md#2-execução-da-despesa) já desenha o gate `H["Autorização do ordenador (alçada)"]` antes do pagamento; `RegistrarPagamento` (RAZ-67, hoje) só checa `Acao.CRIAR` — o `APROVAR` distinto acima **ainda não está em código**, mas deixou de ser proposta: é decisão ratificada (RBAC sozinho não basta, precisa do segundo gate transacional). Materialização = **RAZ-92** (issue de backend filha de RAZ-79, backlog).
+> **Decidido em [ADR-0023](./adr/0023-gate-aprovacao-pagamento-segregacao.md), materializado em RAZ-92:** o [fluxo 2](../04-fluxos.md#2-execução-da-despesa) já desenha o gate `H["Autorização do ordenador (alçada)"]` antes do pagamento; `RegistrarPagamento` agora exige a liquidação em `aprovada` (recusa com `pagamento_nao_aprovado` senão) e o `APROVAR` distinto acima vive no use case `AprovarPagamento` (RBAC sozinho não bastava, precisava do segundo gate transacional).
 
 A UI reflete isso como **duas telas de fila** por natureza — "minhas pendências para lançar" e "minhas pendências para aprovar/pagar" — nunca uma ação de aprovar exposta a quem lançou o item (o botão nem aparece; a checagem real continua no `ControleAcesso`, a UI só evita o clique inútil).
 
@@ -349,7 +349,7 @@ GET /entes/{enteId}/execucao/pagamentos?liquidacaoId=&ordemBancaria=&cursor=&lim
 
 ### 6.6 Aprovação (ação APROVAR, ADR-0023)
 
-Decidido, ainda **não implementado** — RAZ-92 materializa o use case `AprovarPagamento` que este contrato pressupõe.
+**Materializado em RAZ-92** — use case `AprovarPagamento` (`execucao-application`) com teste de segregação (auto-aprovação recusada), teste de pré-condição e teste de transição de estado. O controller HTTP abaixo ainda não existe em código — nenhum endpoint de execução (empenho/liquidação/pagamento) tem controller Spring ainda; é lacuna de wiring pré-existente, não específica desta ação.
 
 ```
 POST /entes/{enteId}/execucao/liquidacoes/{id}/aprovacao
@@ -365,7 +365,7 @@ Sem lote nesta ação por ora — o §5.3 mostra seleção múltipla na fila, ma
 ## 7. Abertos e riscos
 
 - **`Dotacao` como agregado não existe em código ainda** (só `DotacaoId`/`SaldoDotacao`) — a carga da LOA que popula `valorAutorizado` é pré-requisito funcional de qualquer tela de empenho e não está desenhada aqui (seguir ADR-0013 quando for feita — é ingestão em lote legítima, diferente da decisão do §4).
-- **Gate de `APROVAR` para pagamento decidido, não implementado** — [ADR-0023](./adr/0023-gate-aprovacao-pagamento-segregacao.md) fecha a decisão de arquitetura; a materialização (`AprovarPagamento` + pré-condição em `RegistrarPagamento`) é **RAZ-92**, issue de backend filha de RAZ-79, ainda em `backlog` — front-end não deve construir a tela do §5.3/§6.6 assumindo o endpoint disponível sem checar o status de RAZ-92 primeiro.
+- **Gate de `APROVAR` para pagamento materializado no backend (RAZ-92)** — `AprovarPagamento` + pré-condição em `RegistrarPagamento` (`pagamento_nao_aprovado`) estão em código e testados; falta o controller HTTP (§5.3/§6.6) — front-end não deve construir a tela assumindo o endpoint HTTP disponível sem checar se o wiring Spring já chegou (mesma lacuna dos demais endpoints de execução — nenhum tem controller ainda).
 - **Alçada por valor** (quem pode aprovar até que teto) explicitamente **fora da v1** por ADR-0023 — não está modelada em nenhum port hoje; se o produto quiser diferenciar alçada por cargo/valor, é RBAC com atributo extra (ABAC), decisão futura própria.
 - **Reforço/anulação de empenho e estorno** ficam fora deste contrato (RAZ-65 já os marca como issues próprias) — quando chegarem, seguem a mesma convenção (endpoint de ação, não PATCH).
 - Números de exemplo (`2026NE00341`, `2026LQ00118`) nos wireframes são ilustrativos — o formato canônico de exibição do número sequencial (prefixo por tipo de documento) ainda não foi decidido em nenhum ADR; **revalidar com Aurélio** antes de fixar em tela real.

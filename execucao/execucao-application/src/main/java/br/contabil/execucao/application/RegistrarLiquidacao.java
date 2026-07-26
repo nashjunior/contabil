@@ -1,5 +1,13 @@
 package br.contabil.execucao.application;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
+
 import br.contabil.execucao.domain.DocumentoSuporte;
 import br.contabil.execucao.domain.EmpenhoId;
 import br.contabil.execucao.domain.Liquidacao;
@@ -16,13 +24,6 @@ import br.contabil.plataforma.domain.iam.ControleAcesso;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Acao;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Recurso;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
-import java.time.Clock;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.UUID;
 
 /**
  * Caso de uso: registra uma liquidação vinculada a um empenho.
@@ -79,7 +80,15 @@ public class RegistrarLiquidacao {
                 enteId, liquidacaoId, empenhoId, dataCompetencia, valor, documentosSuporte, historico));
 
         Liquidacao liquidacao = Liquidacao.registrar(
-                liquidacaoId, enteId, empenhoId, dataCompetencia, valor, documentosSuporte, historico, fatoContabilId);
+                liquidacaoId,
+                enteId,
+                empenhoId,
+                dataCompetencia,
+                valor,
+                documentosSuporte,
+                historico,
+                fatoContabilId,
+                usuarioAutenticado.titular());
         repositorio.inserir(liquidacao);
         publicacaoTransparencia.publicar(liquidacao, usuarioAutenticado);
         auditoria.append(new EventoAuditoria(

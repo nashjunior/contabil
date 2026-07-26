@@ -1,10 +1,25 @@
 package br.contabil.execucao.application;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import org.mockito.Mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import br.contabil.execucao.domain.Beneficiario;
 import br.contabil.execucao.domain.CredorId;
@@ -31,20 +46,6 @@ import br.contabil.plataforma.domain.mascaramento.ServicoMascaramento;
 import br.contabil.plataforma.domain.mascaramento.ServicoMascaramento.Audiencia;
 import br.contabil.plataforma.domain.mascaramento.ServicoMascaramento.CampoSensivel;
 import br.contabil.plataforma.domain.mascaramento.ServicoMascaramento.Categoria;
-import java.time.Clock;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class PublicadorTransparenciaExecucaoTest {
@@ -96,7 +97,8 @@ class PublicadorTransparenciaExecucaoTest {
                 "04.122.0001.2001",
                 "0100000000",
                 "empenho de material",
-                UUID.randomUUID());
+                UUID.randomUUID(),
+                new Cpf("11111111111"));
 
         publicador.publicar(empenho, sessao);
 
@@ -126,7 +128,8 @@ class PublicadorTransparenciaExecucaoTest {
                 Dinheiro.de("300.00"),
                 List.of(DocumentoSuporte.de("NF", "NF-10", LocalDate.of(2026, 7, 19))),
                 "liquidacao de material",
-                UUID.randomUUID());
+                UUID.randomUUID(),
+                new Cpf("11111111111"));
 
         publicador.publicar(liquidacao, sessao);
 

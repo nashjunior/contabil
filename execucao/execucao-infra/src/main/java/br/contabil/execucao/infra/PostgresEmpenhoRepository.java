@@ -10,6 +10,7 @@ import br.contabil.execucao.domain.UnidadeGestoraId;
 import br.contabil.execucao.domain.repository.EmpenhoRepository;
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
@@ -27,15 +28,15 @@ public class PostgresEmpenhoRepository implements EmpenhoRepository {
             insert into empenho
                 (id, ente_id, numero_sequencial, exercicio, tipo, dotacao_id, credor_id,
                  unidade_gestora_id, contrato_id, valor, data_fato, classificacao_orcamentaria,
-                 fonte_recurso, historico, fato_contabil_id)
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 fonte_recurso, historico, fato_contabil_id, autor_cpf)
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
 
     private static final String SQL_BUSCAR =
             """
             select id, numero_sequencial, exercicio, tipo, dotacao_id, credor_id, unidade_gestora_id,
                    contrato_id, valor, data_fato, classificacao_orcamentaria, fonte_recurso, historico,
-                   fato_contabil_id
+                   fato_contabil_id, autor_cpf
               from empenho
              where ente_id = ? and id = ?
             """;
@@ -64,7 +65,8 @@ public class PostgresEmpenhoRepository implements EmpenhoRepository {
                 empenho.classificacaoOrcamentaria(),
                 empenho.fonteRecurso(),
                 empenho.historico(),
-                empenho.fatoContabilId());
+                empenho.fatoContabilId(),
+                empenho.autor().numero());
     }
 
     @Override
@@ -91,6 +93,7 @@ public class PostgresEmpenhoRepository implements EmpenhoRepository {
                 rs.getString("classificacao_orcamentaria"),
                 rs.getString("fonte_recurso"),
                 rs.getString("historico"),
-                rs.getObject("fato_contabil_id", UUID.class));
+                rs.getObject("fato_contabil_id", UUID.class),
+                new Cpf(rs.getString("autor_cpf")));
     }
 }

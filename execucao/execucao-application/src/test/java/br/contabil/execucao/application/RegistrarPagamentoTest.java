@@ -1,22 +1,43 @@
 package br.contabil.execucao.application;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import static org.mockito.ArgumentMatchers.any;
+import org.mockito.Mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import br.contabil.execucao.domain.Beneficiario;
+import br.contabil.execucao.domain.DocumentoSuporte;
+import br.contabil.execucao.domain.EmpenhoId;
 import br.contabil.execucao.domain.ExecucaoInvalidaException;
+import br.contabil.execucao.domain.Liquidacao;
 import br.contabil.execucao.domain.LiquidacaoId;
 import br.contabil.execucao.domain.NaturezaPagamento;
 import br.contabil.execucao.domain.Pagamento;
+import br.contabil.execucao.domain.PagamentoNaoAprovadoException;
 import br.contabil.execucao.domain.SaldoInsuficienteException;
 import br.contabil.execucao.domain.SaldoLiquidacao;
+import br.contabil.execucao.domain.StatusAprovacao;
 import br.contabil.execucao.domain.repository.ExecucaoContabilPort;
 import br.contabil.execucao.domain.repository.ExecucaoContabilPort.SolicitacaoEscrituracaoPagamento;
+import br.contabil.execucao.domain.repository.LiquidacaoRepository;
 import br.contabil.execucao.domain.repository.PagamentoRepository;
 import br.contabil.execucao.domain.repository.SaldosExecucaoPort;
 import br.contabil.plataforma.domain.Dinheiro;
@@ -30,25 +51,15 @@ import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Recurso;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.SemPermissaoException;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
-import java.time.Clock;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
-import java.util.Optional;
-import java.util.UUID;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class RegistrarPagamentoTest {
 
     @Mock
     private ServicoIdentidade servicoIdentidade;
+
+    @Mock
+    private LiquidacaoRepository liquidacaoRepositorio;
 
     @Mock
     private SaldosExecucaoPort saldos;
@@ -78,6 +89,7 @@ class RegistrarPagamentoTest {
         Clock relogioFixo = Clock.fixed(Instant.parse("2026-07-26T10:00:00Z"), ZoneOffset.UTC);
         useCase = new RegistrarPagamento(
                 new ControleAcesso(servicoIdentidade),
+                liquidacaoRepositorio,
                 saldos,
                 escrituracao,
                 repositorio,
@@ -86,12 +98,32 @@ class RegistrarPagamentoTest {
                 relogioFixo);
     }
 
+    private Liquidacao liquidacaoComStatus(StatusAprovacao status) {
+        Liquidacao registrada = Liquidacao.registrar(
+                liquidacaoId,
+                enteId,
+                EmpenhoId.novo(),
+                dataCompetencia,
+                Dinheiro.de("1000.00"),
+                List.of(DocumentoSuporte.de("NF", "123", dataCompetencia)),
+                "liquidação NF 123",
+                UUID.randomUUID(),
+                new Cpf("11111111111"));
+        return switch (status) {
+            case PENDENTE -> registrada;
+            case APROVADA -> registrada.aprovar(new Cpf("22222222222"), new Cpf("33333333333"));
+            case DEVOLVIDA -> registrada.devolver(new Cpf("22222222222"), new Cpf("33333333333"), "motivo");
+        };
+    }
+
     @Test
     @DisplayName("consulta saldo, escritura fato contábil e persiste pagamento")
     void registraComSucesso() {
         Sessao sessao = sessao();
         UUID fatoContabilId = UUID.randomUUID();
         when(servicoIdentidade.autorizar(sessao, RECURSO, Acao.CRIAR)).thenReturn(true);
+        when(liquidacaoRepositorio.buscarPorId(enteId, liquidacaoId))
+                .thenReturn(Optional.of(liquidacaoComStatus(StatusAprovacao.APROVADA)));
         when(saldos.saldoLiquidacao(enteId, liquidacaoId))
                 .thenReturn(new SaldoLiquidacao(liquidacaoId, Dinheiro.de("1000.00"), Dinheiro.de("200.00")));
         when(escrituracao.registrarPagamento(any(SolicitacaoEscrituracaoPagamento.class)))
@@ -141,7 +173,7 @@ class RegistrarPagamentoTest {
                         "pagamento sem beneficiário"))
                 .isInstanceOf(ExecucaoInvalidaException.class);
 
-        verifyNoInteractions(saldos, escrituracao, repositorio, publicacaoTransparencia, auditoria);
+        verifyNoInteractions(liquidacaoRepositorio, saldos, escrituracao, repositorio, publicacaoTransparencia, auditoria);
     }
 
     @Test
@@ -149,6 +181,8 @@ class RegistrarPagamentoTest {
     void rejeitaSemSaldoAntesDeEscriturar() {
         Sessao sessao = sessao();
         when(servicoIdentidade.autorizar(sessao, RECURSO, Acao.CRIAR)).thenReturn(true);
+        when(liquidacaoRepositorio.buscarPorId(enteId, liquidacaoId))
+                .thenReturn(Optional.of(liquidacaoComStatus(StatusAprovacao.APROVADA)));
         when(saldos.saldoLiquidacao(enteId, liquidacaoId))
                 .thenReturn(new SaldoLiquidacao(liquidacaoId, Dinheiro.de("1000.00"), Dinheiro.de("800.00")));
 
@@ -175,6 +209,8 @@ class RegistrarPagamentoTest {
     void falhaEscrituracaoNaoPersistePagamento() {
         Sessao sessao = sessao();
         when(servicoIdentidade.autorizar(sessao, RECURSO, Acao.CRIAR)).thenReturn(true);
+        when(liquidacaoRepositorio.buscarPorId(enteId, liquidacaoId))
+                .thenReturn(Optional.of(liquidacaoComStatus(StatusAprovacao.APROVADA)));
         when(saldos.saldoLiquidacao(enteId, liquidacaoId))
                 .thenReturn(new SaldoLiquidacao(liquidacaoId, Dinheiro.de("1000.00"), Dinheiro.de("200.00")));
         when(escrituracao.registrarPagamento(any(SolicitacaoEscrituracaoPagamento.class)))
@@ -221,6 +257,54 @@ class RegistrarPagamentoTest {
                 .isInstanceOf(SemPermissaoException.class);
 
         verify(servicoIdentidade, never()).autorizar(any(), any(), any());
+        verifyNoInteractions(liquidacaoRepositorio, saldos, escrituracao, repositorio, publicacaoTransparencia, auditoria);
+    }
+
+    @Test
+    @DisplayName("ADR-0023: pagar liquidação pendente de aprovação é recusado com pagamento_nao_aprovado")
+    void rejeitaPagamentoDeLiquidacaoNaoAprovada() {
+        Sessao sessao = sessao();
+        when(servicoIdentidade.autorizar(sessao, RECURSO, Acao.CRIAR)).thenReturn(true);
+        when(liquidacaoRepositorio.buscarPorId(enteId, liquidacaoId))
+                .thenReturn(Optional.of(liquidacaoComStatus(StatusAprovacao.PENDENTE)));
+
+        assertThatThrownBy(() -> useCase.executar(
+                        sessao,
+                        enteId,
+                        liquidacaoId,
+                        dataCompetencia,
+                        Dinheiro.de("300.00"),
+                        NaturezaPagamento.ORCAMENTARIO,
+                        Optional.of(fornecedor),
+                        Optional.empty(),
+                        "pagamento de liquidação não aprovada"))
+                .isInstanceOf(PagamentoNaoAprovadoException.class)
+                .satisfies(erro -> assertThat(((PagamentoNaoAprovadoException) erro).codigo())
+                        .isEqualTo("pagamento_nao_aprovado"));
+
+        verifyNoInteractions(saldos, escrituracao, repositorio, publicacaoTransparencia, auditoria);
+    }
+
+    @Test
+    @DisplayName("ADR-0023: pagar liquidação devolvida também é recusado (só 'aprovada' libera o pagamento)")
+    void rejeitaPagamentoDeLiquidacaoDevolvida() {
+        Sessao sessao = sessao();
+        when(servicoIdentidade.autorizar(sessao, RECURSO, Acao.CRIAR)).thenReturn(true);
+        when(liquidacaoRepositorio.buscarPorId(enteId, liquidacaoId))
+                .thenReturn(Optional.of(liquidacaoComStatus(StatusAprovacao.DEVOLVIDA)));
+
+        assertThatThrownBy(() -> useCase.executar(
+                        sessao,
+                        enteId,
+                        liquidacaoId,
+                        dataCompetencia,
+                        Dinheiro.de("300.00"),
+                        NaturezaPagamento.ORCAMENTARIO,
+                        Optional.of(fornecedor),
+                        Optional.empty(),
+                        "pagamento de liquidação devolvida"))
+                .isInstanceOf(PagamentoNaoAprovadoException.class);
+
         verifyNoInteractions(saldos, escrituracao, repositorio, publicacaoTransparencia, auditoria);
     }
 

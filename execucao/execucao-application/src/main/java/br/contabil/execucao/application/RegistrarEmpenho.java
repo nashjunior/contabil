@@ -1,5 +1,12 @@
 package br.contabil.execucao.application;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
+
 import br.contabil.execucao.domain.ContratoId;
 import br.contabil.execucao.domain.CredorId;
 import br.contabil.execucao.domain.DotacaoId;
@@ -20,12 +27,6 @@ import br.contabil.plataforma.domain.iam.ControleAcesso;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Acao;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Recurso;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
-import java.time.Clock;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.util.Map;
-import java.util.Objects;
-import java.util.UUID;
 
 /**
  * Caso de uso: registra um empenho, comprometendo crédito da dotação (Lei
@@ -108,7 +109,8 @@ public class RegistrarEmpenho {
                 classificacaoOrcamentaria,
                 fonteRecurso,
                 historico,
-                fatoContabilId);
+                fatoContabilId,
+                usuarioAutenticado.titular());
 
         repositorio.inserir(empenho);
         publicacaoTransparencia.publicar(empenho, usuarioAutenticado);

@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
 
 class EmpenhoTest {
 
@@ -18,6 +19,7 @@ class EmpenhoTest {
     private final DotacaoId dotacaoId = DotacaoId.novo();
     private final CredorId credorId = CredorId.novo();
     private final UnidadeGestoraId unidadeGestoraId = UnidadeGestoraId.novo();
+    private final Cpf autor = new Cpf("12345678901");
 
     @Test
     @DisplayName("registra empenho ordinário com fato contábil associado")
@@ -39,13 +41,15 @@ class EmpenhoTest {
                 "04.122.0001.2001",
                 "0100000000",
                 "empenho de material de expediente",
-                fatoContabilId);
+                fatoContabilId,
+                autor);
 
         assertThat(empenho.dotacaoId()).isEqualTo(dotacaoId);
         assertThat(empenho.valor()).isEqualTo(Dinheiro.de("1000.00"));
         assertThat(empenho.tipo()).isEqualTo(TipoEmpenho.ORDINARIO);
         assertThat(empenho.contratoId()).isNull();
         assertThat(empenho.fatoContabilId()).isEqualTo(fatoContabilId);
+        assertThat(empenho.autor()).isEqualTo(autor);
     }
 
     @Test
@@ -66,7 +70,8 @@ class EmpenhoTest {
                         "04.122.0001.2001",
                         "0100000000",
                         "empenho inválido",
-                        UUID.randomUUID()))
+                        UUID.randomUUID(),
+                        autor))
                 .isInstanceOf(ExecucaoInvalidaException.class)
                 .hasMessageContaining("positivo");
     }
@@ -89,7 +94,8 @@ class EmpenhoTest {
                         "04.122.0001.2001",
                         "0100000000",
                         "   ",
-                        UUID.randomUUID()))
+                        UUID.randomUUID(),
+                        autor))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
