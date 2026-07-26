@@ -57,6 +57,10 @@ class VazamentoCrossTenantRlsTest {
     private static final String CONTA_B = "cccccccc-4444-4444-4444-cccccccccccc";
     private static final String FATO_A = "ffffffff-3333-3333-3333-ffffffffffff";
     private static final String FATO_B = "ffffffff-4444-4444-4444-ffffffffffff";
+    private static final String DOTACAO_A = "dddddddd-3333-3333-3333-dddddddddddd";
+    private static final String DOTACAO_B = "dddddddd-4444-4444-4444-dddddddddddd";
+    private static final String EMPENHO_A = "eeeeeeee-3333-3333-3333-eeeeeeeeeeee";
+    private static final String EMPENHO_B = "eeeeeeee-4444-4444-4444-eeeeeeeeeeee";
 
     @BeforeAll
     static void migraESemeiaDuasEntesComDadosEmTodasAsTabelasProtegidas() throws SQLException {
@@ -100,16 +104,40 @@ class VazamentoCrossTenantRlsTest {
                     ENTE_A, FATO_A, CONTA_A,
                     ENTE_B, FATO_B, CONTA_B,
                     ENTE_B, FATO_B, CONTA_B));
+            st.execute("""
+                    insert into dotacao (id, ente_id, exercicio, classificacao_orcamentaria, fonte_recurso,
+                                          unidade_gestora_id, valor_autorizado) values
+                      ('%s', '%s', 2026, '04.122.0001.2001', '0100000000', '11111111-1111-1111-1111-111111111111', 10000.00),
+                      ('%s', '%s', 2026, '04.122.0001.2001', '0100000000', '11111111-1111-1111-1111-111111111111', 20000.00)
+                    """.formatted(DOTACAO_A, ENTE_A, DOTACAO_B, ENTE_B));
+            st.execute("""
+                    insert into empenho (id, ente_id, numero_sequencial, exercicio, tipo, dotacao_id, credor_id,
+                                         unidade_gestora_id, valor, data_fato, classificacao_orcamentaria,
+                                         fonte_recurso, historico, fato_contabil_id) values
+                      ('%s', '%s', 1, 2026, 'ordinario', '%s', '22222222-2222-2222-2222-222222222222',
+                       '11111111-1111-1111-1111-111111111111', 100.00, current_date, '04.122.0001.2001',
+                       '0100000000', 'empenho ente A', '%s'),
+                      ('%s', '%s', 1, 2026, 'ordinario', '%s', '22222222-2222-2222-2222-222222222222',
+                       '11111111-1111-1111-1111-111111111111', 200.00, current_date, '04.122.0001.2001',
+                       '0100000000', 'empenho ente B', '%s')
+                    """.formatted(EMPENHO_A, ENTE_A, DOTACAO_A, FATO_A, EMPENHO_B, ENTE_B, DOTACAO_B, FATO_B));
+            st.execute("""
+                    insert into outbox_mensagem (ente_id, chave, destino, tipo, conteudo) values
+                      ('%s', 'chave-a', 'transparencia', 'execucao.empenho.registrado.v1', '{}'),
+                      ('%s', 'chave-b', 'transparencia', 'execucao.empenho.registrado.v1', '{}')
+                    """.formatted(ENTE_A, ENTE_B));
         }
     }
 
     /**
-     * As 4 tabelas com {@code ente_id} sob RLS forçada (trava 4, migration V1) às quais o
-     * {@code app_role} tem GRANT select — {@code contador_fato} também tem RLS, mas nenhum
-     * grant direto (ver javadoc da classe).
+     * As tabelas com {@code ente_id} sob RLS forçada às quais o {@code app_role} tem GRANT
+     * select — de V1 (razão) e V3/V4 (execução/RAZ-66, outbox/RAZ-9). {@code contador_fato} e
+     * {@code contador_empenho} também têm RLS, mas nenhum grant direto (ver javadoc da classe).
      */
     static Stream<String> tabelasProtegidasPorRls() {
-        return Stream.of("conta_pcasp", "periodo_contabil", "fato_contabil", "lancamento");
+        return Stream.of(
+                "conta_pcasp", "periodo_contabil", "fato_contabil", "lancamento",
+                "dotacao", "empenho", "outbox_mensagem");
     }
 
     @ParameterizedTest(name = "{0}: soma do que A e B enxergam bate com o total — zero linha cruzada")
