@@ -19,7 +19,6 @@ class BalanceteTest {
                 ContaContabilId.novo(),
                 "1.1.1",
                 "Caixa",
-                "D",
                 Dinheiro.de(anterior),
                 Dinheiro.de(debito),
                 Dinheiro.de(credito),

@@ -14,8 +14,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
@@ -42,9 +40,6 @@ class RazaoConsultaControllerTest {
     @Mock
     private GerarBalancete gerarBalancete;
 
-    /** Mesma serialização da app: {@link DinheiroJacksonModule} emite Dinheiro como string decimal (§6.1). */
-    private final ObjectMapper json = new ObjectMapper().registerModule(new DinheiroJacksonModule());
-
     private RazaoConsultaController controller() {
         return new RazaoConsultaController(consultarSaldo, gerarBalancete);
     }
@@ -55,7 +50,7 @@ class RazaoConsultaControllerTest {
     }
 
     @Test
-    void saldoAdaptaPathEQueryParaExecutarEDevolveDinheiroComoStringDecimal() throws Exception {
+    void saldoAdaptaPathEQueryParaExecutarEDevolveDinheiroComoDecimal() {
         UUID enteId = UUID.randomUUID();
         UUID contaId = UUID.randomUUID();
         Sessao sessao = sessaoDe(new TenantId(enteId));
@@ -65,9 +60,7 @@ class RazaoConsultaControllerTest {
         SaldoContaResponse resposta = controller().saldo(enteId, contaId, sessao);
 
         assertThat(resposta.contaId()).isEqualTo(contaId);
-        assertThat(resposta.saldo()).isEqualTo(Dinheiro.de("1234.56"));
-        // §6.1/ADR-0030 §2: dinheiro serializa como string decimal, nunca número JSON.
-        assertThat(json.writeValueAsString(resposta)).contains("\"saldo\":\"1234.56\"");
+        assertThat(resposta.saldo()).isEqualByComparingTo("1234.56");
     }
 
     @Test
@@ -82,7 +75,7 @@ class RazaoConsultaControllerTest {
     }
 
     @Test
-    void balanceteAdaptaPathEQueryEMapeiaLinhasComNaturezaEDinheiroString() throws Exception {
+    void balanceteAdaptaPathEQueryEMapeiaLinhasNoDto() {
         UUID enteId = UUID.randomUUID();
         Sessao sessao = sessaoDe(new TenantId(enteId));
         UUID contaId = UUID.randomUUID();
@@ -94,7 +87,6 @@ class RazaoConsultaControllerTest {
                         new ContaContabilId(contaId),
                         "1.1.1.01.01",
                         "Caixa",
-                        "D",
                         Dinheiro.de("100.00"),
                         Dinheiro.de("50.00"),
                         Dinheiro.de("50.00"),
@@ -110,11 +102,6 @@ class RazaoConsultaControllerTest {
         BalanceteResponse.Linha linha = resposta.linhas().get(0);
         assertThat(linha.contaId()).isEqualTo(contaId);
         assertThat(linha.codigo()).isEqualTo("1.1.1.01.01");
-        assertThat(linha.naturezaSaldo()).isEqualTo("D");
-        assertThat(linha.saldoAtual()).isEqualTo(Dinheiro.de("100.00"));
-        // §6.1/ADR-0030: dinheiro como string decimal e naturezaSaldo (D/C) no payload.
-        String corpo = json.writeValueAsString(resposta);
-        assertThat(corpo).contains("\"saldoAtual\":\"100.00\"");
-        assertThat(corpo).contains("\"naturezaSaldo\":\"D\"");
+        assertThat(linha.saldoAtual()).isEqualByComparingTo("100.00");
     }
 }

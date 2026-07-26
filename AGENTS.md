@@ -40,6 +40,7 @@ Só reportam, não editam. Cada um é a fonte única das suas regras.
 | [`guardiao-seguranca`](.claude/agents/guardiao-seguranca.md) | LGPD, PII/mascaramento, tenant de claim, segredo, trilha |
 | [`guardiao-observabilidade`](.claude/agents/guardiao-observabilidade.md) | Log/correlação, métrica de SLA, circuit breaker (antecipatório) |
 | [`guardiao-iac`](.claude/agents/guardiao-iac.md) | Rede privada, KMS, segredo em infra, residência, backup (antecipatório) |
+| [`guardiao-frontend`](.claude/agents/guardiao-frontend.md) | Front React+TS: composição sem prop drilling, design tokens, dinheiro/PII na UI, client tipado, a11y |
 
 ## Skills e workflow
 

@@ -52,7 +52,7 @@ public class PostgresBalancetePort implements BalancetePort {
                where l.ente_id = ? and (p.exercicio, p.mes) < (select exercicio, mes from periodo)
                group by l.conta_id
             )
-            select c.id as conta_id, c.codigo, c.descricao, c.natureza_saldo,
+            select c.id as conta_id, c.codigo, c.descricao,
                    coalesce(a.saldo, 0) as saldo_anterior,
                    coalesce(m.debito, 0) as movimento_debito,
                    coalesce(m.credito, 0) as movimento_credito
@@ -83,7 +83,6 @@ public class PostgresBalancetePort implements BalancetePort {
                             new ContaContabilId(rs.getObject("conta_id", UUID.class)),
                             rs.getString("codigo"),
                             rs.getString("descricao"),
-                            rs.getString("natureza_saldo"),
                             saldoAnterior,
                             movimentoDebito,
                             movimentoCredito,

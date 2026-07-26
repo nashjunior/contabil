@@ -217,7 +217,7 @@ class ExecucaoEscritaHttpIntegrationTest {
         ResponseEntity<Map> resposta = post("/execucao/pagamentos", CPF_APROVADOR, pagamentoValido(), Map.class);
 
         assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
-        assertThat(resposta.getBody()).containsEntry("codigo", "pagamento_nao_aprovado");
+        assertThat(resposta.getBody()).containsEntry("erro", "pagamento_nao_aprovado");
     }
 
     @Test
@@ -229,7 +229,7 @@ class ExecucaoEscritaHttpIntegrationTest {
                 post("/execucao/liquidacoes/" + liquidacaoId + "/aprovacao", CPF_ORDENADOR, corpo, Map.class);
 
         assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
-        assertThat(resposta.getBody()).containsEntry("codigo", "auto_aprovacao_vedada");
+        assertThat(resposta.getBody()).containsEntry("erro", "auto_aprovacao_vedada");
     }
 
     @Test

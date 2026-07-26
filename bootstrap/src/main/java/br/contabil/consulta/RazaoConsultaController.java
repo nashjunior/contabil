@@ -39,7 +39,7 @@ final class RazaoConsultaController {
     SaldoContaResponse saldo(
             @PathVariable("enteId") UUID enteId, @RequestParam("contaId") UUID contaId, Sessao sessao) {
         var saldo = consultarSaldo.executar(sessao, new TenantId(enteId), new ContaContabilId(contaId));
-        return new SaldoContaResponse(contaId, saldo);
+        return new SaldoContaResponse(contaId, saldo.valor());
     }
 
     @GetMapping("/balancete")

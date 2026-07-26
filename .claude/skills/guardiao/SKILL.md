@@ -15,6 +15,7 @@ O guardião do SIAFIC é dividido em **4 guardiões especializados** (subagentes
 | PII, tenant/auth, mascaramento, segredo, trilha, LGPD | **`guardiao-seguranca`** |
 | Log, métrica, borda externa, caminho de SLA | **`guardiao-observabilidade`** |
 | Terraform/IaC (rede, KMS, segredo em infra, residência, backup) | **`guardiao-iac`** |
+| Frontend React+TS (composição/prop drilling, design tokens, dinheiro/PII na UI, a11y, client de API) | **`guardiao-frontend`** |
 
 Para revisão profunda de código, **invoque o subagente** correspondente (Agent tool) — ele é o checklist canônico. Esta skill existe para o passe rápido e para agentes que não invocam subagentes.
 
