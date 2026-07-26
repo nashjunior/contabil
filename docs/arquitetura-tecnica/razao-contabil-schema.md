@@ -125,7 +125,7 @@ end; $$ language plpgsql;
 
 create trigger trg_imutavel_fato   before update or delete on fato_contabil
   for each row execute function bloqueia_mutacao();
-create trigger trg_imutavel_lanc   before update or delete on lancamento
+create trigger trg_imutavel_lancamento before update or delete on lancamento
   for each row execute function bloqueia_mutacao();
 
 -- papel da aplicação não recebe UPDATE/DELETE nessas tabelas

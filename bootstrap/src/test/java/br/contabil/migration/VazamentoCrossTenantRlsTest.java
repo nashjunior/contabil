@@ -36,12 +36,12 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * (bypass via FK simples no INSERT/DONO). Este teste cobre o lado SELECT — a superfície que
  * um vazamento cross-tenant reprovaria no controle externo (ADR-0003).
  *
- * <p><b>{@link #saldoContaViewNaoVazaLinhaDeOutroEnte()}</b> prova um vazamento cross-tenant
- * REAL na migration V1 atual: {@code saldo_conta} é uma view com grant select ao app_role,
- * mas sem {@code security_invoker = true} — o Postgres avalia RLS pelo DONO da view (o
- * superusuário da migration, que ignora RLS), não por quem consulta. Fica vermelho de
- * propósito até a V1 declarar {@code security_invoker = true} nessa view; ver javadoc do
- * método para a reprodução.
+ * <p>{@link #saldoContaViewNaoVazaLinhaDeOutroEnte()} guardrail contra o vazamento cross-tenant
+ * que uma view com grant select ao app_role teria SEM {@code security_invoker = true} — sem essa
+ * cláusula o Postgres avaliaria RLS pelo DONO da view (o superusuário da migration, que ignora
+ * RLS), não por quem consulta. A V1 atual já declara {@code security_invoker = true} em {@code
+ * saldo_conta}, então este teste passa hoje; ele fica para pegar regressão se a cláusula for
+ * removida.
  */
 @Testcontainers(disabledWithoutDocker = true)
 class VazamentoCrossTenantRlsTest {
