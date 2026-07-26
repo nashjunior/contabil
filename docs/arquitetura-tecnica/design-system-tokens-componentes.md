@@ -14,6 +14,8 @@
 
 Sóbrio/institucional: `neutral` (12 passos, cinza-azulado), `brand` (9 passos, azul institucional `#2F6CAE`), `success`/`warning`/`danger` (7 passos cada). Ocultos de todo picker — só a camada semântica é exposta a quem monta tela.
 
+**Export DTCG (RAZ-125):** `frontend/tokens/color.tokens.json` (versionado no repo) carrega os passos de `Primitives` alcançáveis pela camada semântica (§1.2) com hex real, confirmado via Figma REST API — ver ADR-0031 (atualização RAZ-125) e `frontend/tokens/README.md` para o método e o resíduo pendente (passos sem alias semântico, que exigem a Variables API ou export via Tokens Studio).
+
 ### 1.2 Semânticos (coleção `Color`, 1 modo `Value`)
 
 Sem modo claro/escuro: back-office não pede tema (nenhum doc do produto exige dark mode); um único modo evita escopo não pedido. Se o citizen portal (fora do F1) vier a adotar o **Design System gov.br** ([05-acessibilidade](../transversais/05-acessibilidade.md)), esta camada semântica pode ganhar um segundo modo depois — decisão futura, não deste issue.

@@ -71,13 +71,18 @@ para a proveniência exata (arquivo por arquivo) de cada campo.
    de assinatura, mas para login geral). `DevLoginPage`/`AuthContext`
    sintetizam um bearer token opaco local — stand-in de desenvolvimento, não
    o mecanismo de produção. Ver comentário em `shared/auth/AuthContext.tsx`.
-5. **RAZ-100 entregou, mas não como export DTCG/JSON.** É um design system em
-   Figma (`docs/arquitetura-tecnica/design-system-tokens-componentes.md`) — a
-   nomenclatura semântica dos tokens aqui (`bg.*`/`text.*`/`brand.*`/`state.*`/
-   `pii.*`, escala `2xs..3xl`) já é a real, extraída dessa doc; só os valores
-   hex são placeholder onde a doc não documenta em texto (`brand.500 = #2F6CAE`
-   é real). Ver `tokens/README.md`. Troca por export completo mantém a mesma
-   forma — nenhum componente muda.
+5. **(Fechado majoritariamente pela RAZ-125.)** `tokens/color.tokens.json` já
+   era a nomenclatura semântica real (`bg.*`/`text.*`/`brand.*`/`state.*`/
+   `pii.*`); agora todo valor hex também é real (lido via Figma REST API da
+   página `Foundations`, resolvendo cada swatch semântico e revertendo pelo
+   alias documentado em §1.2 do doc de design system), exceto `neutral.200`
+   (inferido por continuidade da paleta, sem alias semântico para confirmar).
+   Resíduo: os passos do `Primitives` sem consumidor semântico (a maioria de
+   `brand`/`success`/`warning`/`danger`) exigem a Figma Variables REST API
+   (bloqueada por escopo no token atual) ou export manual via Tokens Studio —
+   não bloqueiam nenhum componente, já que primitivos ficam ocultos da camada
+   semântica (ADR-0026). Ver `tokens/README.md` e ADR-0031 (atualização
+   RAZ-125).
 6. **Sem backend rodável neste ambiente para prova 100% real.** A prova
    fim-a-fim aqui é: client real (paths/campos/auth batendo com o código-fonte
    lido diretamente) + MSW fiel ao mesmo contrato + teste de componente
