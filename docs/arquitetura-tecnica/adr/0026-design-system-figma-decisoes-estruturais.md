@@ -13,6 +13,10 @@
   - **Perguntar ao usuário qual tenant do Figma usar antes de prosseguir** — rejeitada nesta execução: o fluxo é autônomo (sem humano síncrono no heartbeat); a escolha foi feita por critério objetivo (permissão de escrita + escopo organizacional) e fica aberta a correção via comentário/replanejamento, custo de reversão baixo (mover arquivo de time).
   - **Adotar o Design System gov.br diretamente nesta v1** — rejeitada para agora: 05-acessibilidade trata isso como piso do **portal do cidadão**, não do back-office do operador (que é o escopo do RAZ-100); misturar os dois arquivos agora acopla uma decisão de tema cidadão a um entregável de back-office sem essa exigência.
 
+## Atualização (RAZ-102)
+
+O escopo travado em (3) previa qualquer extensão como "revisão futura deste ADR". Ao montar as telas do RAZ-102, nenhum dos 10 componentes nem a biblioteca "Simple Design System" (já anexada ao arquivo) cobria sinalização de lacuna de API na própria tela — busca confirmada via `search_design_system` antes de criar algo novo (feedback do board em RAZ-102: reusar o que existe, criar só o que não existe). Adicionado o 11º componente **Aviso de Gap (API)** (`Nível=Crítico|Atenção`), página própria `10 Aviso de Gap (API)`. Não muda nenhuma das 3 decisões originais (terminologia "Devolvida", tenant do Figma, ausência de dark mode/Code Connect/lote no Gate) — só estende o inventário de componentes. Detalhe em [design-system-tokens-componentes.md](../design-system-tokens-componentes.md).
+
 ---
 
 [← ADRs](./README.md) · [design-system-tokens-componentes](../design-system-tokens-componentes.md) · [fluxo-execucao-operador-contrato-api](../fluxo-execucao-operador-contrato-api.md) · [ADR-0023](./0023-gate-aprovacao-pagamento-segregacao.md)
