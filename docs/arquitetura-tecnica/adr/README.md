@@ -35,8 +35,12 @@
 | [0028](./0028-tipagem-id-fronteira-execucao-razao.md) | Tipagem de id na fronteira execução↔razão: VO de referência local do consumidor, `UUID` contido no adapter, id de domínio não sobe ao shared kernel | Aceita |
 | [0029](./0029-contrato-leitura-fila-aprovacao-trilha.md) | Contrato de leitura do gate de aprovação: fila (GET) com segregação Regra 9 imposta na leitura, trilha por endpoint dedicado sobre `AuditoriaLeitura`, `liquidacao_ja_decidida` → 409 | Aceita |
 | [0030](./0030-contrato-consultas-razao-convergencia-79.md) | Consultas (RAZ-101) convergem para o contrato RAZ-79 §6.1 (dinheiro string, envelope `{codigo,mensagem,detalhes}`, `mfa`→428, `natureza_saldo` no balancete); balancete é **demonstrativo**, não lista paginável; catálogo PCASP é endpoint novo | Aceita |
+| [0031](./0031-frontend-pipeline-design-tokens.md) | Frontend: pipeline de design tokens (RAZ-100 → tema tipado), nomes/escala reais, hex de primitivo pendente de sync | Aceita |
+| [0032](./0032-frontend-monolito-modular-feature-based.md) | Frontend: monólito modular (não MFE) + estrutura feature-based (execução/consultas/admin) | Aceita |
+| [0033](./0033-frontend-composicao-proibicao-prop-drilling.md) | Frontend: composição (compound components + Context); proibido prop drilling em subcomponente aninhado | Aceita |
+| [0034](./0034-frontend-estado-client-api-tipado.md) | Frontend: estado (React Query) e client de API tipado contra os 7 controllers reais (`ente` no path, Bearer gov.br, envelope único) | Aceita |
 
-> **Nota:** o número **0019 não foi utilizado** — reservado durante execução paralela de agentes e nunca materializado em arquivo. Não renumerar os ADRs existentes (a numeração é histórica/imutável, mesmo princípio do ADR); o próximo ADR novo continua a partir do 0031.
+> **Nota:** o número **0019 não foi utilizado** — reservado durante execução paralela de agentes e nunca materializado em arquivo. Não renumerar os ADRs existentes (a numeração é histórica/imutável, mesmo princípio do ADR); o próximo ADR novo continua a partir do 0035.
 
 ## Como adicionar/mudar uma decisão
 
