@@ -123,7 +123,7 @@ public class RegistrarEmpenho {
         auditoria.append(new EventoAuditoria(
                 enteId,
                 "execucao_empenho_registrado",
-                usuarioAutenticado.titular().numero(),
+                usuarioAutenticado.titular().mascarado(),
                 "execucao:empenho:%s".formatted(empenho.id().valor()),
                 Instant.now(clock),
                 Map.of(
