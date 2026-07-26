@@ -85,7 +85,7 @@ public class AprovarPagamento {
         auditoria.append(new EventoAuditoria(
                 enteId,
                 "execucao_pagamento_aprovacao_decidida",
-                aprovador.numero(),
+                aprovador.mascarado(),
                 "execucao:liquidacao:%s".formatted(liquidacaoId.valor()),
                 Instant.now(clock),
                 Map.of(

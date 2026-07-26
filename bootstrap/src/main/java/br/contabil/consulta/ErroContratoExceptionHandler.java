@@ -5,8 +5,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import br.contabil.execucao.domain.AutoAprovacaoNaoPermitidaException;
 import br.contabil.execucao.domain.EmpenhoAssinaturaConflitanteException;
 import br.contabil.execucao.domain.ExecucaoInvalidaException;
+import br.contabil.execucao.domain.PagamentoNaoAprovadoException;
+import br.contabil.execucao.domain.SaldoInsuficienteException;
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.CertificadoInvalidoException;
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.NivelInsuficienteException;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.MfaRequeridoException;
@@ -43,6 +46,17 @@ class ErroContratoExceptionHandler {
     @ExceptionHandler(MfaRequeridoException.class)
     ResponseEntity<ErroResponse> mfaRequerido(MfaRequeridoException e) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErroResponse(e.codigo()));
+    }
+
+    /**
+     * RAZ-105/RAZ-79 §6.1: "conflito de saldo/estado" é {@code 409}, mais específico que o
+     * {@code 400} genérico de {@link #execucaoInvalida} — cobre também {@link
+     * AutoAprovacaoNaoPermitidaException} (viola a segregação de funções da Regra 9, um conflito de
+     * estado da liquidação, não um payload malformado).
+     */
+    @ExceptionHandler({SaldoInsuficienteException.class, PagamentoNaoAprovadoException.class, AutoAprovacaoNaoPermitidaException.class})
+    ResponseEntity<ErroResponse> conflitoDeSaldoOuEstado(ExecucaoInvalidaException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErroResponse(e.codigo()));
     }
 
     @ExceptionHandler(ExecucaoInvalidaException.class)

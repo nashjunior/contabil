@@ -94,7 +94,7 @@ public class RegistrarLiquidacao {
         auditoria.append(new EventoAuditoria(
                 enteId,
                 "execucao_liquidacao_registrada",
-                usuarioAutenticado.titular().numero(),
+                usuarioAutenticado.titular().mascarado(),
                 "execucao:liquidacao:%s".formatted(liquidacao.id().valor()),
                 Instant.now(clock),
                 Map.of(

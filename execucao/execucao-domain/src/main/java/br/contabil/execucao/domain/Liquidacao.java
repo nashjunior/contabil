@@ -89,6 +89,41 @@ public final class Liquidacao {
     }
 
     /**
+     * Reconstitui uma liquidação já persistida, com a decisão de aprovação que já foi validada na
+     * escrita (RAZ-92) — ao contrário de {@link #aprovar}/{@link #devolver}, não reaplica a checagem
+     * de auto-aprovação (ela já rodou quando a decisão foi tomada; reaplicá-la na leitura exigiria
+     * reconstruir o autor do empenho da cadeia só para uma validação redundante). Uso exclusivo dos
+     * adapters de persistência (RAZ-105, {@code LiquidacaoRepository}).
+     */
+    public static Liquidacao reidratar(
+            LiquidacaoId id,
+            TenantId enteId,
+            EmpenhoId empenhoId,
+            LocalDate dataCompetencia,
+            Dinheiro valor,
+            List<DocumentoSuporte> documentosSuporte,
+            String historico,
+            UUID fatoContabilId,
+            Cpf autor,
+            StatusAprovacao statusAprovacao,
+            Optional<Cpf> aprovador,
+            Optional<String> motivoDevolucao) {
+        return new Liquidacao(
+                Objects.requireNonNull(id, "id não pode ser nulo"),
+                Objects.requireNonNull(enteId, "enteId não pode ser nulo"),
+                Objects.requireNonNull(empenhoId, "empenhoId não pode ser nulo"),
+                Objects.requireNonNull(dataCompetencia, "dataCompetencia não pode ser nula"),
+                valor,
+                List.copyOf(documentosSuporte),
+                textoObrigatorio(historico, "histórico"),
+                Objects.requireNonNull(fatoContabilId, "fatoContabilId não pode ser nulo"),
+                Objects.requireNonNull(autor, "autor não pode ser nulo"),
+                Objects.requireNonNull(statusAprovacao, "statusAprovacao não pode ser nulo"),
+                Objects.requireNonNull(aprovador, "aprovador não pode ser nulo"),
+                Objects.requireNonNull(motivoDevolucao, "motivoDevolucao não pode ser nulo"));
+    }
+
+    /**
      * Transiciona {@code PENDENTE -> APROVADA} (ADR-0023). Recusa auto-aprovação:
      * {@code aprovador} não pode ser o autor desta liquidação nem o autor do
      * empenho da mesma cadeia (Regra 9).

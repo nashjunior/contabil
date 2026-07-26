@@ -123,7 +123,7 @@ public class RegistrarPagamento {
         auditoria.append(new EventoAuditoria(
                 enteId,
                 "execucao_pagamento_registrado",
-                usuarioAutenticado.titular().numero(),
+                usuarioAutenticado.titular().mascarado(),
                 "execucao:pagamento:%s".formatted(pagamento.id().valor()),
                 Instant.now(clock),
                 Map.of(

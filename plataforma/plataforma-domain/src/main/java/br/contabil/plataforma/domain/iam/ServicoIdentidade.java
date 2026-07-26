@@ -70,6 +70,21 @@ public interface ServicoIdentidade {
                 throw new IllegalArgumentException("CPF não pode ser vazio");
             }
         }
+
+        /**
+         * Forma mascarada ({@code "***.456.***-**"}, mesmo padrão de exibição do contrato de
+         * API — RAZ-79 §5.3) para uso onde o CPF em claro não pode aparecer, ex.: {@code ator}
+         * de um evento de auditoria (a trilha tem guardrail de banco,
+         * {@code ck_auditoria_evento_sem_cpf_claro}, que rejeita qualquer sequência com formato
+         * de CPF em {@code ator}/{@code recurso}/{@code detalhes} — RAZ-105).
+         */
+        public String mascarado() {
+            String digitos = numero.replaceAll("[^0-9]", "");
+            if (digitos.length() != 11) {
+                return "*".repeat(numero.length());
+            }
+            return "***." + digitos.substring(3, 6) + ".***-**";
+        }
     }
 
     /** Sessão autenticada com escopo por ente/órgão (isolamento multi-tenant). */

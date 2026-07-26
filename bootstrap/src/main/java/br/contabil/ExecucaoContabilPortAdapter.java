@@ -40,6 +40,11 @@ public class ExecucaoContabilPortAdapter implements ExecucaoContabilPort {
 
     private static final String CODIGO_CREDITO_DISPONIVEL = "6.2.2.1.1";
     private static final String CODIGO_CREDITO_EMPENHADO_A_LIQUIDAR = "6.2.2.1.3";
+    private static final String CODIGO_EMPENHADO_LIQUIDADO_A_PAGAR = "6.2.2.1.4";
+    private static final String CODIGO_EMPENHADO_PAGO = "6.2.2.1.5";
+    private static final String CODIGO_VPD = "3.3.3.1.01";
+    private static final String CODIGO_FORNECEDORES_A_PAGAR = "2.1.3";
+    private static final String CODIGO_CAIXA_E_BANCOS = "1.1.1";
 
     private static final String SQL_RESOLVER_CONTA = "select id from conta_pcasp where ente_id = ? and codigo = ?";
 
@@ -89,14 +94,78 @@ public class ExecucaoContabilPortAdapter implements ExecucaoContabilPort {
         return fato.id();
     }
 
+    /**
+     * RAZ-67/RAZ-105: liquidação toca dois subsistemas PCASP no MESMO fato (ADR-0021) — patrimonial
+     * (reconhece a VPD e o passivo com o fornecedor, fato gerador por competência, Lei 4.320 art. 35)
+     * e orçamentário (baixa o "empenhado a liquidar", abre o "empenhado liquidado a pagar"). Os
+     * quatro lançamentos, juntos, já fecham Σdébito=Σcrédito — não é preciso balancear por
+     * subsistema isoladamente.
+     */
     @Override
     public UUID registrarLiquidacao(SolicitacaoEscrituracaoLiquidacao solicitacao) {
-        throw new UnsupportedOperationException("RAZ-67: roteiro de contabilização da liquidação ainda não implementado");
+        UUID contaVpd = resolverConta(solicitacao.enteId(), CODIGO_VPD);
+        UUID contaFornecedoresAPagar = resolverConta(solicitacao.enteId(), CODIGO_FORNECEDORES_A_PAGAR);
+        UUID contaEmpenhadoALiquidar = resolverConta(solicitacao.enteId(), CODIGO_CREDITO_EMPENHADO_A_LIQUIDAR);
+        UUID contaEmpenhadoLiquidadoAPagar = resolverConta(solicitacao.enteId(), CODIGO_EMPENHADO_LIQUIDADO_A_PAGAR);
+
+        List<Lancamento> lancamentos = List.of(
+                Lancamento.de(contaVpd, Natureza.DEBITO, solicitacao.valor()),
+                Lancamento.de(contaFornecedoresAPagar, Natureza.CREDITO, solicitacao.valor()),
+                Lancamento.de(contaEmpenhadoLiquidadoAPagar, Natureza.CREDITO, solicitacao.valor()),
+                Lancamento.de(contaEmpenhadoALiquidar, Natureza.DEBITO, solicitacao.valor()));
+
+        UUID periodoId = periodoContabil.periodoAbertoPara(solicitacao.enteId(), solicitacao.dataCompetencia());
+        long numeroSeq = contadorFato.proximoNumeroSeq(solicitacao.enteId());
+
+        FatoContabil fato = FatoContabil.registrar(
+                solicitacao.enteId(),
+                numeroSeq,
+                solicitacao.dataCompetencia(),
+                periodoId,
+                TipoEvento.LIQUIDACAO,
+                solicitacao.historico(),
+                "execucao:liquidacao:%s".formatted(solicitacao.liquidacaoId().valor()),
+                lancamentos,
+                clock);
+
+        fatoContabilRepositorio.inserir(fato);
+        return fato.id();
     }
 
+    /**
+     * RAZ-67/RAZ-105: pagamento é a baixa financeira (ADR-0021) — patrimonial/financeiro (quita o
+     * passivo com o fornecedor contra caixa/bancos) e orçamentário (fecha o "empenhado liquidado a
+     * pagar", abre o "empenhado pago"). Mesma regra da liquidação: um fato só, Σ=Σ pelo total.
+     */
     @Override
     public UUID registrarPagamento(SolicitacaoEscrituracaoPagamento solicitacao) {
-        throw new UnsupportedOperationException("RAZ-67: roteiro de contabilização do pagamento ainda não implementado");
+        UUID contaFornecedoresAPagar = resolverConta(solicitacao.enteId(), CODIGO_FORNECEDORES_A_PAGAR);
+        UUID contaCaixaEBancos = resolverConta(solicitacao.enteId(), CODIGO_CAIXA_E_BANCOS);
+        UUID contaEmpenhadoLiquidadoAPagar = resolverConta(solicitacao.enteId(), CODIGO_EMPENHADO_LIQUIDADO_A_PAGAR);
+        UUID contaEmpenhadoPago = resolverConta(solicitacao.enteId(), CODIGO_EMPENHADO_PAGO);
+
+        List<Lancamento> lancamentos = List.of(
+                Lancamento.de(contaFornecedoresAPagar, Natureza.DEBITO, solicitacao.valor()),
+                Lancamento.de(contaCaixaEBancos, Natureza.CREDITO, solicitacao.valor()),
+                Lancamento.de(contaEmpenhadoPago, Natureza.CREDITO, solicitacao.valor()),
+                Lancamento.de(contaEmpenhadoLiquidadoAPagar, Natureza.DEBITO, solicitacao.valor()));
+
+        UUID periodoId = periodoContabil.periodoAbertoPara(solicitacao.enteId(), solicitacao.dataCompetencia());
+        long numeroSeq = contadorFato.proximoNumeroSeq(solicitacao.enteId());
+
+        FatoContabil fato = FatoContabil.registrar(
+                solicitacao.enteId(),
+                numeroSeq,
+                solicitacao.dataCompetencia(),
+                periodoId,
+                TipoEvento.PAGAMENTO,
+                solicitacao.historico(),
+                "execucao:pagamento:%s".formatted(solicitacao.pagamentoId().valor()),
+                lancamentos,
+                clock);
+
+        fatoContabilRepositorio.inserir(fato);
+        return fato.id();
     }
 
     private UUID resolverConta(TenantId enteId, String codigoPcasp) {
