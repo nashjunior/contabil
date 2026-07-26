@@ -26,8 +26,9 @@
 | [0018](./0018-object-store-s3-compativel.md) | Object store S3-compatível (AWS SDK v2 / MinIO), cifrado, referência por URI | Aceita |
 | [0020](./0020-f0-tls-backup-imutavel-restauracao.md) | F0: TLS em todas as interfaces, backup cifrado imutável e teste de restauração | Aceita |
 | [0021](./0021-contabilizacao-execucao-despesa.md) | Contabilização da execução da despesa: um fato por evento, roteiro no produtor (`execucao`) | Aceita |
+| [0022](./0022-lote-pagamento-contrato-api-execucao.md) | Lote é só no pagamento: contrato de API da execução não expõe lote em empenho/liquidação | Proposta |
 
-> **Nota:** o número **0019 não foi utilizado** — reservado durante execução paralela de agentes e nunca materializado em arquivo. Não renumerar os ADRs existentes (a numeração é histórica/imutável, mesmo princípio do ADR); o próximo ADR novo continua a partir do 0022.
+> **Nota:** o número **0019 não foi utilizado** — reservado durante execução paralela de agentes e nunca materializado em arquivo. Não renumerar os ADRs existentes (a numeração é histórica/imutável, mesmo princípio do ADR); o próximo ADR novo continua a partir do 0023.
 
 ## Como adicionar/mudar uma decisão
 

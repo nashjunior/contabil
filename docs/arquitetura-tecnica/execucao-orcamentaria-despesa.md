@@ -1,6 +1,6 @@
 # Execução orçamentária da despesa (domínio do módulo `execucao`)
 
-[← Arquitetura técnica](./README.md) · [Motor de partidas dobradas (razão)](./motor-razao-partidas-dobradas.md) · [Schema do razão (DDL)](./razao-contabil-schema.md) · [Modelo de dados](../10-modelo-dados.md) · [ADR-0021 Contabilização da execução](./adr/0021-contabilizacao-execucao-despesa.md)
+[← Arquitetura técnica](./README.md) · [Motor de partidas dobradas (razão)](./motor-razao-partidas-dobradas.md) · [Schema do razão (DDL)](./razao-contabil-schema.md) · [Modelo de dados](../10-modelo-dados.md) · [ADR-0021 Contabilização da execução](./adr/0021-contabilizacao-execucao-despesa.md) · [Fluxo do operador + contrato de API (RAZ-79)](./fluxo-execucao-operador-contrato-api.md)
 
 > Design do **domínio/aplicação** (JVM, monólito modular — [ADR-0002](./adr/0002-monolito-modular.md)) do módulo `execucao`: os agregados `Dotacao`, `Empenho`, `Liquidacao`, `Pagamento`, seus saldos de controle, o ciclo de vida da despesa (**Lei 4.320/1964 arts. 58–65**) e — o ponto central — como **cada estágio da execução vira fato(s) contábil(is)** no [razão](./motor-razao-partidas-dobradas.md), append-only e Σdébito=Σcrédito. É a contraparte de execução do que o [motor de razão](./motor-razao-partidas-dobradas.md) é para o núcleo contábil. **Este documento é desenho — não implementa** ([RAZ-65]); a implementação Kotlin/Java nasce depois, contra estes contratos.
 
