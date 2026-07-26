@@ -52,3 +52,11 @@ Só reportam, não editam. Cada um é a fonte única das suas regras.
 ## Fluxo de trabalho (docs)
 
 `planejar-doc` → editar (`nova-spec`/manual) → revisar (`revisar-ddd` / `auditar-docs` / guardião) → registrar decisão (`adr`). Citações legais não confirmadas ficam **"revalidar na fonte oficial"** → fechar com `pesquisar-fonte`.
+
+## Concorrência de agentes (commits) — canônico: ADR-0037
+
+Vários agentes commitam no **mesmo `.git` real**. Um índice stale + `git add` amplo **reverte deliverables de outro agente sem rótulo** (RAZ-133; mesmo padrão de RAZ-70/58/43/41 e do ADR-0019 perdido). Regras — [ADR-0037](docs/arquitetura-tecnica/adr/0037-isolamento-e-guarda-commits-concorrentes-agentes.md):
+
+- **Isole:** trabalhe em **worktree/branch próprio** (skill `EnterWorktree`; `../worktrees/`), integre em `master` só por merge/rebase explícito.
+- **Nunca** `git add -A` / `git add .`: stage **caminhos explícitos** do escopo da issue; **confira `git diff --cached --stat`** antes de commitar (só os arquivos esperados).
+- **Guarda ativa:** hook `commit-msg` ([`.githooks/`](.githooks/commit-msg)) bloqueia commit que **deleta arquivo do HEAD** sem reconhecer a remoção. Ative uma vez por clone: `sh .githooks/install.sh`. Remoção legítima (move/rename/estorno/dedup): declare na mensagem, use `[del-ok]` ou `SIAFIC_ALLOW_DELETIONS=1`.

@@ -1,0 +1,61 @@
+#!/bin/sh
+# SIAFIC — guarda contra reversão silenciosa por índice git stale (ADR-0037 / RAZ-133).
+#
+# Bloqueia um commit que DELETA arquivos rastreados presentes no HEAD, a menos que a
+# remoção seja explicitamente reconhecida. É o sintoma central da RAZ-133: um commit
+# concorrente construído a partir de um índice git DESATUALIZADO reverte, sem rótulo,
+# deliverables que outro agente acabou de adicionar/modificar.
+#
+# Escape (para remoções LEGÍTIMAS — move/rename/estorno/dedup):
+#   - a mensagem do commit declara a intenção (remove, deleta, move, renomeia, extrai,
+#     estorno, dedup, consolida, unifica, substitui) ou traz a tag [del-ok]; ou
+#   - a variável de ambiente SIAFIC_ALLOW_DELETIONS=1 está setada.
+set -u
+
+msg_file="$1"
+
+# Commit inicial (sem HEAD) → nada a comparar.
+if ! git rev-parse --verify -q HEAD >/dev/null 2>&1; then
+	exit 0
+fi
+
+# Arquivos rastreados que este commit remove do HEAD (index vs HEAD; renomeios
+# viram R, não D, então não disparam a guarda).
+deleted=$(git diff --cached --diff-filter=D --name-only HEAD)
+[ -z "$deleted" ] && exit 0
+
+# Override explícito por ambiente.
+[ "${SIAFIC_ALLOW_DELETIONS:-0}" = "1" ] && exit 0
+
+# Override por intenção declarada na mensagem.
+msg=$(tr 'A-Z' 'a-z' <"$msg_file" 2>/dev/null)
+case "$msg" in
+	*remov*|*deleta*|*delet*|*move*|*mover*|*renomeia*|*rename*|*extrai*|*estorno*|*dedup*|*consolida*|*unifica*|*substitui*|*'[del-ok]'*)
+		exit 0
+		;;
+esac
+
+count=$(printf '%s\n' "$deleted" | grep -c .)
+
+cat >&2 <<EOF
+✋ commit BLOQUEADO — remove $count arquivo(s) rastreado(s) sem reconhecer a remoção.
+
+Arquivos que este commit APAGA do HEAD:
+$(printf '%s\n' "$deleted" | sed 's/^/  - /')
+
+Sintoma da RAZ-133: um commit concorrente a partir de um índice git DESATUALIZADO
+reverte silenciosamente entregas de outro agente. Antes de prosseguir:
+
+  1. git status && git diff --cached --stat   -> confira que só o ESCOPO da sua issue aparece
+  2. git fetch && git log --oneline -5         -> veja se um co-agente commitou após seu índice
+  3. Em corrida de índice: refaça o 'git add' a partir do working tree atual (não do índice stale)
+
+Se a remoção é INTENCIONAL (move/rename/estorno/dedup), declare-a:
+  - cite a intenção na mensagem (ex.: "move", "remove", "extrai"); ou
+  - inclua a tag [del-ok] na mensagem; ou
+  - rode com SIAFIC_ALLOW_DELETIONS=1 git commit ...
+
+Guarda de defesa em profundidade — ver ADR-0037 e AGENTS.md.
+EOF
+
+exit 1
