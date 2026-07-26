@@ -186,6 +186,62 @@ Pergunta do issue: **o operador empenha/liquida/paga em lote?** A resposta não 
 - Sucesso parcial é a **regra**, não uma tela de erro genérico — o ADR-0013 já manda a UI "se ajustar ao `errors`", isso é a materialização.
 - "Reenviar só os rejeitados" reusa o mesmo endpoint com o subconjunto — nenhuma lógica nova de retry no back, é o cliente que filtra.
 
+### 5.5 Tela "Nota de empenho — Assinatura" (RAZ-141, papel ordenador)
+
+Único-item, **nunca lote** — a assinatura é ato interativo e síncrono do próprio ordenador autenticado ([ADR-0017](./adr/0017-bff-oauth-assinatura-govbr.md)/[ADR-0027](./adr/0027-wiring-empenho-assinatura-gate-interativo.md) (c)); não há "assinar 40 notas de uma vez" porque não há token de sessão de assinatura reaproveitável entre documentos sem repetir o gov.br a cada um. Figma: `17 Visualizador de Documento (RAZ-141)` + `18 Telas de assinatura de empenho (RAZ-141)`, arquivo RAZ-100 (`ObQu8oMQ0cEGbONMXgpuLU`).
+
+```
+┌─ Nota de empenho ─────────────────────── [PENDENTE DE ASSINATURA] ┐
+│ Empenho: 2026NE00341 · registrado em 05/07/2026                    │
+│ Credor: id opaco (sem nome/CNPJ — RAZ-121 não expõe)                │
+│ Valor: R$ 4.200,00     Data do fato: 05/07/2026                    │
+│                                                                       │
+│ ℹ Crédito já comprometido desde o registro (REGISTRADO, Lei 4.320    │
+│   art. 58) — esta etapa assina só o documento; liquidação/pagamento │
+│   seguem independente do status de assinatura (ADR-0027 §R1/RAZ-104)│
+│                                                                       │
+│ Documento ───────────────────────────────────────────────────────   │
+│ [ícone PDF] nota-empenho-2026NE00341.pdf · gerado 12/07 14:32        │
+│   [Abrir pré-visualização]  [Baixar rascunho]                        │
+│                                                                       │
+│ Trilha da assinatura                                                 │
+│   EMPENHO REGISTRADO   05/07/2026 09:14 · ***.456.***-**             │
+│   DOCUMENTO GERADO     05/07/2026 09:16 (worker assíncrono)          │
+│                                                                       │
+│                                          [Assinar com gov.br]        │
+└───────────────────────────────────────────────────────────────────┘
+        │ clique
+        ▼
+┌─ Confirmar (modal) ──────────────────────────────────────────────┐
+│ Você está saindo do SIAFIC — autenticação gov.br (nível avançado,   │
+│ Lei 14.063/2020), ato pessoal e intransferível do ordenador.         │
+│                                    [Cancelar]  [Continuar p/ gov.br] │
+└───────────────────────────────────────────────────────────────────┘
+        │ 302 → cas.staging.iti.br/oauth2.0/authorize (navegação de página inteira)
+        ▼
+   [gov.br — autenticação + assinatura fora do SIAFIC]
+        │ 302 → redirect_uri (GAP — ver §6.10 e §7)
+        ▼
+┌─ Retornando do gov.br ────────────────────────────────────────────┐
+│              (spinner) Confirmando sua assinatura…                  │
+│         Você voltou do gov.br. Não feche esta janela.                │
+└───────────────────────────────────────────────────────────────────┘
+        │ POST .../assinatura resolve
+        ▼
+┌─ Nota de empenho ──────────────────────────────────── [ASSINADO] ─┐  ┌─ Nota de empenho ────────────────────── [ASSINATURA REJEITADA] ┐
+│ … (mesmo resumo) …                                                  │  │ … (mesmo resumo) …                                               │
+│ Documento — mesmo card + "Assinado digitalmente — hash conferido"   │  │ ⚠ Assinatura rejeitada — certificado inválido (certificado_invalido)│
+│ Trilha + ASSINADO EM · SIGNATÁRIO (CPF mascarado) · NÍVEL ·          │  │ Trilha + ASSINATURA REJEITADA · motivo                            │
+│         ID TRANSAÇÃO · HASH SHA-256                                 │  │ O empenho segue comprometido — só a assinatura precisa ser refeita │
+│ ✓ Assinatura concluída — presunção de veracidade (MP 2.200-2/2001)  │  │                                        [Tentar novamente com gov.br]│
+└───────────────────────────────────────────────────────────────────┘  └──────────────────────────────────────────────────────────────────┘
+```
+
+- **Estados da tela = `Empenho.status` (ADR-0027 (d)) + trilha, nunca um workflow próprio do cliente** — `PENDENTE_ASSINATURA`/`ASSINADO`/`ASSINATURA_REJEITADA` refletidos 1:1, mesma disciplina do resto do documento (§3): a UI projeta, não infere.
+- **`ASSINATURA_REJEITADA` é retrabalho, não bloqueio** (ADR-0027 §R2) — o CTA muda de rótulo ("Tentar novamente") mas é a mesma ação (`POST .../assinatura`); nenhum estado novo de UI, nenhuma segunda tentativa de estorno.
+- **Reuso de componentes RAZ-100:** `Badge Estágio/Aprovação` (página 05) ganhou uma 3ª dimensão, `Badge Assinatura` (`Situação=Pendente|Assinado|Rejeitada`) — é um eixo ortogonal ao `Badge Estágio` existente (documento vs. comprometimento contábil, mesma distinção do ADR-0027 §R1), não uma variante dele. `Alerta/Mensagem Inline` (componente 11, RAZ-144) cobre a nota de comprometimento (`Informativo`), a confirmação (`Sucesso`) e o erro de certificado (`Crítico`) — nenhum banner novo hand-rolled. Documento novo: `Visualizador de Documento (PDF)` (componente 15) — busca em `search_design_system` (Simple Design System + biblioteca local) não achou preview de PDF nem em componentes genéricos, mesma conclusão já registrada para Linha do Tempo/Tabela — Balancete.
+- **Confirmação antes do redirect** (modal) é deliberada, não fricção gratuita: sair do SIAFIC para uma origem diferente (gov.br) para um ato juridicamente relevante (Lei 14.063/2020) pede um ponto de consentimento explícito, não um clique único que já dispara a navegação.
+
 ---
 
 ## 6. Contrato de API proposto
@@ -497,6 +553,36 @@ Fail-soft (ADR-0013), só `toInsert`-equivalente (`fixacoes`/`creditos`) + `erro
 
 Vínculo dotação→empenho **já é coberto** por um endpoint já contratado — não precisa de nada novo: `GET /empenhos?dotacaoId=&cursor=&limit=` ([§6.3](#63-empenho-sem-lote)). A tela de detalhe da dotação (RAZ-140) só precisa confirmar, quando `EmpenhoController` (RAZ-105) estiver acessível para verificação, que o filtro `dotacaoId` está de fato implementado no lado servidor.
 
+### 6.10 Assinatura eletrônica do empenho — preview de documento, retorno do OAuth gov.br e enriquecimento de leitura (RAZ-141)
+
+Desenhado em [ADR-0039](./adr/0039-contrato-leitura-assinatura-empenho-preview-retorno-oauth.md) (Proposta). Diferente de §6.2–§6.9, a **escrita já existe e está em `master`**: `POST /entes/{enteId}/execucao/empenhos/{id}/assinatura` ([`AssinaturaEmpenhoController`](../../bootstrap/src/main/java/br/contabil/assinatura/AssinaturaEmpenhoController.java), RAZ-103/ADR-0027 (c)) e o fluxo OAuth2 PKCE (`GET /assinatura/oauth/iniciar`, `GET /assinatura/oauth/callback`, [`AssinaturaGovBrOAuthController`](../../bootstrap/src/main/java/br/contabil/assinatura/AssinaturaGovBrOAuthController.java), ADR-0017) funcionam e têm teste. O que falta é **leitura** — os três gaps que a tela de assinatura (§5.5) precisa e nenhum endpoint cobre hoje:
+
+```
+GET /entes/{enteId}/execucao/empenhos/{id}   — NÃO EXISTE (só a listagem RAZ-121 existe)
+→ 200 (proposto — estende EmpenhoRegistradoResponse, §6.9-equivalente)
+{
+  "id": "uuid", "numeroSequencial": 341, ..., "status": "PENDENTE_ASSINATURA",
+  "documento": {
+    "pendenteUri": "opaco — nunca s3:// cru no cliente, ver GET .../documento abaixo",
+    "assinado": null   // ou, quando ASSINADO: { "hashSha256", "idTransacao", "nivel", "signatario": "***.456.***-**", "assinadoEm" }
+  }
+}
+
+GET /entes/{enteId}/execucao/empenhos/{id}/documento   — NÃO EXISTE, nenhuma porta HTTP
+→ 200 application/pdf (stream) — serve o PDF pendente OU assinado, o que existir, sem vazar a s3:// real
+```
+`Empenho.documentoPendenteUri()`/`DocumentoAssinadoEmpenho.pdfAssinado()` são internos ao domínio; `ArmazenamentoDocumentos.ler(URI)` ([ADR-0009](./adr/0009-documentos-object-store.md)) é porta de **plataforma**, nunca hoje amarrada a um `@RestController` — nem a listagem RAZ-121 (`GET /empenhos`, [`ExecucaoConsultaController`](../../bootstrap/src/main/java/br/contabil/consulta/ExecucaoConsultaController.java)) devolve `documentoPendenteUri`/hash/idTransacao, só `status`. Sem os dois endpoints acima, a "pré-visualização do PDF" e o "abrir/baixar" da tela de assinatura são maquete, não produto.
+
+```
+GET /assinatura/oauth/callback?code=&state=
+→ hoje: 204 No Content (sucesso) ou 400/502 JSON — devolvido DIRETO ao navegador do gov.br
+→ proposto: 302 para uma rota do SPA (ex.: FRONTEND_RETORNO_URI/execucao/empenhos/{id}/assinatura/retorno,
+  configurável, nunca hardcoded), que aí sim chama o backend/mostra o estado "Retornando do gov.br" (§5.5)
+```
+`redirect_uri` (`AssinaturaGovBrOAuthProperties`) não tem default — quem registra o cliente OAuth2 no gov.br staging decide hoje para onde o navegador volta, e o único endpoint candidato (`/assinatura/oauth/callback`) devolve corpo cru (204/JSON), não uma página. Isso não é um detalhe de tela: sem uma rota-alvo que pertença ao SPA, não existe onde renderizar "Retornando do gov.br" nem como voltar para a Tela 1b — o operador literalmente para numa aba com JSON ou em branco depois de autenticar no gov.br.
+
+Também documentado como gap (menor, só de completude de contrato — não bloqueia a tela): `POST .../assinatura` e os dois endpoints `/assinatura/oauth/*` não estão em `frontend/openapi/contrato-provisorio.yaml` ainda, e **fogem deliberadamente** das convenções gerais do §6.1 — `HttpSession`/cookie, não `Authorization: Bearer` por requisição, e fora do prefixo `/api/v1` (ADR-0017 é explícito: BFF web stateful para o PKCE, não a mesma borda stateless do resto da API). Consequência prática para o client HTTP do front-end: `/assinatura/oauth/iniciar` precisa ser navegação de página inteira (redirect do `window.location`), nunca `fetch`/XHR do client de API tipado que o resto do app usa (§6.1 convenções não se aplicam a este trio de endpoints).
+
 ---
 
 ## 7. Abertos e riscos
@@ -507,6 +593,7 @@ Vínculo dotação→empenho **já é coberto** por um endpoint já contratado �
 - **Reforço/anulação de empenho e estorno** ficam fora deste contrato (RAZ-65 já os marca como issues próprias) — quando chegarem, seguem a mesma convenção (endpoint de ação, não PATCH).
 - **Consultas RAZ-101 ainda não convergidas em código** (RAZ-114/[ADR-0030](./adr/0030-contrato-consultas-razao-convergencia-79.md)): as respostas de `/razao/saldo`, `/razao/balancete` e `/execucao/orcamentaria` hoje serializam dinheiro como número e usam o envelope `{"erro"}` — o §6.8 é o alvo, a implementação está em duas issues filhas de backend (convergência; e catálogo PCASP + validação de existência). O front-end das telas de consulta (RAZ-112) não deve assumir o contrato do §6.8 antes de o wiring chegar.
 - Números de exemplo (`2026NE00341`, `2026LQ00118`) nos wireframes são ilustrativos — o formato canônico de exibição do número sequencial (prefixo por tipo de documento) ainda não foi decidido em nenhum ADR; **revalidar com Aurélio** antes de fixar em tela real.
+- **Assinatura do empenho (§5.5/§6.10, RAZ-141): escrita pronta em `master`, leitura tem 3 gaps de backend bloqueando a tela real.** `AssinarEmpenho`/`AssinaturaEmpenhoController`/OAuth (RAZ-103, ADR-0017/0027) funcionam; faltam (1) `GET .../empenhos/{id}/documento` — bridge HTTP para `ArmazenamentoDocumentos.ler(URI)`, sem o qual não há pré-visualização real de PDF; (2) enriquecer a leitura do empenho (`GET /empenhos/{id}` não existe; a listagem RAZ-121 não devolve `documentoPendenteUri`/hash/idTransacao/nível); (3) `redirect_uri` do OAuth de assinatura aponta hoje para um endpoint que devolve 204/JSON cru ao navegador do gov.br — sem uma rota do SPA como alvo, não há onde renderizar "Retornando do gov.br" nem como voltar à tela. Proposto em [ADR-0039](./adr/0039-contrato-leitura-assinatura-empenho-preview-retorno-oauth.md) (Proposta) — pede ratificação do Aurélio antes de virar issue de backend. Figma (páginas `17`/`18`, RAZ-141) já desenha os 5 estados (pendente/confirmação/retorno/assinado/rejeitada) contra este contrato proposto, com "Aviso de Gap" inline nas duas telas que dependem dos endpoints ausentes — mesmo padrão de RAZ-102/110/112/140.
 
 ---
 
