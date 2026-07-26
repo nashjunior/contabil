@@ -39,7 +39,7 @@
 | [0032](./0032-frontend-monolito-modular-feature-based.md) | Frontend: monólito modular (não MFE) + estrutura feature-based (execução/consultas/admin) | Aceita |
 | [0033](./0033-frontend-composicao-proibicao-prop-drilling.md) | Frontend: composição (compound components + Context); proibido prop drilling em subcomponente aninhado | Aceita |
 | [0034](./0034-frontend-estado-client-api-tipado.md) | Frontend: estado (React Query) e client de API tipado contra os 7 controllers reais (`ente` no path, Bearer gov.br, envelope único) | Aceita |
-| [0035](./0035-bff-login-oidc-govbr.md) | BFF de login OIDC gov.br (autenticação geral, não assinatura): `authorization_code`+PKCE server-side no `bootstrap`, asserção guardada no servidor, cookie `HttpOnly` ao SPA, resolvedor stateless com *fallback* aditivo por cookie | Proposta |
+| [0035](./0035-bff-login-oidc-govbr.md) | BFF de login OIDC gov.br (autenticação geral, não assinatura): `authorization_code`+PKCE server-side no `bootstrap`, asserção guardada no servidor, cookie `HttpOnly` ao SPA, resolvedor stateless com *fallback* aditivo por cookie | Aceita |
 | [0036](./0036-design-system-pacote-independente.md) | Design system como pacote npm independente (`@siafic/design-system`) no workspace de frontend: tokens DTCG, pipeline build-tokens, componentes base; app importa via pacote, não contém o DS | Aceita |
 | [0037](./0037-isolamento-e-guarda-commits-concorrentes-agentes.md) | Commits concorrentes de agentes: isolamento por worktree/branch, proibição de `git add -A`/`.` e guarda `commit-msg` que bloqueia deleção não reconhecida de arquivo do HEAD (índice git stale) | Aceita |
 
