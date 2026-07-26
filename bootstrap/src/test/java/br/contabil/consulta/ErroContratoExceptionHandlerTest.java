@@ -22,11 +22,13 @@ class ErroContratoExceptionHandlerTest {
     private final ErroContratoExceptionHandler handler = new ErroContratoExceptionHandler();
 
     @Test
-    void naoAutenticadoDevolve401ComCodigoDoContrato() {
+    void naoAutenticadoDevolve401ComEnvelopeCodigoMensagemDetalhes() {
         var resposta = handler.naoAutenticado(new NaoAutenticadoException("credencial ausente"));
 
         assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
-        assertThat(resposta.getBody().erro()).isEqualTo("nao_autenticado");
+        assertThat(resposta.getBody().codigo()).isEqualTo("nao_autenticado");
+        assertThat(resposta.getBody().mensagem()).isEqualTo("credencial ausente");
+        assertThat(resposta.getBody().detalhes()).isEmpty();
     }
 
     @Test
@@ -34,15 +36,16 @@ class ErroContratoExceptionHandlerTest {
         var resposta = handler.semPermissao(new SemPermissaoException("ação negada"));
 
         assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
-        assertThat(resposta.getBody().erro()).isEqualTo("sem_permissao");
+        assertThat(resposta.getBody().codigo()).isEqualTo("sem_permissao");
+        assertThat(resposta.getBody().mensagem()).isEqualTo("ação negada");
     }
 
     @Test
-    void mfaRequeridoDevolve403ComCodigoDoContrato() {
+    void mfaRequeridoDevolve428ComCodigoDoContrato() {
         var resposta = handler.mfaRequerido(new MfaRequeridoException(new DesafioMfa(UUID.randomUUID(), "canal")));
 
-        assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
-        assertThat(resposta.getBody().erro()).isEqualTo("mfa_requerido");
+        assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.PRECONDITION_REQUIRED);
+        assertThat(resposta.getBody().codigo()).isEqualTo("mfa_requerido");
     }
 
     @Test
@@ -51,7 +54,8 @@ class ErroContratoExceptionHandlerTest {
                 handler.execucaoInvalida(new ExecucaoInvalidaException("periodo_invalido", "mes fora do intervalo"));
 
         assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(resposta.getBody().erro()).isEqualTo("periodo_invalido");
+        assertThat(resposta.getBody().codigo()).isEqualTo("periodo_invalido");
+        assertThat(resposta.getBody().mensagem()).isEqualTo("mes fora do intervalo");
     }
 
     @Test
@@ -60,16 +64,16 @@ class ErroContratoExceptionHandlerTest {
                 new PeriodoEncerradoException(new TenantId(UUID.randomUUID()), LocalDate.of(2026, 1, 31)));
 
         assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
-        assertThat(resposta.getBody().erro()).isEqualTo("periodo_encerrado");
+        assertThat(resposta.getBody().codigo()).isEqualTo("periodo_encerrado");
     }
 
     @Test
-    void oauthProvedorIndisponivelDevolve502ComCorrelationId() {
+    void oauthProvedorIndisponivelDevolve502ComCorrelationIdEmDetalhes() {
         var resposta = handler.oauthProvedorIndisponivel(
                 new AssinaturaGovBrOAuthProvedorIndisponivelException(new IllegalStateException("token endpoint 503")));
 
         assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
-        assertThat(resposta.getBody().erro()).isEqualTo("oauth_provedor_indisponivel");
-        assertThat(resposta.getBody().correlationId()).isNotBlank();
+        assertThat(resposta.getBody().codigo()).isEqualTo("oauth_provedor_indisponivel");
+        assertThat(resposta.getBody().detalhes().get("correlationId")).isNotBlank();
     }
 }

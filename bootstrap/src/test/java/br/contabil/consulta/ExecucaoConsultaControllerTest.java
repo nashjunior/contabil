@@ -13,6 +13,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import br.contabil.execucao.application.ConsultarExecucaoOrcamentaria;
 import br.contabil.execucao.domain.ExecucaoOrcamentariaPeriodo;
 import br.contabil.plataforma.domain.Dinheiro;
@@ -27,6 +29,9 @@ class ExecucaoConsultaControllerTest {
     @Mock
     private ConsultarExecucaoOrcamentaria consultarExecucaoOrcamentaria;
 
+    /** Mesma serialização da app: {@link DinheiroJacksonModule} emite Dinheiro como string decimal (§6.1). */
+    private final ObjectMapper json = new ObjectMapper().registerModule(new DinheiroJacksonModule());
+
     private ExecucaoConsultaController controller() {
         return new ExecucaoConsultaController(consultarExecucaoOrcamentaria);
     }
@@ -37,7 +42,7 @@ class ExecucaoConsultaControllerTest {
     }
 
     @Test
-    void orcamentariaAdaptaPathEQueryEDevolveTotaisDerivados() {
+    void orcamentariaAdaptaPathEQueryEDevolveTotaisDerivadosComoStringDecimal() throws Exception {
         UUID enteId = UUID.randomUUID();
         Sessao sessao = sessaoDe(new TenantId(enteId));
         ExecucaoOrcamentariaPeriodo esperado = new ExecucaoOrcamentariaPeriodo(
@@ -48,11 +53,15 @@ class ExecucaoConsultaControllerTest {
 
         assertThat(resposta.exercicio()).isEqualTo(2026);
         assertThat(resposta.mes()).isEqualTo(6);
-        assertThat(resposta.totalEmpenhado()).isEqualByComparingTo("1000.00");
-        assertThat(resposta.totalLiquidado()).isEqualByComparingTo("600.00");
-        assertThat(resposta.totalPago()).isEqualByComparingTo("400.00");
-        assertThat(resposta.saldoALiquidar()).isEqualByComparingTo("400.00");
-        assertThat(resposta.saldoAPagar()).isEqualByComparingTo("200.00");
+        assertThat(resposta.totalEmpenhado()).isEqualTo(Dinheiro.de("1000.00"));
+        assertThat(resposta.totalLiquidado()).isEqualTo(Dinheiro.de("600.00"));
+        assertThat(resposta.totalPago()).isEqualTo(Dinheiro.de("400.00"));
+        assertThat(resposta.saldoALiquidar()).isEqualTo(Dinheiro.de("400.00"));
+        assertThat(resposta.saldoAPagar()).isEqualTo(Dinheiro.de("200.00"));
+        // §6.1/ADR-0030 §2: totais serializam como string decimal, nunca número JSON.
+        String corpo = json.writeValueAsString(resposta);
+        assertThat(corpo).contains("\"totalEmpenhado\":\"1000.00\"");
+        assertThat(corpo).contains("\"saldoAPagar\":\"200.00\"");
     }
 
     @Test

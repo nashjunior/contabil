@@ -1,5 +1,6 @@
 package br.contabil.consulta;
 
+import java.util.Map;
 import java.util.UUID;
 
 import org.slf4j.Logger;
@@ -29,6 +30,12 @@ import br.contabil.razao.domain.PeriodoEncerradoException;
  * try/catch de infraestrutura em cada controller (guardiao-arquitetura —
  * controller não tem lógica própria).
  *
+ * <p>O corpo é o <b>envelope único</b> {@code {codigo, mensagem, detalhes}}
+ * (RAZ-79 §6.1 / ADR-0030 §3): {@code codigo} é o contrato estável legível por
+ * máquina ({@code ErroContrato.codigo()}); {@code mensagem} é o texto humano da
+ * exceção; {@code detalhes} carrega pares extras (ex.: {@code correlationId}).
+ * Não existe segunda taxonomia de erro na borda HTTP — o §6.1 a proíbe.
+ *
  * <p>{@link PeriodoEncerradoException} não implementa {@code ErroContrato}
  * (não tem {@code codigo()} próprio hoje) — o código {@code periodo_encerrado}
  * é fixado aqui; nenhum dos três use cases de consulta desta borda (RAZ-97)
@@ -42,17 +49,22 @@ class ErroContratoExceptionHandler {
 
     @ExceptionHandler(NaoAutenticadoException.class)
     ResponseEntity<ErroResponse> naoAutenticado(NaoAutenticadoException e) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErroResponse(e.codigo()));
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(corpo(e.codigo(), e));
     }
 
     @ExceptionHandler(SemPermissaoException.class)
     ResponseEntity<ErroResponse> semPermissao(SemPermissaoException e) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErroResponse(e.codigo()));
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(corpo(e.codigo(), e));
     }
 
+    /**
+     * RAZ-79 §6.1: {@code mfa_requerido} é {@code 428} (<i>Precondition Required</i>) — a
+     * requisição precisa do segundo fator antes de prosseguir, não é uma negação de
+     * autorização ({@code 403}). O cliente eleva a sessão (MFA) e repete a chamada.
+     */
     @ExceptionHandler(MfaRequeridoException.class)
     ResponseEntity<ErroResponse> mfaRequerido(MfaRequeridoException e) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErroResponse(e.codigo()));
+        return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED).body(corpo(e.codigo(), e));
     }
 
     /**
@@ -63,43 +75,56 @@ class ErroContratoExceptionHandler {
      */
     @ExceptionHandler({SaldoInsuficienteException.class, PagamentoNaoAprovadoException.class, AutoAprovacaoNaoPermitidaException.class})
     ResponseEntity<ErroResponse> conflitoDeSaldoOuEstado(ExecucaoInvalidaException e) {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErroResponse(e.codigo()));
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(corpo(e.codigo(), e));
     }
 
     @ExceptionHandler(ExecucaoInvalidaException.class)
     ResponseEntity<ErroResponse> execucaoInvalida(ExecucaoInvalidaException e) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErroResponse(e.codigo()));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(corpo(e.codigo(), e));
     }
 
     @ExceptionHandler(PeriodoEncerradoException.class)
     ResponseEntity<ErroResponse> periodoEncerrado(PeriodoEncerradoException e) {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErroResponse("periodo_encerrado"));
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(corpo("periodo_encerrado", e));
     }
 
     @ExceptionHandler(EmpenhoAssinaturaConflitanteException.class)
     ResponseEntity<ErroResponse> empenhoAssinaturaConflitante(EmpenhoAssinaturaConflitanteException e) {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErroResponse(e.codigo()));
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(corpo(e.codigo(), e));
     }
 
     @ExceptionHandler(CertificadoInvalidoException.class)
     ResponseEntity<ErroResponse> certificadoInvalido(CertificadoInvalidoException e) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErroResponse(e.codigo()));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(corpo(e.codigo(), e));
     }
 
     @ExceptionHandler(NivelInsuficienteException.class)
     ResponseEntity<ErroResponse> nivelInsuficiente(NivelInsuficienteException e) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErroResponse(e.codigo()));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(corpo(e.codigo(), e));
     }
 
     @ExceptionHandler(AssinaturaGovBrOAuthProvedorIndisponivelException.class)
-    ResponseEntity<ErroComCorrelacaoResponse> oauthProvedorIndisponivel(AssinaturaGovBrOAuthProvedorIndisponivelException e) {
+    ResponseEntity<ErroResponse> oauthProvedorIndisponivel(AssinaturaGovBrOAuthProvedorIndisponivelException e) {
         String correlationId = UUID.randomUUID().toString();
         LOG.error("Falha ao trocar code OAuth2 por token gov.br [correlationId={}]", correlationId, e);
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-                .body(new ErroComCorrelacaoResponse(e.codigo(), correlationId));
+                .body(new ErroResponse(e.codigo(), mensagemDe(e, e.codigo()), Map.of("correlationId", correlationId)));
     }
 
-    record ErroResponse(String erro) {}
+    /** Monta o envelope {@code {codigo, mensagem, detalhes}} sem detalhes extras. */
+    private static ErroResponse corpo(String codigo, Throwable e) {
+        return new ErroResponse(codigo, mensagemDe(e, codigo), Map.of());
+    }
 
-    record ErroComCorrelacaoResponse(String erro, String correlationId) {}
+    /** Texto humano da exceção; cai para o próprio código quando a exceção não traz mensagem. */
+    private static String mensagemDe(Throwable e, String codigo) {
+        return e.getMessage() != null ? e.getMessage() : codigo;
+    }
+
+    /**
+     * Envelope de erro único da borda HTTP (RAZ-79 §6.1). {@code detalhes} é sempre
+     * presente (vazio quando não há pares extras), para o cliente não ramificar por
+     * ausência de campo.
+     */
+    record ErroResponse(String codigo, String mensagem, Map<String, String> detalhes) {}
 }
