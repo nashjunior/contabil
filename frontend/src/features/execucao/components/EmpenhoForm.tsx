@@ -8,7 +8,7 @@
  * livre (colar UUID), rotulado como tal.
  */
 import { useState, type FormEvent } from 'react';
-import { FormSection } from '../../../shared/ui/FormSection';
+import { FormSection } from '@siafic/design-system';
 import { toMoney, isValidMoney } from '../../../shared/lib/dinheiro';
 import { useCriarEmpenho } from '../api/useCriarEmpenho';
 

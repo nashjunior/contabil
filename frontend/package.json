@@ -3,20 +3,25 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
-    "predev": "npm run tokens:build && npm run api:generate",
+    "predev": "npm run ds:build && npm run api:generate",
     "dev": "vite",
-    "prebuild": "npm run tokens:build && npm run api:generate",
+    "prebuild": "npm run ds:build && npm run api:generate",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "pretest": "npm run tokens:build && npm run api:generate",
+    "pretest": "npm run ds:build && npm run api:generate",
     "test": "vitest run",
+    "ds:build": "npm run --workspace=@siafic/design-system tokens:build",
     "tokens:contrast": "node scripts/check-contrast.mjs",
     "tokens:build": "npm run tokens:contrast && node scripts/build-tokens.mjs",
     "api:generate": "node scripts/generate-api-client.mjs"
   },
   "dependencies": {
+    "@siafic/design-system": "*",
     "@tanstack/react-query": "^5.101.4",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",

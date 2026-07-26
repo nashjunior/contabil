@@ -1,7 +1,7 @@
 /* Base global — consome os custom properties gerados pelo pipeline de tokens
    (ADR-0031, nomenclatura real de RAZ-100/design-system-tokens-componentes.md).
    Nao adicionar cor/spacing literal aqui: tudo vem de theme.css. */
-@import './shared/tokens/theme.css';
+@import '@siafic/design-system/theme.css';
 
 * {
   box-sizing: border-box;

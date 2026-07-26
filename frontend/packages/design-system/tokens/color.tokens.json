@@ -1,0 +1,113 @@
+{
+  "color": {
+    "neutral": {
+      "$description": "REAL (RAZ-125) — resolvido via Figma REST API (GET /v1/files/ObQu8oMQ0cEGbONMXgpuLU/nodes?ids=2:50, página Foundations, token válido em .mcp.json com escopo file_content:read), lendo o fill renderizado de cada swatch semântico e revertendo pelo alias de design-system-tokens-componentes.md §1.2 (ex.: bg/canvas resolve para #f8fafc e é alias documentado de neutral/50). Cada valor abaixo corresponde a um passo confirmado por pelo menos um alias semântico real, exceto onde marcado.",
+      "0": { "$type": "color", "$value": "#ffffff", "$description": "REAL — via bg/surface e text/on-brand (VariableID:2:4/2:12)." },
+      "50": { "$type": "color", "$value": "#f8fafc", "$description": "REAL — via bg/canvas (VariableID:2:3)." },
+      "100": { "$type": "color", "$value": "#f1f5f9", "$description": "REAL — via bg/inset, bg/disabled, state/neutral-bg, pii/mask-bg (VariableID:2:5/2:6/2:21/2:36)." },
+      "200": { "$type": "color", "$value": "#e2e8f0", "$description": "INFERIDO, NÃO CONFIRMADO — nenhum token semântico faz alias para este passo (nada na página Foundations o expõe), então não há fill renderizado para ler. Os 9 outros passos de neutral bateram exatamente com a paleta 'slate' do Tailwind CSS; este valor é a continuação dessa mesma progressão, não um valor lido do Figma. Substituir se/quando a Figma Variables REST API (GET /v1/files/:key/variables/local, requer escopo file_variables:read que o token atual não tem — ver README) ficar disponível." },
+      "300": { "$type": "color", "$value": "#cbd5e1", "$description": "REAL — via border/default, state/neutral-border (VariableID:2:14/2:23)." },
+      "400": { "$type": "color", "$value": "#94a3b8", "$description": "REAL — via text/disabled, border/strong (VariableID:2:11/2:15)." },
+      "500": { "$type": "color", "$value": "#64748b", "$description": "REAL — via text/tertiary (VariableID:2:10)." },
+      "600": { "$type": "color", "$value": "#475569", "$description": "REAL — via text/secondary (VariableID:2:9)." },
+      "700": { "$type": "color", "$value": "#334155", "$description": "REAL — via state/neutral-fg, pii/mask-fg (VariableID:2:22/2:37)." },
+      "900": { "$type": "color", "$value": "#0f172a", "$description": "REAL — via text/primary, bg/overlay-scrim (VariableID:2:8/2:7)." }
+    },
+    "brand": {
+      "$description": "REAL (RAZ-125) — mesma metodologia do grupo neutral (ver acima). Paleta institucional custom (não bate com nenhuma escala conhecida do Tailwind), então os passos sem alias semântico (100/300/400/800/900) não puderam ser inferidos por continuidade e permanecem fora deste arquivo até export completo via Tokens Studio ou Variables REST API — ver frontend/tokens/README.md.",
+      "50": { "$type": "color", "$value": "#eff4fb", "$description": "REAL — via brand/subtle-bg, state/info-bg (VariableID:2:20/2:24)." },
+      "200": { "$type": "color", "$value": "#b9cfeb", "$description": "REAL — via state/info-border (VariableID:2:26)." },
+      "500": {
+        "$type": "color",
+        "$value": "#2F6CAE",
+        "$description": "REAL — confirmado duplamente: já documentado em texto por RAZ-100 (design-system-tokens-componentes.md §1.1, 'brand 9 passos, azul institucional #2F6CAE') e agora também lido diretamente do fill renderizado de brand/default e border/focus (VariableID:2:17/2:16), que resolveu para o mesmo valor (#2f6cae)."
+      },
+      "600": { "$type": "color", "$value": "#235692", "$description": "REAL — via brand/hover, text/link (VariableID:2:18/2:13)." },
+      "700": { "$type": "color", "$value": "#1b4374", "$description": "REAL — via brand/pressed, state/info-fg (VariableID:2:19/2:25)." },
+      "default": { "$type": "color", "$value": "{color.brand.500}" },
+      "hover": { "$type": "color", "$value": "{color.brand.600}" },
+      "pressed": { "$type": "color", "$value": "{color.brand.700}" },
+      "subtleBg": { "$type": "color", "$value": "{color.brand.50}" }
+    },
+    "success": {
+      "$description": "REAL (RAZ-125) — mesma metodologia do grupo neutral. Passos sem alias semântico (100/200/400/500/600 de 7 no total) não puderam ser confirmados e ficam fora deste arquivo — ver frontend/tokens/README.md.",
+      "50": { "$type": "color", "$value": "#eef7ee", "$description": "REAL — via state/success-bg (VariableID:2:27)." },
+      "300": { "$type": "color", "$value": "#94d0a0", "$description": "REAL — via state/success-border (VariableID:2:29)." },
+      "700": { "$type": "color", "$value": "#1b6631", "$description": "REAL — via state/success-fg (VariableID:2:28)." }
+    },
+    "warning": {
+      "$description": "REAL (RAZ-125) — mesma metodologia do grupo neutral. Passos sem alias semântico não puderam ser confirmados e ficam fora deste arquivo — ver frontend/tokens/README.md.",
+      "50": { "$type": "color", "$value": "#fdf6e8", "$description": "REAL — via state/warning-bg (VariableID:2:30)." },
+      "300": { "$type": "color", "$value": "#efc868", "$description": "REAL — via state/warning-border (VariableID:2:32)." },
+      "700": { "$type": "color", "$value": "#8a5b1a", "$description": "REAL — via state/warning-fg (VariableID:2:31)." }
+    },
+    "danger": {
+      "$description": "REAL (RAZ-125) — mesma metodologia do grupo neutral. Passos sem alias semântico não puderam ser confirmados e ficam fora deste arquivo — ver frontend/tokens/README.md.",
+      "50": { "$type": "color", "$value": "#fcedec", "$description": "REAL — via state/danger-bg (VariableID:2:33)." },
+      "300": { "$type": "color", "$value": "#e8968d", "$description": "REAL — via state/danger-border (VariableID:2:35)." },
+      "700": { "$type": "color", "$value": "#85251e", "$description": "REAL — via state/danger-fg (VariableID:2:34)." }
+    },
+    "bg": {
+      "canvas": { "$type": "color", "$value": "{color.neutral.50}" },
+      "surface": { "$type": "color", "$value": "{color.neutral.0}" },
+      "inset": { "$type": "color", "$value": "{color.neutral.100}" },
+      "disabled": { "$type": "color", "$value": "{color.neutral.100}" }
+    },
+    "text": {
+      "primary": { "$type": "color", "$value": "{color.neutral.900}" },
+      "secondary": { "$type": "color", "$value": "{color.neutral.600}" },
+      "tertiary": { "$type": "color", "$value": "{color.neutral.500}" },
+      "disabled": { "$type": "color", "$value": "{color.neutral.400}" },
+      "onBrand": { "$type": "color", "$value": "{color.neutral.0}" },
+      "link": { "$type": "color", "$value": "{color.brand.600}" }
+    },
+    "border": {
+      "default": { "$type": "color", "$value": "{color.neutral.300}" },
+      "strong": { "$type": "color", "$value": "{color.neutral.400}" },
+      "focus": { "$type": "color", "$value": "{color.brand.500}" }
+    },
+    "state": {
+      "neutral": {
+        "bg": { "$type": "color", "$value": "{color.neutral.100}" },
+        "fg": { "$type": "color", "$value": "{color.neutral.700}" },
+        "border": { "$type": "color", "$value": "{color.neutral.300}" }
+      },
+      "info": {
+        "bg": { "$type": "color", "$value": "{color.brand.50}" },
+        "fg": { "$type": "color", "$value": "{color.brand.700}" },
+        "border": { "$type": "color", "$value": "{color.brand.200}" }
+      },
+      "success": {
+        "bg": { "$type": "color", "$value": "{color.success.50}" },
+        "fg": { "$type": "color", "$value": "{color.success.700}" },
+        "border": { "$type": "color", "$value": "{color.success.300}" }
+      },
+      "warning": {
+        "bg": { "$type": "color", "$value": "{color.warning.50}" },
+        "fg": { "$type": "color", "$value": "{color.warning.700}" },
+        "border": { "$type": "color", "$value": "{color.warning.300}" }
+      },
+      "danger": {
+        "bg": { "$type": "color", "$value": "{color.danger.50}" },
+        "fg": { "$type": "color", "$value": "{color.danger.700}" },
+        "border": { "$type": "color", "$value": "{color.danger.300}" }
+      }
+    },
+    "pii": {
+      "maskBg": { "$type": "color", "$value": "{color.neutral.100}" },
+      "maskFg": { "$type": "color", "$value": "{color.neutral.700}" }
+    },
+    "$extensions": {
+      "contabil.contrastPairs": [
+        { "fg": "{color.text.primary}", "bg": "{color.bg.surface}", "context": "texto normal", "minRatio": 4.5 },
+        { "fg": "{color.text.secondary}", "bg": "{color.bg.surface}", "context": "texto normal", "minRatio": 4.5 },
+        { "fg": "{color.text.onBrand}", "bg": "{color.brand.default}", "context": "texto em botao/UI", "minRatio": 4.5 },
+        { "fg": "{color.state.success.fg}", "bg": "{color.state.success.bg}", "context": "badge/chip", "minRatio": 4.5 },
+        { "fg": "{color.state.warning.fg}", "bg": "{color.state.warning.bg}", "context": "badge/chip", "minRatio": 4.5 },
+        { "fg": "{color.state.danger.fg}", "bg": "{color.state.danger.bg}", "context": "badge/chip", "minRatio": 4.5 },
+        { "fg": "{color.state.info.fg}", "bg": "{color.state.info.bg}", "context": "badge/chip", "minRatio": 4.5 },
+        { "fg": "{color.pii.maskFg}", "bg": "{color.pii.maskBg}", "context": "chip de CPF mascarado", "minRatio": 4.5 }
+      ]
+    }
+  }
+}
