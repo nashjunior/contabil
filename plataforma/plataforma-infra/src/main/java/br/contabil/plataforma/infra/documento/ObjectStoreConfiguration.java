@@ -1,6 +1,7 @@
 package br.contabil.plataforma.infra.documento;
 
 import java.net.URI;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -42,13 +43,17 @@ public class ObjectStoreConfiguration {
             CofreSegredos cofreSegredos,
             @Value("${contabil.objectstore.region:us-east-1}") String region,
             @Value("${contabil.objectstore.endpoint:}") String endpoint,
+            @Value("${contabil.objectstore.connect-timeout:PT3S}") Duration connectTimeout,
+            @Value("${contabil.objectstore.socket-timeout:PT10S}") Duration socketTimeout,
             @Value("${contabil.objectstore.access-key-ref:}") String accessKeyRef,
             @Value("${contabil.objectstore.secret-key-ref:}") String secretKeyRef,
             @Value("${contabil.objectstore.cofre.conta-servico:siafic-objectstore}") String contaServico,
             @Value("${contabil.objectstore.cofre.escopos:cofre://siafic/f0/objectstore}") String escopos) {
         S3ClientBuilder builder = S3Client.builder()
                 .region(Region.of(region))
-                .httpClientBuilder(UrlConnectionHttpClient.builder());
+                .httpClientBuilder(UrlConnectionHttpClient.builder()
+                        .connectionTimeout(connectTimeout)
+                        .socketTimeout(socketTimeout));
         if (!accessKeyRef.isBlank() || !secretKeyRef.isBlank()) {
             if (accessKeyRef.isBlank() || secretKeyRef.isBlank()) {
                 throw new IllegalStateException("contabil.objectstore.access-key-ref e secret-key-ref devem ser configuradas juntas");

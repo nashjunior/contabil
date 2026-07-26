@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpServer;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
@@ -60,7 +61,12 @@ class AssinaturaGovBrOAuthClientTest {
                 List.of("sign", "signature_session"),
                 Duration.ofMinutes(10));
         var client = new AssinaturaGovBrOAuthClient(
-                HttpClient.newHttpClient(), new ObjectMapper(), CLOCK, properties);
+                HttpClient.newHttpClient(),
+                new ObjectMapper(),
+                CLOCK,
+                properties,
+                Duration.ofSeconds(2),
+                CircuitBreaker.ofDefaults("assinatura-govbr-teste"));
 
         AssinaturaGovBrOAuthToken token = client.trocarCodigoPorToken("codigo", "verifier");
 

@@ -2,6 +2,8 @@ package br.contabil.assinatura;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -22,20 +24,39 @@ final class AssinaturaGovBrOAuthClient implements ClienteTokenAssinaturaGovBr {
     private final ObjectMapper objectMapper;
     private final Clock clock;
     private final AssinaturaGovBrOAuthProperties properties;
+    private final Duration requestTimeout;
+    private final CircuitBreaker circuitBreaker;
 
     AssinaturaGovBrOAuthClient(
             HttpClient httpClient,
             ObjectMapper objectMapper,
             Clock clock,
-            AssinaturaGovBrOAuthProperties properties) {
+            AssinaturaGovBrOAuthProperties properties,
+            Duration requestTimeout,
+            CircuitBreaker circuitBreaker) {
         this.httpClient = Objects.requireNonNull(httpClient, "httpClient");
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.properties = Objects.requireNonNull(properties, "properties");
+        this.requestTimeout = Objects.requireNonNull(requestTimeout, "requestTimeout");
+        if (requestTimeout.isNegative() || requestTimeout.isZero()) {
+            throw new IllegalArgumentException("requestTimeout deve ser positivo");
+        }
+        this.circuitBreaker = Objects.requireNonNull(circuitBreaker, "circuitBreaker");
     }
 
     @Override
     public AssinaturaGovBrOAuthToken trocarCodigoPorToken(String code, String codeVerifier) {
+        try {
+            return CircuitBreaker
+                    .decorateSupplier(circuitBreaker, () -> trocarCodigoPorTokenGovBr(code, codeVerifier))
+                    .get();
+        } catch (CallNotPermittedException e) {
+            throw new IllegalStateException("Circuit breaker aberto para token OAuth2 gov.br", e);
+        }
+    }
+
+    private AssinaturaGovBrOAuthToken trocarCodigoPorTokenGovBr(String code, String codeVerifier) {
         properties.exigirConfiguracaoCompleta();
         String corpo = form(
                 "grant_type", "authorization_code",
@@ -45,6 +66,7 @@ final class AssinaturaGovBrOAuthClient implements ClienteTokenAssinaturaGovBr {
                 "client_secret", properties.clientSecret(),
                 "code_verifier", codeVerifier);
         HttpRequest requisicao = HttpRequest.newBuilder(properties.tokenUri())
+                .timeout(requestTimeout)
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .POST(BodyPublishers.ofString(corpo))
                 .build();

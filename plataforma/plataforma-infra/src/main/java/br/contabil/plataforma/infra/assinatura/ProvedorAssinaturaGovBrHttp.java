@@ -6,9 +6,14 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
+import java.time.Duration;
 import java.util.Base64;
 import java.util.Objects;
 import java.util.function.Supplier;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.retry.Retry;
+import io.github.resilience4j.retry.RetryConfig;
 
 /**
  * Implementação real da API de Assinatura Eletrônica gov.br — avançada
@@ -30,20 +35,59 @@ public final class ProvedorAssinaturaGovBrHttp implements ProvedorAssinaturaGovB
     private final HttpClient httpClient;
     private final URI baseUri;
     private final Supplier<String> tokenAcesso;
+    private final Duration requestTimeout;
+    private final CircuitBreaker circuitBreaker;
+    private final Retry retry;
 
     public ProvedorAssinaturaGovBrHttp(HttpClient httpClient, URI baseUri, Supplier<String> tokenAcesso) {
+        this(
+                httpClient,
+                baseUri,
+                tokenAcesso,
+                Duration.ofSeconds(10),
+                CircuitBreaker.ofDefaults("assinatura-govbr"),
+                Retry.of("assinatura-govbr", RetryConfig.custom()
+                        .maxAttempts(1)
+                        .ignoreExceptions(CallNotPermittedException.class, ContaGovBrNaoElegivelException.class)
+                        .build()));
+    }
+
+    public ProvedorAssinaturaGovBrHttp(
+            HttpClient httpClient,
+            URI baseUri,
+            Supplier<String> tokenAcesso,
+            Duration requestTimeout,
+            CircuitBreaker circuitBreaker,
+            Retry retry) {
         this.httpClient = Objects.requireNonNull(httpClient, "httpClient");
         this.baseUri = Objects.requireNonNull(baseUri, "baseUri");
         this.tokenAcesso = Objects.requireNonNull(tokenAcesso, "tokenAcesso");
+        this.requestTimeout = Objects.requireNonNull(requestTimeout, "requestTimeout");
+        if (requestTimeout.isNegative() || requestTimeout.isZero()) {
+            throw new IllegalArgumentException("requestTimeout deve ser positivo");
+        }
+        this.circuitBreaker = Objects.requireNonNull(circuitBreaker, "circuitBreaker");
+        this.retry = Objects.requireNonNull(retry, "retry");
     }
 
     @Override
     public byte[] assinarPkcs7(byte[] hashSha256) {
         Objects.requireNonNull(hashSha256, "hashSha256");
+        Supplier<byte[]> chamadaResiliente = Retry.decorateSupplier(
+                retry, CircuitBreaker.decorateSupplier(circuitBreaker, () -> chamarAssinatura(hashSha256)));
+        try {
+            return chamadaResiliente.get();
+        } catch (CallNotPermittedException e) {
+            throw new IllegalStateException("Circuit breaker aberto para assinarPKCS7 (gov.br)", e);
+        }
+    }
+
+    private byte[] chamarAssinatura(byte[] hashSha256) {
         String hashBase64 = Base64.getEncoder().encodeToString(hashSha256);
         String corpo = "{\"hashBase64\":\"" + hashBase64 + "\"}";
 
         HttpRequest requisicao = HttpRequest.newBuilder(baseUri.resolve(CAMINHO_ASSINAR_PKCS7))
+                .timeout(requestTimeout)
                 .header("Content-Type", "application/json")
                 .header("Authorization", "Bearer " + tokenAcesso.get())
                 .POST(BodyPublishers.ofString(corpo))
