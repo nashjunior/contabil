@@ -290,7 +290,7 @@ Acao: CRIAR sobre execucao:liquidacao
 GET /entes/{enteId}/execucao/liquidacoes/{id}
 GET /entes/{enteId}/execucao/liquidacoes?empenhoId=&status=&cursor=&limit=
 ```
-`status` na resposta (`registrada|aguardando_aprovacao|aprovada|devolvida|paga_parcial|paga_total`) nunca é aceito em escrita neste endpoint — evita a UI "settar" um estado que devia vir de uma ação de domínio. `registrada|paga_parcial|paga_total` são **leitura derivada** (read model, de `saldoALiquidar`/`saldoAPagar`); `aprovada|devolvida` são **estado forte** transicionado só por `POST .../aprovacao` ([§6.6](#66-aprovação-ação-aprovar-adr-0023), [ADR-0023](./adr/0023-gate-aprovacao-pagamento-segregacao.md)).
+`status` na resposta (`registrada|aguardando_aprovacao|aprovada|devolvida|paga_parcial|paga_total`) nunca é aceito em escrita neste endpoint — evita a UI "settar" um estado que devia vir de uma ação de domínio. `registrada|paga_parcial|paga_total` são **leitura derivada** (read model, de `saldoALiquidar`/`saldoAPagar`); `aprovada|devolvida` são **estado forte** transicionado só por `POST .../aprovacao` ([§6.6](#66-aprovação-ação-aprovar-adr-0023), [ADR-0023](./adr/0023-gate-aprovacao-pagamento-segregacao.md)). Para **filtrar a fila de aprovação** (pendentes), o parâmetro é `statusAprovacao` (eixo do gate, não o `status` derivado do saldo) — ver [§6.7](#67-leitura-do-gate-fila-de-aprovação-e-trilha-get).
 
 ### 6.5 Pagamento — individual e em lote
 
@@ -349,7 +349,7 @@ GET /entes/{enteId}/execucao/pagamentos?liquidacaoId=&ordemBancaria=&cursor=&lim
 
 ### 6.6 Aprovação (ação APROVAR, ADR-0023)
 
-**Materializado em RAZ-92** — use case `AprovarPagamento` (`execucao-application`) com teste de segregação (auto-aprovação recusada), teste de pré-condição e teste de transição de estado. O controller HTTP abaixo ainda não existe em código — nenhum endpoint de execução (empenho/liquidação/pagamento) tem controller Spring ainda; é lacuna de wiring pré-existente, não específica desta ação.
+**Materializado em RAZ-92** (use case `AprovarPagamento`, `execucao-application`, com teste de segregação/pré-condição/transição) e **exposto em HTTP por RAZ-105** — `LiquidacaoController` (`POST .../liquidacoes/{id}/aprovacao`) + beans Spring + migração V8 (`status_aprovacao`/`aprovador_cpf`/`motivo_devolucao`) já **mesclados em `master`** (merge `4fba4ce` + build-fix `5c78723`). O endpoint de **escrita** do gate está em produção; o front-end pode apontar para ele. O que ainda falta é o **contrato de leitura** (fila + trilha), ratificado no [ADR-0029](./adr/0029-contrato-leitura-fila-aprovacao-trilha.md) e detalhado no §6.7 abaixo.
 
 ```
 POST /entes/{enteId}/execucao/liquidacoes/{id}/aprovacao
@@ -360,12 +360,59 @@ Acao: APROVAR sobre execucao:pagamento (recusa auto-aprovação: aprovador != au
 ```
 Sem lote nesta ação por ora — o §5.3 mostra seleção múltipla na fila, mas isso é conveniência de front-end (N chamadas sequenciais ou um `Promise.allSettled` no client); não é contrato de lote no servidor enquanto o volume de aprovações (dezenas/dia) não justificar o mesmo tratamento que o pagamento recebeu. Se crescer, é o mesmo padrão do §6.5 — decisão fica registrada aqui para não repetir a análise. (Ratificado em ADR-0023: alçada por valor fica fora desta fase; gate é binário aprovar/devolver.)
 
+Erro de **dupla decisão** sobre a mesma liquidação (`liquidacao_ja_decidida`) é `409` — conflito de estado, mesmo bucket que `auto_aprovacao_vedada`/`pagamento_nao_aprovado`, **não** `400` ([ADR-0029](./adr/0029-contrato-leitura-fila-aprovacao-trilha.md) §4). É o que deixa o `Promise.allSettled` do cliente distinguir "corrida perdida / duplo-clique" de erro de payload.
+
+### 6.7 Leitura do gate: fila de aprovação e trilha (GET)
+
+Contrato ratificado em [ADR-0029](./adr/0029-contrato-leitura-fila-aprovacao-trilha.md). A escrita do gate (§6.6) já está em produção; faltava **de onde ler**. Read model ([ADR-0007](./adr/0007-read-models-cqrs.md)):
+
+```
+GET /entes/{enteId}/execucao/liquidacoes
+      ?statusAprovacao=pendente        (pendente|aprovada|devolvida — estado forte do gate)
+      &cursor=&limit=                  (cursor opaco; default 20, máx. 100 — §6.1)
+      &fonte=&dataInicio=&dataFim=&valorMin=&valorMax=
+Acao: LER sobre execucao:liquidacao
+
+→ 200
+{
+  "itens": [
+    { "id": "uuid", "numero": "2026LQ00118", "credor": { "nome": "ACME LTDA",
+      "cpfCnpj": "**.***.***/0001-**" }, "valor": "4200.00",
+      "dataCompetencia": "2026-07-12", "statusAprovacao": "pendente" }
+  ],
+  "proximoCursor": "..." | null
+}
+```
+- **`statusAprovacao` é eixo distinto do `status` do §6.4.** `status` (`registrada|paga_parcial|paga_total`) é **derivado do saldo**; `statusAprovacao` (`pendente|aprovada|devolvida`) é **estado forte** do agregado (ADR-0023). Não colapsar num só parâmetro.
+- **Segregação Regra 9 no SERVIDOR (não na UI):** a fila **nunca** retorna liquidação cujo autor (da liquidação **ou** do empenho da cadeia) seja o próprio solicitante — mesma identidade que `AutoAprovacaoNaoPermitidaException` barra na escrita, antecipada na leitura (o 4-eyes não pode nem ser *exibido* a quem seria vetado no `POST`). Não é a UI que esconde por estética.
+- Cada linha carrega só o **resumo leve** (id/número, credor mascarado, valor, competência, `statusAprovacao`) — a trilha completa é o endpoint abaixo, buscado só ao abrir o modal.
+
+```
+GET /entes/{enteId}/execucao/liquidacoes/{id}/trilha
+Acao: LER sobre execucao:liquidacao (trilha de auditoria — ADR-0005)
+
+→ 200
+{
+  "liquidacaoId": "uuid",
+  "eventos": [
+    { "tipo": "empenho_registrado",  "ator": "***.111.***-**", "quando": "2026-07-10T…", "detalhes": { "empenhoId": "…" } },
+    { "tipo": "liquidacao_registrada","ator": "***.222.***-**", "quando": "2026-07-12T…" },
+    { "tipo": "execucao_pagamento_aprovacao_decidida", "ator": "***.333.***-**",
+      "quando": "2026-07-13T…", "detalhes": { "decisao": "DEVOLVIDA", "motivo": "documento ilegível" } }
+  ]
+}
+```
+- **Endpoint dedicado, servido por `AuditoriaLeitura`** (read model já existente + `PostgresAuditoriaRepository`) — **não** um campo agregado na resposta da fila (manteria o payload da lista enxuto). Responde "quem lançou o empenho, quem liquidou, quem aprovou/devolveu e por quê".
+- **Ator mascarado** por padrão; a trilha é append-only hash-chain ([ADR-0005](./adr/0005-trilha-append-only-hash-chain.md)), leitura segregada da escrita.
+
+**Aprovação em lote continua *client-side*** (ADR-0023/[ADR-0022](./adr/0022-lote-pagamento-contrato-api-execucao.md)): este contrato é **só leitura** (GET); a escrita em lote permanece N `POST .../aprovacao` do cliente (`Promise.allSettled`), robustecida pelo `409` idempotente-friendly acima.
+
 ---
 
 ## 7. Abertos e riscos
 
 - **`Dotacao` como agregado não existe em código ainda** (só `DotacaoId`/`SaldoDotacao`) — a carga da LOA que popula `valorAutorizado` é pré-requisito funcional de qualquer tela de empenho e não está desenhada aqui (seguir ADR-0013 quando for feita — é ingestão em lote legítima, diferente da decisão do §4).
-- **Gate de `APROVAR` para pagamento materializado no backend (RAZ-92)** — `AprovarPagamento` + pré-condição em `RegistrarPagamento` (`pagamento_nao_aprovado`) estão em código e testados; falta o controller HTTP (§5.3/§6.6) — front-end não deve construir a tela assumindo o endpoint HTTP disponível sem checar se o wiring Spring já chegou (mesma lacuna dos demais endpoints de execução — nenhum tem controller ainda).
+- **Gate de `APROVAR` para pagamento — escrita em produção (RAZ-92 + RAZ-105).** `AprovarPagamento` + pré-condição em `RegistrarPagamento` (`pagamento_nao_aprovado`) e o `LiquidacaoController` (`POST .../aprovacao`) + beans + V8 estão **mesclados em `master`** (merge `4fba4ce`); o front-end pode apontar para o endpoint de escrita. **Leitura** (fila + trilha) ratificada em [ADR-0029](./adr/0029-contrato-leitura-fila-aprovacao-trilha.md)/§6.7 e delegada ao backend (RAZ-113 → issue filha `[BE]`) — ainda **não** implementada; front-end não deve assumir os GETs disponíveis antes do wiring chegar.
 - **Alçada por valor** (quem pode aprovar até que teto) explicitamente **fora da v1** por ADR-0023 — não está modelada em nenhum port hoje; se o produto quiser diferenciar alçada por cargo/valor, é RBAC com atributo extra (ABAC), decisão futura própria.
 - **Reforço/anulação de empenho e estorno** ficam fora deste contrato (RAZ-65 já os marca como issues próprias) — quando chegarem, seguem a mesma convenção (endpoint de ação, não PATCH).
 - Números de exemplo (`2026NE00341`, `2026LQ00118`) nos wireframes são ilustrativos — o formato canônico de exibição do número sequencial (prefixo por tipo de documento) ainda não foi decidido em nenhum ADR; **revalidar com Aurélio** antes de fixar em tela real.

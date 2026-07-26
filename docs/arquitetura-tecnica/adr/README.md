@@ -33,6 +33,7 @@
 | [0026](./0026-design-system-figma-decisoes-estruturais.md) | Design system SIAFIC no Figma: escopo v1, terminologia ("devolvida" vs "rejeitado") e tenant de biblioteca | Aceita |
 | [0027](./0027-wiring-empenho-assinatura-gate-interativo.md) | Wiring RegistrarEmpenho → assinatura: gate interativo pós-outbox de documento, não worker autônomo | Aceita |
 | [0028](./0028-tipagem-id-fronteira-execucao-razao.md) | Tipagem de id na fronteira execução↔razão: VO de referência local do consumidor, `UUID` contido no adapter, id de domínio não sobe ao shared kernel | Aceita |
+| [0029](./0029-contrato-leitura-fila-aprovacao-trilha.md) | Contrato de leitura do gate de aprovação: fila (GET) com segregação Regra 9 imposta na leitura, trilha por endpoint dedicado sobre `AuditoriaLeitura`, `liquidacao_ja_decidida` → 409 | Aceita |
 
 > **Nota:** o número **0019 não foi utilizado** — reservado durante execução paralela de agentes e nunca materializado em arquivo. Não renumerar os ADRs existentes (a numeração é histórica/imutável, mesmo princípio do ADR); o próximo ADR novo continua a partir do 0024.
 
