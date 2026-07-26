@@ -337,7 +337,7 @@ Acao: CRIAR sobre execucao:pagamento (mesma ação; o lote não é um recurso à
   ]
 }
 ```
-- `chaveCliente` é escolhida pelo cliente (não pelo servidor) só para religar item↔erro na resposta — não é `idempotency-key` (essa é um header à parte, ADR-0011, para reenvio seguro do lote inteiro).
+- `chaveCliente` é escolhida pelo cliente e serve para religar item↔erro na resposta; **desde RAZ-134** ela também dobra como chave de idempotência server-side no lote (namespaced `"lote:" + chaveCliente`, `PagamentoController`/ADR-0011) — reenviar o mesmo lote após timeout/erro de rede devolve o item já processado em vez de reprocessar a escrituração. No endpoint individual a idempotência continua via header `Idempotency-Key` (opcional) separado.
 - `207 Multi-Status` sinaliza sucesso parcial no protocolo, não só no corpo — um proxy/cliente HTTP que só olha o status já sabe que não é "tudo ok" nem "tudo falhou".
 - Só `toInsert`/`errors`: não há `toUpdate`/`toDelete` porque pagamento não se corrige por update (estorno é endpoint próprio, fora deste desenho — RAZ-65 §"o que não faz parte").
 - Cada item do lote é **uma chamada isolada e atômica** ao mesmo caso de uso do endpoint individual — o lote em si não abre uma transação guarda-chuva (isso reintroduziria o "um item ruim derruba os outros 31" que o ADR-0013 existe para evitar).
