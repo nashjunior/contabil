@@ -1,0 +1,93 @@
+# Design system SIAFIC — tokens e componentes-núcleo (F1)
+
+[← Arquitetura técnica](./README.md) · [Fluxo do operador + contrato de API](./fluxo-execucao-operador-contrato-api.md) · [ADR-0026](./adr/0026-design-system-figma-decisoes-estruturais.md) · [04-lgpd](../transversais/04-lgpd.md) · [05-acessibilidade](../transversais/05-acessibilidade.md)
+
+> Design-system-first (RAZ-100): tokens (cor/tipografia/espaçamento/elevação) + 10 componentes-núcleo em Figma, **sem telas** — a biblioteca contra a qual as telas do RAZ-79 nascem depois. Decisões estruturais (terminologia, escopo, tenant do Figma) estão no [ADR-0026](./adr/0026-design-system-figma-decisoes-estruturais.md); este documento é o mapeamento token→uso e o inventário da biblioteca.
+
+**Arquivo Figma:** [SIAFIC — Design System (F1 execução)](https://www.figma.com/design/ObQu8oMQ0cEGbONMXgpuLU) (`fileKey ObQu8oMQ0cEGbONMXgpuLU`, plano "internal projects"). 11 páginas: `Cover`, `Foundations` (cor/tipografia/espaçamento/elevação), e uma página por componente.
+
+---
+
+## 1. Tokens
+
+### 1.1 Primitivos (coleção `Primitives`, 1 modo `Value`, `scopes: []`)
+
+Sóbrio/institucional: `neutral` (12 passos, cinza-azulado), `brand` (9 passos, azul institucional `#2F6CAE`), `success`/`warning`/`danger` (7 passos cada). Ocultos de todo picker — só a camada semântica é exposta a quem monta tela.
+
+### 1.2 Semânticos (coleção `Color`, 1 modo `Value`)
+
+Sem modo claro/escuro: back-office não pede tema (nenhum doc do produto exige dark mode); um único modo evita escopo não pedido. Se o citizen portal (fora do F1) vier a adotar o **Design System gov.br** ([05-acessibilidade](../transversais/05-acessibilidade.md)), esta camada semântica pode ganhar um segundo modo depois — decisão futura, não deste issue.
+
+| Token | Alias (primitivo) | Uso |
+| --- | --- | --- |
+| `bg/canvas` | `neutral/50` | Fundo de página/tela |
+| `bg/surface` | `neutral/0` | Fundo de card, input, modal, linha de tabela |
+| `bg/inset` | `neutral/100` | Cabeçalho de tabela, barra de rodapé, campo desabilitado (base) |
+| `bg/disabled` | `neutral/100` | Fundo de campo/estado desabilitado |
+| `bg/overlay-scrim` | `neutral/900` | Scrim atrás de modal (uso com opacidade reduzida) |
+| `text/primary` | `neutral/900` | Texto principal, valor monetário, título |
+| `text/secondary` | `neutral/600` | Labels, legendas, texto de apoio |
+| `text/tertiary` | `neutral/500` | Placeholder, hints, captions de documentação |
+| `text/disabled` | `neutral/400` | Texto em campo/estado desabilitado |
+| `text/on-brand` | `neutral/0` | Texto sobre fundo `brand/*` ou botão primário |
+| `text/link` | `brand/600` | Link, item selecionado em menu (Seletor de Ente) |
+| `border/default` | `neutral/300` | Borda padrão de input, card, linha de tabela |
+| `border/strong` | `neutral/400` | Borda de checkbox/botão secundário, contraste maior |
+| `border/focus` | `brand/500` | Anel de foco (teclado) — WCAG 2.2 foco visível |
+| `brand/default` | `brand/500` | Botão primário, item ativo, indicador de seleção |
+| `brand/hover` | `brand/600` | Estado hover de elemento de marca |
+| `brand/pressed` | `brand/700` | Estado pressed de elemento de marca |
+| `brand/subtle-bg` | `brand/50` | Fundo de linha selecionada (tabela), item ativo no seletor de ente |
+| `state/neutral-{bg,fg,border}` | `neutral/{100,700,300}` | Badge de estágio **Empenhado** |
+| `state/info-{bg,fg,border}` | `brand/{50,700,200}` | Badge de estágio **Liquidado** |
+| `state/success-{bg,fg,border}` | `success/{50,700,300}` | Badge de estágio **Pago** · badge de aprovação **Aprovado** · banner de sucesso (Resumo Fail-soft) |
+| `state/warning-{bg,fg,border}` | `warning/{50,700,300}` | Badge de aprovação **Pendente** · aviso anti-auto-aprovação (Gate 4-eyes) |
+| `state/danger-{bg,fg,border}` | `danger/{50,700,300}` | Badge de aprovação **Devolvida** · erro de campo (`saldo_insuficiente`) · lista de rejeitados (Resumo Fail-soft) |
+| `pii/mask-bg`, `pii/mask-fg` | `neutral/{100,700}` | Chip de CPF mascarado (estado default) |
+
+**Contraste (WCAG AA, back-office — [05-acessibilidade](../transversais/05-acessibilidade.md)):** todos os pares `*-fg` sobre `*-bg` usados nos badges/chips foram checados pela fórmula de luminância relativa (WCAG 2.x) e ficam ≥ 7:1; `text/on-brand` (branco) sobre `brand/default` fica em ~5.4:1 — passa AA (≥4.5:1) mesmo em texto pequeno. Validação é manual nesta v1 (não há gate automatizado de contraste no Figma); o gate de CI com axe-core é item do F1 de acessibilidade ([05-acessibilidade](../transversais/05-acessibilidade.md)), não deste issue.
+
+### 1.3 Espaçamento e raio (coleções `Spacing`, `Radius`, 1 modo `Value`)
+
+`spacing/2xs..3xl` = 2/4/8/12/16/24/32/48px (`scope: GAP`). `radius/none..full` = 0/4/8/12/999 (`scope: CORNER_RADIUS`).
+
+### 1.4 Tipografia (text styles, família Inter)
+
+| Estilo | Tamanho/altura | Uso |
+| --- | --- | --- |
+| `Heading/H1` | 24/32 Semi Bold | Título de tela |
+| `Heading/H2` | 20/28 Semi Bold | Título de seção (ex.: fila "Pagamentos pendentes") |
+| `Heading/H3` | 16/24 Semi Bold | Título de card/modal (Gate de Aprovação, Formulário PCASP) |
+| `Body/Default` | 14/20 Regular | Corpo padrão |
+| `Body/Strong` | 14/20 Semi Bold | Ênfase em corpo (contagem de seleção, banner de sucesso) |
+| `Body/Small` | 12/16 Regular | Texto auxiliar |
+| `Label/Default` | 12/16 Medium, tracking 0.4 | Badges, cabeçalho de tabela, label de campo (versaliza no uso) |
+| `Money/Default` | 14/20 Regular, tabular, alinhado à direita | Valor monetário em linha/campo |
+| `Money/Emphasis` | 16/24 Semi Bold, tabular | Total/destaque (resumo de lote) |
+
+### 1.5 Elevação (effect styles)
+
+`Elevation/Raised` (linha/card) · `Elevation/Overlay` (dropdown do Seletor de Ente) · `Elevation/Modal` (Gate de Aprovação).
+
+---
+
+## 2. Componentes-núcleo (10, um por página)
+
+| # | Componente | Variantes | Ancoragem |
+| --- | --- | --- | --- |
+| 1 | **Valor Monetário** | `Ênfase=Padrão\|Forte` | ADR-0006 (decimal, nunca float); tabular, alinhado à direita |
+| 2 | **Campo de Valor** | `State=Default\|Focus\|Error\|Disabled` | Erro reflete `ErroContrato` do servidor (§6.1 do contrato) sem recalcular no cliente |
+| 3 | **CPF Mascarado (PII)** | `Estado=Mascarado\|Integral` | 04-lgpd — máscara `***.456.***-**` é o default; `Integral` exige escopo elevado e é sempre auditado |
+| 4 | **Seletor de Ente** | `State=Default\|Open\|Disabled` | ADR-0003 (RLS deny-by-default) — troca de tenant é ação explícita |
+| 5 | **Badge Estágio** | `Estágio=Empenhado\|Liquidado\|Pago` | Read model derivado do saldo (§3 do fluxo) — nunca escrito direto |
+| 6 | **Badge Aprovação** | `Aprovação=Pendente\|Aprovado\|Devolvida` | Estado forte (ADR-0023) — ver nota de terminologia no ADR-0026 |
+| 7 | **Tabela — Seleção em Lote** | `Seleção=Nenhuma\|Parcial` | ADR-0022 — **só existe para pagamento**; linha com beneficiário PF usa o componente CPF Mascarado |
+| 8 | **Formulário — Conta PCASP** | `Escriturável=Analítica\|Sintética` | `conta_pcasp` (razao-contabil-schema) — fora do fluxo de operador do F1, ferramental de administração do plano de contas |
+| 9 | **Gate de Aprovação (4-eyes)** | `Decisão=Aprovar\|Devolver` | ADR-0023/RAZ-92 — `Devolver` exige motivo; aviso anti-auto-aprovação é só reforço de UX, a checagem real é no servidor |
+| 10 | **Resumo Fail-soft** | `Estado=TudoOk\|ParcialComErros` | ADR-0013/ADR-0022 — materializa a resposta `207` de `POST /pagamentos:lote` |
+
+Cobertura: 91 variáveis (43 primitivas + 35 semânticas + 13 espaçamento/raio), 9 text styles, 3 effect styles, 10 component sets / 25 variantes.
+
+---
+
+[← Arquitetura técnica](./README.md) · [ADR-0026](./adr/0026-design-system-figma-decisoes-estruturais.md)
