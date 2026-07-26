@@ -46,6 +46,7 @@ public class RegistrarEmpenho {
     private final ContadorEmpenhoPort contadorEmpenho;
     private final EmpenhoRepository repositorio;
     private final PublicacaoTransparenciaExecucaoPort publicacaoTransparencia;
+    private final SolicitacaoDocumentoAssinaturaPort solicitacaoDocumentoAssinatura;
     private final AuditoriaEscrita auditoria;
     private final Clock clock;
 
@@ -56,6 +57,7 @@ public class RegistrarEmpenho {
             ContadorEmpenhoPort contadorEmpenho,
             EmpenhoRepository repositorio,
             PublicacaoTransparenciaExecucaoPort publicacaoTransparencia,
+            SolicitacaoDocumentoAssinaturaPort solicitacaoDocumentoAssinatura,
             AuditoriaEscrita auditoria,
             Clock clock) {
         this.controleAcesso = controleAcesso;
@@ -64,6 +66,8 @@ public class RegistrarEmpenho {
         this.contadorEmpenho = contadorEmpenho;
         this.repositorio = repositorio;
         this.publicacaoTransparencia = Objects.requireNonNull(publicacaoTransparencia, "publicação transparência");
+        this.solicitacaoDocumentoAssinatura =
+                Objects.requireNonNull(solicitacaoDocumentoAssinatura, "solicitação documento assinatura");
         this.auditoria = auditoria;
         this.clock = clock;
     }
@@ -114,6 +118,7 @@ public class RegistrarEmpenho {
 
         repositorio.inserir(empenho);
         publicacaoTransparencia.publicar(empenho, usuarioAutenticado);
+        solicitacaoDocumentoAssinatura.solicitar(empenho, usuarioAutenticado);
 
         auditoria.append(new EventoAuditoria(
                 enteId,

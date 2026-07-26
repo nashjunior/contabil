@@ -5,7 +5,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import br.contabil.execucao.domain.EmpenhoAssinaturaConflitanteException;
 import br.contabil.execucao.domain.ExecucaoInvalidaException;
+import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.CertificadoInvalidoException;
+import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.NivelInsuficienteException;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.MfaRequeridoException;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.NaoAutenticadoException;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.SemPermissaoException;
@@ -50,6 +53,21 @@ class ErroContratoExceptionHandler {
     @ExceptionHandler(PeriodoEncerradoException.class)
     ResponseEntity<ErroResponse> periodoEncerrado(PeriodoEncerradoException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErroResponse("periodo_encerrado"));
+    }
+
+    @ExceptionHandler(EmpenhoAssinaturaConflitanteException.class)
+    ResponseEntity<ErroResponse> empenhoAssinaturaConflitante(EmpenhoAssinaturaConflitanteException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErroResponse(e.codigo()));
+    }
+
+    @ExceptionHandler(CertificadoInvalidoException.class)
+    ResponseEntity<ErroResponse> certificadoInvalido(CertificadoInvalidoException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErroResponse(e.codigo()));
+    }
+
+    @ExceptionHandler(NivelInsuficienteException.class)
+    ResponseEntity<ErroResponse> nivelInsuficiente(NivelInsuficienteException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErroResponse(e.codigo()));
     }
 
     record ErroResponse(String erro) {}

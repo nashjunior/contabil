@@ -4,4 +4,5 @@ dependencies {
     implementation(project(":plataforma:plataforma-infra"))
 
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    implementation(libs.pdfbox)
 }

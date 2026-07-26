@@ -1,6 +1,5 @@
 package br.contabil.plataforma.infra.iam;
 
-import br.contabil.plataforma.domain.iam.ServicoIdentidade;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Collections;
@@ -11,7 +10,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
+
+import br.contabil.plataforma.domain.iam.ServicoIdentidade;
 
 @ConfigurationProperties(prefix = "siafic.iam")
 record IamProperties(
@@ -150,8 +152,9 @@ record IamProperties(
             return switch (this) {
                 case LANCADOR -> urn.equals("razao:fato_contabil")
                         && (acao == ServicoIdentidade.Acao.CRIAR || acao == ServicoIdentidade.Acao.ESTORNAR);
-                case AUTORIZADOR -> urn.equals("razao:fato_contabil")
-                        && (acao == ServicoIdentidade.Acao.APROVAR || acao == ServicoIdentidade.Acao.ASSINAR);
+                case AUTORIZADOR -> (urn.equals("razao:fato_contabil")
+                                && (acao == ServicoIdentidade.Acao.APROVAR || acao == ServicoIdentidade.Acao.ASSINAR))
+                        || (urn.equals("execucao:empenho") && acao == ServicoIdentidade.Acao.ASSINAR);
                 case PAGADOR -> urn.equals("execucao:pagamento")
                         && (acao == ServicoIdentidade.Acao.CRIAR
                                 || acao == ServicoIdentidade.Acao.APROVAR

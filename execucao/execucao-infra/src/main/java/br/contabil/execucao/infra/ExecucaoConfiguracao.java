@@ -2,21 +2,26 @@ package br.contabil.execucao.infra;
 
 import java.time.Clock;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import br.contabil.execucao.application.AssinarEmpenho;
 import br.contabil.execucao.application.ConsultarExecucaoOrcamentaria;
 import br.contabil.execucao.application.IngerirDotacoes;
 import br.contabil.execucao.application.PublicacaoTransparenciaExecucaoPort;
 import br.contabil.execucao.application.PublicadorTransparenciaExecucao;
 import br.contabil.execucao.application.RegistrarEmpenho;
 import br.contabil.execucao.application.SinalizacaoSlaTransparenciaPort;
+import br.contabil.execucao.application.SolicitacaoDocumentoAssinaturaPort;
 import br.contabil.execucao.domain.repository.ContadorEmpenhoPort;
 import br.contabil.execucao.domain.repository.DotacaoRepository;
 import br.contabil.execucao.domain.repository.EmpenhoRepository;
 import br.contabil.execucao.domain.repository.ExecucaoContabilPort;
 import br.contabil.execucao.domain.repository.ExecucaoOrcamentariaPeriodoPort;
 import br.contabil.execucao.domain.repository.SaldosExecucaoPort;
+import br.contabil.plataforma.domain.assinatura.NivelAssinaturaExigidoPort;
+import br.contabil.plataforma.domain.assinatura.ServicoAssinatura;
 import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
 import br.contabil.plataforma.domain.entrega.ServicoEntrega;
 import br.contabil.plataforma.domain.iam.ControleAcesso;
@@ -43,6 +48,7 @@ public class ExecucaoConfiguracao {
             ContadorEmpenhoPort contadorEmpenho,
             EmpenhoRepository repositorio,
             PublicacaoTransparenciaExecucaoPort publicacaoTransparencia,
+            SolicitacaoDocumentoAssinaturaPort solicitacaoDocumentoAssinatura,
             AuditoriaEscrita auditoria,
             Clock clock) {
         return new RegistrarEmpenho(
@@ -52,8 +58,27 @@ public class ExecucaoConfiguracao {
                 contadorEmpenho,
                 repositorio,
                 publicacaoTransparencia,
+                solicitacaoDocumentoAssinatura,
                 auditoria,
                 clock);
+    }
+
+    /**
+     * Só existe quando {@link ServicoAssinatura} está configurado (ADR-0027 (c);
+     * mesmo pré-requisito de {@code ServicoAssinaturaGovBrConfiguration}, que
+     * declara esse bean condicionalmente) — fail-fast na composição, nunca
+     * fail-open no fluxo de assinatura.
+     */
+    @Bean
+    @ConditionalOnBean(ServicoAssinatura.class)
+    public AssinarEmpenho assinarEmpenho(
+            ControleAcesso controleAcesso,
+            EmpenhoRepository repositorio,
+            NivelAssinaturaExigidoPort nivelAssinaturaExigido,
+            ServicoAssinatura servicoAssinatura,
+            AuditoriaEscrita auditoria,
+            Clock clock) {
+        return new AssinarEmpenho(controleAcesso, repositorio, nivelAssinaturaExigido, servicoAssinatura, auditoria, clock);
     }
 
     @Bean

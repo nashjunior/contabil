@@ -70,6 +70,9 @@ class RegistrarEmpenhoTest {
     private PublicacaoTransparenciaExecucaoPort publicacaoTransparencia;
 
     @Mock
+    private SolicitacaoDocumentoAssinaturaPort solicitacaoDocumentoAssinatura;
+
+    @Mock
     private AuditoriaEscrita auditoria;
 
     private RegistrarEmpenho useCase;
@@ -91,6 +94,7 @@ class RegistrarEmpenhoTest {
                 contadorEmpenho,
                 repositorio,
                 publicacaoTransparencia,
+                solicitacaoDocumentoAssinatura,
                 auditoria,
                 relogioFixo);
     }
@@ -136,6 +140,7 @@ class RegistrarEmpenhoTest {
         assertThat(empenho.fatoContabilId()).isEqualTo(fatoContabilId);
         verify(repositorio).inserir(empenho);
         verify(publicacaoTransparencia).publicar(empenho, sessao);
+        verify(solicitacaoDocumentoAssinatura).solicitar(empenho, sessao);
         ArgumentCaptor<EventoAuditoria> evento = ArgumentCaptor.forClass(EventoAuditoria.class);
         verify(auditoria).append(evento.capture());
         assertThat(evento.getValue().tipo()).isEqualTo("execucao_empenho_registrado");
@@ -167,7 +172,9 @@ class RegistrarEmpenhoTest {
                         "empenho inválido"))
                 .isInstanceOf(ExecucaoInvalidaException.class);
 
-        verifyNoInteractions(saldos, escrituracao, contadorEmpenho, repositorio, publicacaoTransparencia, auditoria);
+        verifyNoInteractions(
+                saldos, escrituracao, contadorEmpenho, repositorio, publicacaoTransparencia,
+                solicitacaoDocumentoAssinatura, auditoria);
     }
 
     @Test
@@ -198,6 +205,7 @@ class RegistrarEmpenhoTest {
         verify(contadorEmpenho, never()).proximoNumero(any(), anyInt());
         verify(repositorio, never()).inserir(any());
         verify(publicacaoTransparencia, never()).publicar(any(Empenho.class), any(Sessao.class));
+        verify(solicitacaoDocumentoAssinatura, never()).solicitar(any(Empenho.class), any(Sessao.class));
         verify(auditoria, never()).append(any());
     }
 
@@ -230,6 +238,7 @@ class RegistrarEmpenhoTest {
         verify(contadorEmpenho, never()).proximoNumero(any(), anyInt());
         verify(repositorio, never()).inserir(any());
         verify(publicacaoTransparencia, never()).publicar(any(Empenho.class), any(Sessao.class));
+        verify(solicitacaoDocumentoAssinatura, never()).solicitar(any(Empenho.class), any(Sessao.class));
         verify(auditoria, never()).append(any());
     }
 
@@ -255,7 +264,9 @@ class RegistrarEmpenhoTest {
                         "empenho"))
                 .isInstanceOf(MfaRequeridoException.class);
 
-        verifyNoInteractions(saldos, escrituracao, contadorEmpenho, repositorio, publicacaoTransparencia, auditoria);
+        verifyNoInteractions(
+                saldos, escrituracao, contadorEmpenho, repositorio, publicacaoTransparencia,
+                solicitacaoDocumentoAssinatura, auditoria);
     }
 
     @Test
@@ -286,6 +297,8 @@ class RegistrarEmpenhoTest {
                 .isInstanceOf(SemPermissaoException.class);
 
         verify(servicoIdentidade, never()).autorizar(any(), any(), any());
-        verifyNoInteractions(saldos, escrituracao, contadorEmpenho, repositorio, publicacaoTransparencia, auditoria);
+        verifyNoInteractions(
+                saldos, escrituracao, contadorEmpenho, repositorio, publicacaoTransparencia,
+                solicitacaoDocumentoAssinatura, auditoria);
     }
 }
