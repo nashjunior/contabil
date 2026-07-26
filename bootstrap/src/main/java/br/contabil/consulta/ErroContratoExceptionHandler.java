@@ -22,6 +22,7 @@ import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.NivelInsuficie
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.MfaRequeridoException;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.NaoAutenticadoException;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.SemPermissaoException;
+import br.contabil.razao.domain.ContaNaoEncontradaException;
 import br.contabil.razao.domain.PeriodoEncerradoException;
 
 /**
@@ -88,6 +89,16 @@ class ErroContratoExceptionHandler {
     @ExceptionHandler(ExecucaoInvalidaException.class)
     ResponseEntity<ErroResponse> execucaoInvalida(ExecucaoInvalidaException e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(corpo(e.codigo(), e));
+    }
+
+    /**
+     * RAZ-117/ADR-0030 §6 (gap 2): conta consultada não existe em {@code conta_pcasp} para o ente —
+     * {@code 404}, distinto de "conta existente sem lançamento" (saldo zero, {@code 200}). Usa o
+     * envelope único {@code {codigo, mensagem, detalhes}} convergido pela RAZ-116, sem taxonomia nova.
+     */
+    @ExceptionHandler(ContaNaoEncontradaException.class)
+    ResponseEntity<ErroResponse> contaNaoEncontrada(ContaNaoEncontradaException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(corpo(e.codigo(), e));
     }
 
     @ExceptionHandler(PeriodoEncerradoException.class)
