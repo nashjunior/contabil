@@ -18,6 +18,8 @@ import br.contabil.plataforma.domain.iam.ServicoIdentidade.DesafioMfa;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.MfaRequeridoException;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.NaoAutenticadoException;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.SemPermissaoException;
+import br.contabil.razao.domain.ContaContabilId;
+import br.contabil.razao.domain.ContaNaoEncontradaException;
 import br.contabil.razao.domain.PeriodoEncerradoException;
 
 class ErroContratoExceptionHandlerTest {
@@ -68,6 +70,17 @@ class ErroContratoExceptionHandlerTest {
 
         assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         assertThat(resposta.getBody().codigo()).isEqualTo("liquidacao_ja_decidida");
+    }
+
+    @Test
+    void contaNaoEncontradaDevolve404ComCodigoContaNaoEncontrada() {
+        var resposta = handler.contaNaoEncontrada(
+                new ContaNaoEncontradaException(new TenantId(UUID.randomUUID()), ContaContabilId.novo()));
+
+        assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(resposta.getBody().codigo()).isEqualTo("conta_nao_encontrada");
+        assertThat(resposta.getBody().mensagem()).isNotBlank();
+        assertThat(resposta.getBody().detalhes()).isEmpty();
     }
 
     @Test
