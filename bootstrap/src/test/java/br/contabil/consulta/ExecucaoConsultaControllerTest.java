@@ -22,17 +22,30 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import br.contabil.execucao.application.ConsultarEmpenhosRegistrados;
 import br.contabil.execucao.application.ConsultarExecucaoOrcamentaria;
 import br.contabil.execucao.application.ConsultarFilaAprovacao;
+import br.contabil.execucao.application.ConsultarLiquidacoesRegistradas;
+import br.contabil.execucao.application.ConsultarPagamentosRegistrados;
 import br.contabil.execucao.application.ConsultarTrilhaLiquidacao;
 import br.contabil.execucao.domain.CredorId;
 import br.contabil.execucao.domain.EmpenhoId;
 import br.contabil.execucao.domain.ExecucaoOrcamentariaPeriodo;
 import br.contabil.execucao.domain.FiltroFilaAprovacao;
+import br.contabil.execucao.domain.ItemEmpenhoRegistrado;
 import br.contabil.execucao.domain.ItemFilaAprovacao;
+import br.contabil.execucao.domain.ItemLiquidacaoRegistrada;
+import br.contabil.execucao.domain.ItemPagamentoRegistrado;
 import br.contabil.execucao.domain.LiquidacaoId;
+import br.contabil.execucao.domain.NaturezaPagamento;
+import br.contabil.execucao.domain.PagamentoId;
+import br.contabil.execucao.domain.PaginaEmpenhosRegistrados;
 import br.contabil.execucao.domain.PaginaFilaAprovacao;
+import br.contabil.execucao.domain.PaginaLiquidacoesRegistradas;
+import br.contabil.execucao.domain.PaginaPagamentosRegistrados;
 import br.contabil.execucao.domain.StatusAprovacao;
+import br.contabil.execucao.domain.StatusEmpenho;
+import br.contabil.execucao.domain.TipoEmpenho;
 import br.contabil.execucao.domain.TrilhaLiquidacao;
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
@@ -53,12 +66,26 @@ class ExecucaoConsultaControllerTest {
     @Mock
     private ConsultarTrilhaLiquidacao consultarTrilhaLiquidacao;
 
+    @Mock
+    private ConsultarEmpenhosRegistrados consultarEmpenhosRegistrados;
+
+    @Mock
+    private ConsultarLiquidacoesRegistradas consultarLiquidacoesRegistradas;
+
+    @Mock
+    private ConsultarPagamentosRegistrados consultarPagamentosRegistrados;
+
     /** Mesma serialização da app: {@link DinheiroJacksonModule} emite Dinheiro como string decimal (§6.1). */
     private final ObjectMapper json = new ObjectMapper().registerModule(new DinheiroJacksonModule());
 
     private ExecucaoConsultaController controller() {
         return new ExecucaoConsultaController(
-                consultarExecucaoOrcamentaria, consultarFilaAprovacao, consultarTrilhaLiquidacao);
+                consultarExecucaoOrcamentaria,
+                consultarFilaAprovacao,
+                consultarTrilhaLiquidacao,
+                consultarEmpenhosRegistrados,
+                consultarLiquidacoesRegistradas,
+                consultarPagamentosRegistrados);
     }
 
     private Sessao sessaoDe(TenantId ente) {
@@ -178,6 +205,119 @@ class ExecucaoConsultaControllerTest {
 
         assertThatThrownBy(() -> controller()
                         .fila(enteId, "pendente", null, null, null, null, null, null, null, sessao))
+                .isInstanceOf(SemPermissaoException.class);
+    }
+
+    @Test
+    void empenhosAdaptaQueryParamsEMapeiaEnvelopeComCursorEDinheiroString() {
+        UUID enteId = UUID.randomUUID();
+        Sessao sessao = sessaoDe(new TenantId(enteId));
+        EmpenhoId empenhoId = EmpenhoId.novo();
+        CredorId credorId = CredorId.novo();
+        ItemEmpenhoRegistrado item = new ItemEmpenhoRegistrado(
+                empenhoId, 7L, 2026, TipoEmpenho.ORDINARIO, credorId, Dinheiro.de("12300.00"),
+                LocalDate.of(2026, 7, 15), "empenho de teste", StatusEmpenho.REGISTRADO);
+        when(consultarEmpenhosRegistrados.executar(eq(sessao), eq(new TenantId(enteId)), any(), any(), any(), any(), any()))
+                .thenReturn(new PaginaEmpenhosRegistrados(List.of(item), Optional.of("cursor-emp")));
+
+        var resposta = controller().empenhos(
+                enteId, 2026, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31), null, 50, sessao);
+
+        verify(consultarEmpenhosRegistrados).executar(
+                eq(sessao), eq(new TenantId(enteId)), eq(Optional.of(2026)), eq(Optional.of(LocalDate.of(2026, 1, 1))),
+                eq(Optional.of(LocalDate.of(2026, 12, 31))), eq(Optional.of(50)), eq(Optional.empty()));
+
+        assertThat(resposta.proximoCursor()).isEqualTo("cursor-emp");
+        assertThat(resposta.itens()).hasSize(1);
+        assertThat(resposta.itens().get(0).id()).isEqualTo(empenhoId.valor());
+        assertThat(resposta.itens().get(0).credorId()).isEqualTo(credorId.valor());
+        assertThat(resposta.itens().get(0).valor()).isEqualTo("12300.00");
+        assertThat(resposta.itens().get(0).tipo()).isEqualTo("ordinario");
+        assertThat(resposta.itens().get(0).status()).isEqualTo("registrado");
+    }
+
+    @Test
+    void empenhosPropagaErroDeNegocioSemMapearNoController() {
+        UUID enteId = UUID.randomUUID();
+        Sessao sessao = sessaoDe(new TenantId(enteId));
+        when(consultarEmpenhosRegistrados.executar(any(), any(), any(), any(), any(), any(), any()))
+                .thenThrow(new SemPermissaoException("sem_permissao"));
+
+        assertThatThrownBy(() -> controller().empenhos(enteId, null, null, null, null, null, sessao))
+                .isInstanceOf(SemPermissaoException.class);
+    }
+
+    @Test
+    void liquidacoesRegistradasAdaptaQueryParamsEMapeiaEnvelopeSemSegregacaoDeAutor() {
+        UUID enteId = UUID.randomUUID();
+        Sessao sessao = sessaoDe(new TenantId(enteId));
+        LiquidacaoId liquidacaoId = LiquidacaoId.novo();
+        EmpenhoId empenhoId = EmpenhoId.novo();
+        ItemLiquidacaoRegistrada item = new ItemLiquidacaoRegistrada(
+                liquidacaoId, empenhoId, Dinheiro.de("4200.00"), LocalDate.of(2026, 7, 16), "liquidacao de teste",
+                StatusAprovacao.APROVADA);
+        when(consultarLiquidacoesRegistradas.executar(eq(sessao), eq(new TenantId(enteId)), any(), any(), any(), any()))
+                .thenReturn(new PaginaLiquidacoesRegistradas(List.of(item), Optional.empty()));
+
+        var resposta = controller().liquidacoesRegistradas(
+                enteId, LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31), "cursor-in", 20, sessao);
+
+        verify(consultarLiquidacoesRegistradas).executar(
+                eq(sessao), eq(new TenantId(enteId)), eq(Optional.of(LocalDate.of(2026, 7, 1))),
+                eq(Optional.of(LocalDate.of(2026, 7, 31))), eq(Optional.of(20)), eq(Optional.of("cursor-in")));
+
+        assertThat(resposta.proximoCursor()).isNull();
+        assertThat(resposta.itens()).hasSize(1);
+        assertThat(resposta.itens().get(0).id()).isEqualTo(liquidacaoId.valor());
+        assertThat(resposta.itens().get(0).empenhoId()).isEqualTo(empenhoId.valor());
+        assertThat(resposta.itens().get(0).valor()).isEqualTo("4200.00");
+        assertThat(resposta.itens().get(0).statusAprovacao()).isEqualTo("aprovada");
+    }
+
+    @Test
+    void liquidacoesRegistradasPropagaErroDeNegocioSemMapearNoController() {
+        UUID enteId = UUID.randomUUID();
+        Sessao sessao = sessaoDe(new TenantId(enteId));
+        when(consultarLiquidacoesRegistradas.executar(any(), any(), any(), any(), any(), any()))
+                .thenThrow(new SemPermissaoException("sem_permissao"));
+
+        assertThatThrownBy(() -> controller().liquidacoesRegistradas(enteId, null, null, null, null, sessao))
+                .isInstanceOf(SemPermissaoException.class);
+    }
+
+    @Test
+    void pagamentosAdaptaQueryParamsEMapeiaEnvelopeSemBeneficiario() {
+        UUID enteId = UUID.randomUUID();
+        Sessao sessao = sessaoDe(new TenantId(enteId));
+        PagamentoId pagamentoId = PagamentoId.novo();
+        LiquidacaoId liquidacaoId = LiquidacaoId.novo();
+        ItemPagamentoRegistrado item = new ItemPagamentoRegistrado(
+                pagamentoId, liquidacaoId, Dinheiro.de("4200.00"), LocalDate.of(2026, 7, 18),
+                NaturezaPagamento.ORCAMENTARIO, "pagamento de teste");
+        when(consultarPagamentosRegistrados.executar(eq(sessao), eq(new TenantId(enteId)), any(), any(), any(), any()))
+                .thenReturn(new PaginaPagamentosRegistrados(List.of(item), Optional.empty()));
+
+        var resposta = controller().pagamentos(enteId, null, null, null, null, sessao);
+
+        assertThat(resposta.itens()).hasSize(1);
+        assertThat(resposta.itens().get(0).id()).isEqualTo(pagamentoId.valor());
+        assertThat(resposta.itens().get(0).liquidacaoId()).isEqualTo(liquidacaoId.valor());
+        assertThat(resposta.itens().get(0).valor()).isEqualTo("4200.00");
+        assertThat(resposta.itens().get(0).natureza()).isEqualTo("orcamentario");
+        // resumo de registro não vaza PII de beneficiário (04-lgpd) — o record não tem esse campo.
+        assertThat(ExecucaoConsultaController.PagamentoRegistradoResponse.class.getRecordComponents())
+                .extracting(java.lang.reflect.RecordComponent::getName)
+                .doesNotContain("beneficiario", "beneficiarioNome", "beneficiarioCpfCnpj");
+    }
+
+    @Test
+    void pagamentosPropagaErroDeNegocioSemMapearNoController() {
+        UUID enteId = UUID.randomUUID();
+        Sessao sessao = sessaoDe(new TenantId(enteId));
+        when(consultarPagamentosRegistrados.executar(any(), any(), any(), any(), any(), any()))
+                .thenThrow(new SemPermissaoException("sem_permissao"));
+
+        assertThatThrownBy(() -> controller().pagamentos(enteId, null, null, null, null, sessao))
                 .isInstanceOf(SemPermissaoException.class);
     }
 }

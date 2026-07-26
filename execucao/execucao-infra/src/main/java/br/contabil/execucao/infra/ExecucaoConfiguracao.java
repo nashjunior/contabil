@@ -8,8 +8,11 @@ import org.springframework.context.annotation.Configuration;
 
 import br.contabil.execucao.application.AprovarPagamento;
 import br.contabil.execucao.application.AssinarEmpenho;
+import br.contabil.execucao.application.ConsultarEmpenhosRegistrados;
 import br.contabil.execucao.application.ConsultarExecucaoOrcamentaria;
 import br.contabil.execucao.application.ConsultarFilaAprovacao;
+import br.contabil.execucao.application.ConsultarLiquidacoesRegistradas;
+import br.contabil.execucao.application.ConsultarPagamentosRegistrados;
 import br.contabil.execucao.application.ConsultarTrilhaLiquidacao;
 import br.contabil.execucao.application.IngerirDotacoes;
 import br.contabil.execucao.application.PublicacaoTransparenciaExecucaoPort;
@@ -22,12 +25,15 @@ import br.contabil.execucao.application.SolicitacaoDocumentoAssinaturaPort;
 import br.contabil.execucao.domain.repository.ContadorEmpenhoPort;
 import br.contabil.execucao.domain.repository.DotacaoRepository;
 import br.contabil.execucao.domain.repository.EmpenhoRepository;
+import br.contabil.execucao.domain.repository.EmpenhosRegistradosQuery;
 import br.contabil.execucao.domain.repository.ExecucaoContabilPort;
 import br.contabil.execucao.domain.repository.ExecucaoOrcamentariaPeriodoPort;
 import br.contabil.execucao.domain.repository.FilaAprovacaoQuery;
 import br.contabil.execucao.domain.repository.IdempotenciaPagamentoRepository;
 import br.contabil.execucao.domain.repository.LiquidacaoRepository;
+import br.contabil.execucao.domain.repository.LiquidacoesRegistradasQuery;
 import br.contabil.execucao.domain.repository.PagamentoRepository;
+import br.contabil.execucao.domain.repository.PagamentosRegistradosQuery;
 import br.contabil.execucao.domain.repository.SaldosExecucaoPort;
 import br.contabil.plataforma.domain.assinatura.NivelAssinaturaExigidoPort;
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura;
@@ -158,6 +164,27 @@ public class ExecucaoConfiguracao {
     public ConsultarTrilhaLiquidacao consultarTrilhaLiquidacao(
             ControleAcesso controleAcesso, AuditoriaLeitura auditoriaLeitura) {
         return new ConsultarTrilhaLiquidacao(controleAcesso, auditoriaLeitura);
+    }
+
+    /** RAZ-121: registro completo de empenhos por ente/período (read model, gap deixado pelo RAZ-120). */
+    @Bean
+    public ConsultarEmpenhosRegistrados consultarEmpenhosRegistrados(
+            ControleAcesso controleAcesso, EmpenhosRegistradosQuery empenhosRegistrados) {
+        return new ConsultarEmpenhosRegistrados(controleAcesso, empenhosRegistrados);
+    }
+
+    /** RAZ-121: registro completo de liquidações por ente/período — distinto do gate (fila) de {@link ConsultarFilaAprovacao}. */
+    @Bean
+    public ConsultarLiquidacoesRegistradas consultarLiquidacoesRegistradas(
+            ControleAcesso controleAcesso, LiquidacoesRegistradasQuery liquidacoesRegistradas) {
+        return new ConsultarLiquidacoesRegistradas(controleAcesso, liquidacoesRegistradas);
+    }
+
+    /** RAZ-121: registro completo de pagamentos por ente/período. */
+    @Bean
+    public ConsultarPagamentosRegistrados consultarPagamentosRegistrados(
+            ControleAcesso controleAcesso, PagamentosRegistradosQuery pagamentosRegistrados) {
+        return new ConsultarPagamentosRegistrados(controleAcesso, pagamentosRegistrados);
     }
 
     @Bean
