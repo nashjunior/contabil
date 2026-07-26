@@ -39,6 +39,7 @@
 | [0032](./0032-frontend-monolito-modular-feature-based.md) | Frontend: monólito modular (não MFE) + estrutura feature-based (execução/consultas/admin) | Aceita |
 | [0033](./0033-frontend-composicao-proibicao-prop-drilling.md) | Frontend: composição (compound components + Context); proibido prop drilling em subcomponente aninhado | Aceita |
 | [0034](./0034-frontend-estado-client-api-tipado.md) | Frontend: estado (React Query) e client de API tipado contra os 7 controllers reais (`ente` no path, Bearer gov.br, envelope único) | Aceita |
+| [0035](./0035-bff-login-oidc-govbr.md) | BFF de login OIDC gov.br (autenticação geral, não assinatura): `authorization_code`+PKCE server-side no `bootstrap`, asserção guardada no servidor, cookie `HttpOnly` ao SPA, resolvedor stateless com *fallback* aditivo por cookie | Proposta |
 
 > **Nota:** o número **0019 não foi utilizado** — reservado durante execução paralela de agentes e nunca materializado em arquivo. Não renumerar os ADRs existentes (a numeração é histórica/imutável, mesmo princípio do ADR); o próximo ADR novo continua a partir do 0035.
 
