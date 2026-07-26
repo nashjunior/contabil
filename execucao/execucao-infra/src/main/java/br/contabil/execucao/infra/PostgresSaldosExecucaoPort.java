@@ -1,5 +1,11 @@
 package br.contabil.execucao.infra;
 
+import java.math.BigDecimal;
+import java.util.List;
+
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Component;
+
 import br.contabil.execucao.domain.DotacaoId;
 import br.contabil.execucao.domain.EmpenhoId;
 import br.contabil.execucao.domain.ExecucaoInvalidaException;
@@ -10,10 +16,6 @@ import br.contabil.execucao.domain.SaldoLiquidacao;
 import br.contabil.execucao.domain.repository.SaldosExecucaoPort;
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
-import java.math.BigDecimal;
-import java.util.List;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Component;
 
 /**
  * Adapter Postgres dos saldos operacionais da execução (execucao-orcamentaria-despesa.md
@@ -31,6 +33,18 @@ public class PostgresSaldosExecucaoPort implements SaldosExecucaoPort {
 
     private static final String SQL_SOMA_EMPENHOS_DA_DOTACAO =
             "select coalesce(sum(valor), 0) from empenho where ente_id = ? and dotacao_id = ?";
+
+    private static final String SQL_LOCK_EMPENHO =
+            "select valor from empenho where ente_id = ? and id = ? for update";
+
+    private static final String SQL_SOMA_LIQUIDACOES_DO_EMPENHO =
+            "select coalesce(sum(valor), 0) from liquidacao where ente_id = ? and empenho_id = ?";
+
+    private static final String SQL_LOCK_LIQUIDACAO =
+            "select valor from liquidacao where ente_id = ? and id = ? for update";
+
+    private static final String SQL_SOMA_PAGAMENTOS_DA_LIQUIDACAO =
+            "select coalesce(sum(valor), 0) from pagamento where ente_id = ? and liquidacao_id = ?";
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -56,13 +70,34 @@ public class PostgresSaldosExecucaoPort implements SaldosExecucaoPort {
 
     @Override
     public SaldoEmpenho saldoEmpenho(TenantId enteId, EmpenhoId empenhoId) {
-        throw new UnsupportedOperationException(
-                "RAZ-67: saldo do empenho (soma das liquidações) ainda não implementado nesta infra");
+        List<BigDecimal> linhas = jdbcTemplate.query(
+                SQL_LOCK_EMPENHO,
+                (rs, rowNum) -> rs.getBigDecimal("valor"),
+                enteId.valor(),
+                empenhoId.valor());
+        if (linhas.isEmpty()) {
+            throw new ExecucaoInvalidaException(
+                    "empenho_nao_encontrado", "empenho %s não encontrado para o ente".formatted(empenhoId));
+        }
+        BigDecimal valorLiquidado = jdbcTemplate.queryForObject(
+                SQL_SOMA_LIQUIDACOES_DO_EMPENHO, BigDecimal.class, enteId.valor(), empenhoId.valor());
+        return new SaldoEmpenho(empenhoId, new Dinheiro(linhas.get(0)), new Dinheiro(valorLiquidado));
     }
 
     @Override
     public SaldoLiquidacao saldoLiquidacao(TenantId enteId, LiquidacaoId liquidacaoId) {
-        throw new UnsupportedOperationException(
-                "RAZ-67: saldo da liquidação (soma dos pagamentos) ainda não implementado nesta infra");
+        List<BigDecimal> linhas = jdbcTemplate.query(
+                SQL_LOCK_LIQUIDACAO,
+                (rs, rowNum) -> rs.getBigDecimal("valor"),
+                enteId.valor(),
+                liquidacaoId.valor());
+        if (linhas.isEmpty()) {
+            throw new ExecucaoInvalidaException(
+                    "liquidacao_nao_encontrada",
+                    "liquidação %s não encontrada para o ente".formatted(liquidacaoId));
+        }
+        BigDecimal valorPago = jdbcTemplate.queryForObject(
+                SQL_SOMA_PAGAMENTOS_DA_LIQUIDACAO, BigDecimal.class, enteId.valor(), liquidacaoId.valor());
+        return new SaldoLiquidacao(liquidacaoId, new Dinheiro(linhas.get(0)), new Dinheiro(valorPago));
     }
 }

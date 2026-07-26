@@ -1,11 +1,12 @@
 package br.contabil.execucao.domain;
 
-import br.contabil.plataforma.domain.Dinheiro;
-import br.contabil.plataforma.domain.TenantId;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+
+import br.contabil.plataforma.domain.Dinheiro;
+import br.contabil.plataforma.domain.TenantId;
 
 /**
  * Agregado de liquidação da despesa: atesta/verifica o direito adquirido e gera

@@ -1,14 +1,5 @@
 package br.contabil.golden;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
-import br.contabil.execucao.domain.DotacaoId;
-import br.contabil.execucao.domain.SaldoDotacao;
-import br.contabil.execucao.domain.SaldoInsuficienteException;
-import br.contabil.execucao.infra.PostgresSaldosExecucaoPort;
-import br.contabil.plataforma.domain.Dinheiro;
-import br.contabil.plataforma.domain.TenantId;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -21,6 +12,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -29,6 +23,13 @@ import org.springframework.jdbc.datasource.SingleConnectionDataSource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+
+import br.contabil.execucao.domain.DotacaoId;
+import br.contabil.execucao.domain.SaldoDotacao;
+import br.contabil.execucao.domain.SaldoInsuficienteException;
+import br.contabil.execucao.infra.PostgresSaldosExecucaoPort;
+import br.contabil.plataforma.domain.Dinheiro;
+import br.contabil.plataforma.domain.TenantId;
 
 /**
  * RAZ-84: prova, contra Postgres real, a trava de concorrência do UC1
@@ -47,12 +48,6 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * transacional que {@code RegistrarEmpenho.executar} usa em produção: cada
  * "thread de empenho" consulta o saldo (o que trava a linha da dotação) e só
  * então insere o empenho, tudo na mesma transação/conexão.
- *
- * <p><b>Gap encontrado, fora do escopo deste teste:</b> {@code saldoEmpenho}/
- * {@code saldoLiquidacao} de {@link PostgresSaldosExecucaoPort} são stubs que
- * lançam {@code UnsupportedOperationException} (RAZ-67, marcado done sem
- * essa entrega) — não há hoje um caso de uso ou schema de balancete/execução
- * por período·ente para testar (ver comentário de RAZ-84).
  */
 @Testcontainers(disabledWithoutDocker = true)
 class ExecucaoSaldoDotacaoConcorrenciaTest {
