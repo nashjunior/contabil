@@ -25,6 +25,7 @@ import br.contabil.execucao.domain.repository.EmpenhoRepository;
 import br.contabil.execucao.domain.repository.ExecucaoContabilPort;
 import br.contabil.execucao.domain.repository.ExecucaoOrcamentariaPeriodoPort;
 import br.contabil.execucao.domain.repository.FilaAprovacaoQuery;
+import br.contabil.execucao.domain.repository.IdempotenciaPagamentoRepository;
 import br.contabil.execucao.domain.repository.LiquidacaoRepository;
 import br.contabil.execucao.domain.repository.PagamentoRepository;
 import br.contabil.execucao.domain.repository.SaldosExecucaoPort;
@@ -112,12 +113,13 @@ public class ExecucaoConfiguracao {
             SaldosExecucaoPort saldos,
             ExecucaoContabilPort escrituracao,
             PagamentoRepository repositorio,
+            IdempotenciaPagamentoRepository idempotencia,
             PublicacaoTransparenciaExecucaoPort publicacaoTransparencia,
             AuditoriaEscrita auditoria,
             Clock clock) {
         return new RegistrarPagamento(
-                controleAcesso, liquidacaoRepositorio, saldos, escrituracao, repositorio, publicacaoTransparencia,
-                auditoria, clock);
+                controleAcesso, liquidacaoRepositorio, saldos, escrituracao, repositorio, idempotencia,
+                publicacaoTransparencia, auditoria, clock);
     }
 
     /** RAZ-105: fecha o wiring que RAZ-92 (use case, gate ADR-0023) deixou pendente. */

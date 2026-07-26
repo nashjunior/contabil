@@ -2,6 +2,7 @@ package br.contabil.escrita;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -165,8 +166,12 @@ class ExecucaoEscritaHttpIntegrationTest {
         registry.add("siafic.security.database.require-ssl", () -> "false");
     }
 
+    private static final String CHAVE_IDEMPOTENCIA_PAGAMENTO_UNICO = "raz-134-pagamento-unico";
+
     private static String empenhoId;
     private static String liquidacaoId;
+    private static String pagamentoIdOriginal;
+    private static String liquidacaoIdLote;
 
     @Test
     @Order(1)
@@ -241,12 +246,129 @@ class ExecucaoEscritaHttpIntegrationTest {
         assertThat(respostaAprovacao.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(respostaAprovacao.getBody()).containsEntry("status", "aprovada");
 
-        ResponseEntity<Map> respostaPagamento =
-                post("/execucao/pagamentos", CPF_APROVADOR, pagamentoValido(), Map.class);
+        ResponseEntity<Map> respostaPagamento = post(
+                "/execucao/pagamentos",
+                CPF_APROVADOR,
+                pagamentoValido(),
+                Map.class,
+                Map.of("Idempotency-Key", CHAVE_IDEMPOTENCIA_PAGAMENTO_UNICO));
 
         assertThat(respostaPagamento.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(respostaPagamento.getBody()).containsEntry("valor", "4200.00");
         assertThat(respostaPagamento.getBody().get("fatoContabilId")).isNotNull();
+        pagamentoIdOriginal = (String) respostaPagamento.getBody().get("id");
+    }
+
+    /**
+     * RAZ-134/ADR-0011: reenviar a MESMA requisição com o mesmo {@code Idempotency-Key} — mesmo
+     * com o saldo da liquidação já 100% consumido pelo pagamento do {@code Order(5)} (o que uma
+     * tentativa não-idempotente rejeitaria com saldo insuficiente) — devolve o pagamento
+     * original em vez de reprocessar, e não cria uma segunda linha em {@code pagamento}.
+     */
+    @Test
+    @Order(6)
+    void reenvioComMesmaIdempotencyKeyDevolveOPagamentoOriginalSemDuplicar() throws SQLException {
+        ResponseEntity<Map> reenvio = post(
+                "/execucao/pagamentos",
+                CPF_APROVADOR,
+                pagamentoValido(),
+                Map.class,
+                Map.of("Idempotency-Key", CHAVE_IDEMPOTENCIA_PAGAMENTO_UNICO));
+
+        assertThat(reenvio.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(reenvio.getBody().get("id")).isEqualTo(pagamentoIdOriginal);
+        assertThat(contarPagamentosDaLiquidacao(liquidacaoId)).isEqualTo(1);
+    }
+
+    @Test
+    @Order(7)
+    void preparaSegundaLiquidacaoAprovadaParaTesteDeLote() {
+        Map<String, Object> corpoEmpenho = Map.of(
+                "dotacaoId", dotacaoId,
+                "tipo", "ordinario",
+                "credorId", UUID.randomUUID().toString(),
+                "unidadeGestoraId", UUID.randomUUID().toString(),
+                "valor", "900.00",
+                "dataFato", "2026-07-15",
+                "exercicio", 2026,
+                "classificacaoOrcamentaria", "raz-105",
+                "fonteRecurso", "raz-105",
+                "historico", "empenho p/ lote idempotente (RAZ-134)");
+        ResponseEntity<Map> respostaEmpenho = post("/execucao/empenhos", CPF_ORDENADOR, corpoEmpenho, Map.class);
+        assertThat(respostaEmpenho.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        String empenhoIdLote = (String) respostaEmpenho.getBody().get("id");
+
+        Map<String, Object> documento = Map.of("tipo", "nota_fiscal", "numero", "NF-134", "dataEmissao", "2026-07-14");
+        Map<String, Object> corpoLiquidacao = Map.of(
+                "empenhoId", empenhoIdLote,
+                "dataCompetencia", "2026-07-16",
+                "valor", "900.00",
+                "documentosSuporte", List.of(documento),
+                "historico", "liquidacao p/ lote idempotente (RAZ-134)");
+        ResponseEntity<Map> respostaLiquidacao =
+                post("/execucao/liquidacoes", CPF_ORDENADOR, corpoLiquidacao, Map.class);
+        assertThat(respostaLiquidacao.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        liquidacaoIdLote = (String) respostaLiquidacao.getBody().get("id");
+
+        ResponseEntity<Map> respostaAprovacao = post(
+                "/execucao/liquidacoes/" + liquidacaoIdLote + "/aprovacao",
+                CPF_APROVADOR,
+                Map.of("decisao", "aprovar"),
+                Map.class);
+        assertThat(respostaAprovacao.getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    /**
+     * RAZ-134: no lote, {@code chaveCliente} do item também serve de chave de idempotência —
+     * reenviar o MESMO lote (mesmo {@code chaveCliente}) devolve o mesmo pagamento em
+     * {@code processados[]} sem criar uma segunda linha em {@code pagamento}.
+     */
+    @Test
+    @Order(8)
+    void reenvioDeLoteComMesmaChaveClienteNaoDuplicaPagamento() throws SQLException {
+        Map<String, Object> lote = loteComUmItem("raz-134-item-lote-1");
+
+        ResponseEntity<Map> primeiraTentativa = post("/execucao/pagamentos:lote", CPF_APROVADOR, lote, Map.class);
+        assertThat(primeiraTentativa.getStatusCode().value()).isEqualTo(207);
+        List<Map<String, Object>> processadosPrimeira =
+                (List<Map<String, Object>>) primeiraTentativa.getBody().get("processados");
+        assertThat(processadosPrimeira).hasSize(1);
+        Object idOriginal = processadosPrimeira.get(0).get("id");
+
+        ResponseEntity<Map> reenvio = post("/execucao/pagamentos:lote", CPF_APROVADOR, lote, Map.class);
+        assertThat(reenvio.getStatusCode().value()).isEqualTo(207);
+        List<Map<String, Object>> processadosReenvio =
+                (List<Map<String, Object>>) reenvio.getBody().get("processados");
+        assertThat(processadosReenvio).hasSize(1);
+        assertThat(processadosReenvio.get(0).get("id")).isEqualTo(idOriginal);
+        assertThat((List<?>) reenvio.getBody().get("errors")).isEmpty();
+
+        assertThat(contarPagamentosDaLiquidacao(liquidacaoIdLote)).isEqualTo(1);
+    }
+
+    private static Map<String, Object> loteComUmItem(String chaveCliente) {
+        Map<String, Object> beneficiario = Map.of("nome", "Fornecedor RAZ-134", "cpfCnpj", "12345678901");
+        Map<String, Object> item = new java.util.HashMap<>();
+        item.put("chaveCliente", chaveCliente);
+        item.put("liquidacaoId", liquidacaoIdLote);
+        item.put("dataCompetencia", "2026-07-20");
+        item.put("valor", "900.00");
+        item.put("natureza", "orcamentario");
+        item.put("beneficiario", beneficiario);
+        item.put("historico", "pagamento lote idempotente (RAZ-134)");
+        return Map.of("itens", List.of(item));
+    }
+
+    private static int contarPagamentosDaLiquidacao(String liquidacaoIdAlvo) throws SQLException {
+        try (Connection admin = adminConnection();
+                PreparedStatement ps =
+                        admin.prepareStatement("select count(*) from pagamento where liquidacao_id = ?::uuid")) {
+            ps.setString(1, liquidacaoIdAlvo);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getInt(1);
+            }
+        }
     }
 
     private static Map<String, Object> pagamentoValido() {
@@ -262,8 +384,14 @@ class ExecucaoEscritaHttpIntegrationTest {
     }
 
     private <T> ResponseEntity<T> post(String caminho, String cpfAtor, Object corpo, Class<T> tipoResposta) {
+        return post(caminho, cpfAtor, corpo, tipoResposta, Map.of());
+    }
+
+    private <T> ResponseEntity<T> post(
+            String caminho, String cpfAtor, Object corpo, Class<T> tipoResposta, Map<String, String> headersExtras) {
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", "Bearer " + cpfAtor);
+        headersExtras.forEach(headers::set);
         return restTemplate.exchange(
                 url(caminho), HttpMethod.POST, new HttpEntity<>(corpo, headers), tipoResposta);
     }

@@ -19,9 +19,11 @@ import br.contabil.execucao.domain.ReferenciaFatoContabil;
 import br.contabil.execucao.domain.StatusAprovacao;
 import br.contabil.execucao.domain.repository.ExecucaoContabilPort;
 import br.contabil.execucao.domain.repository.ExecucaoContabilPort.SolicitacaoEscrituracaoPagamento;
+import br.contabil.execucao.domain.repository.IdempotenciaPagamentoRepository;
 import br.contabil.execucao.domain.repository.LiquidacaoRepository;
 import br.contabil.execucao.domain.repository.PagamentoRepository;
 import br.contabil.execucao.domain.repository.SaldosExecucaoPort;
+import br.contabil.plataforma.domain.ChaveIdempotencia;
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
 import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
@@ -37,6 +39,12 @@ import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
  * <p>O pagamento nunca altera a liquidação anterior; ele cria um novo estágio e
  * um novo fato contábil. Entrega bancária/assinatura, quando aplicável, deve ser
  * agendada por outbox na infra, fora da transação síncrona com sistemas externos.
+ *
+ * <p>Idempotência ponta a ponta (ADR-0011/RAZ-134): quando o chamador informa
+ * {@code chaveIdempotencia}, a reserva acontece ANTES da validação de
+ * liquidação/saldo — um reenvio com a mesma chave devolve o pagamento
+ * original sem repetir o efeito, mesmo que o saldo já tenha sido consumido
+ * pela primeira execução.
  */
 public class RegistrarPagamento {
 
@@ -47,6 +55,7 @@ public class RegistrarPagamento {
     private final SaldosExecucaoPort saldos;
     private final ExecucaoContabilPort escrituracao;
     private final PagamentoRepository repositorio;
+    private final IdempotenciaPagamentoRepository idempotencia;
     private final PublicacaoTransparenciaExecucaoPort publicacaoTransparencia;
     private final AuditoriaEscrita auditoria;
     private final Clock clock;
@@ -57,6 +66,7 @@ public class RegistrarPagamento {
             SaldosExecucaoPort saldos,
             ExecucaoContabilPort escrituracao,
             PagamentoRepository repositorio,
+            IdempotenciaPagamentoRepository idempotencia,
             PublicacaoTransparenciaExecucaoPort publicacaoTransparencia,
             AuditoriaEscrita auditoria,
             Clock clock) {
@@ -65,6 +75,7 @@ public class RegistrarPagamento {
         this.saldos = saldos;
         this.escrituracao = escrituracao;
         this.repositorio = repositorio;
+        this.idempotencia = idempotencia;
         this.publicacaoTransparencia = Objects.requireNonNull(publicacaoTransparencia, "publicação transparência");
         this.auditoria = auditoria;
         this.clock = clock;
@@ -79,10 +90,23 @@ public class RegistrarPagamento {
             NaturezaPagamento natureza,
             Optional<Beneficiario> beneficiario,
             Optional<String> ordemBancaria,
-            String historico) {
+            String historico,
+            Optional<ChaveIdempotencia> chaveIdempotencia) {
         controleAcesso.exigir(usuarioAutenticado, enteId, RECURSO_PAGAMENTO, Acao.CRIAR);
 
         Pagamento.validarEntrada(valor, natureza, beneficiario, ordemBancaria, historico);
+
+        PagamentoId pagamentoId = PagamentoId.novo();
+        if (chaveIdempotencia.isPresent()) {
+            PagamentoId idEfetivo = idempotencia.reservar(enteId, chaveIdempotencia.get(), pagamentoId);
+            if (!idEfetivo.equals(pagamentoId)) {
+                return repositorio
+                        .buscarPorId(enteId, idEfetivo)
+                        .orElseThrow(() -> new IllegalStateException(
+                                "idempotência: pagamento %s referenciado pela chave não encontrado"
+                                        .formatted(idEfetivo)));
+            }
+        }
 
         Liquidacao liquidacao = liquidacaoRepositorio
                 .buscarPorId(enteId, liquidacaoId)
@@ -95,7 +119,6 @@ public class RegistrarPagamento {
         var saldoLiquidacao = saldos.saldoLiquidacao(enteId, liquidacaoId);
         saldoLiquidacao.exigirSaldoParaPagar(valor);
 
-        PagamentoId pagamentoId = PagamentoId.novo();
         ReferenciaFatoContabil fatoContabilId = escrituracao.registrarPagamento(new SolicitacaoEscrituracaoPagamento(
                 enteId,
                 pagamentoId,

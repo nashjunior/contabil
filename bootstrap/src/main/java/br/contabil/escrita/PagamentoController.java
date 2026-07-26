@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -20,6 +21,7 @@ import br.contabil.execucao.domain.Beneficiario;
 import br.contabil.execucao.domain.LiquidacaoId;
 import br.contabil.execucao.domain.NaturezaPagamento;
 import br.contabil.execucao.domain.Pagamento;
+import br.contabil.plataforma.domain.ChaveIdempotencia;
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.ErroContrato;
 import br.contabil.plataforma.domain.TenantId;
@@ -35,6 +37,13 @@ import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
  * item é sua própria transação atômica (via advisor de
  * {@code TransacaoUseCasesConfiguration}); o lote em si não abre transação
  * guarda-chuva. Um item ruim vira {@code errors[]}, nunca derruba os demais.
+ *
+ * <p>Idempotência (ADR-0011/RAZ-134): o endpoint individual aceita o header
+ * {@code Idempotency-Key} (opcional); no lote, {@code chaveCliente} de cada
+ * item — já obrigatório para correlacionar request↔response — também serve
+ * como chave de idempotência server-side. Reenviar o mesmo lote/pagamento
+ * após timeout/erro de rede devolve o resultado original em vez de duplicar
+ * o lançamento contábil.
  */
 @RestController
 @RequestMapping("/api/v1/entes/{enteId}/execucao")
@@ -48,8 +57,11 @@ final class PagamentoController {
 
     @PostMapping("/pagamentos")
     ResponseEntity<PagamentoResponse> registrar(
-            @PathVariable("enteId") UUID enteId, @RequestBody PagamentoRequest requisicao, Sessao sessao) {
-        Pagamento pagamento = executar(enteId, requisicao, sessao);
+            @PathVariable("enteId") UUID enteId,
+            @RequestBody PagamentoRequest requisicao,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            Sessao sessao) {
+        Pagamento pagamento = executar(enteId, requisicao, sessao, chaveIdempotencia("individual", idempotencyKey));
         return ResponseEntity.status(HttpStatus.CREATED).body(PagamentoResponse.de(pagamento));
     }
 
@@ -60,7 +72,8 @@ final class PagamentoController {
         List<ItemComErro> erros = new ArrayList<>();
         for (ItemLotePagamentoRequest item : requisicao.itens()) {
             try {
-                Pagamento pagamento = executar(enteId, item.paraPagamentoRequest(), sessao);
+                Pagamento pagamento = executar(
+                        enteId, item.paraPagamentoRequest(), sessao, chaveIdempotencia("lote", item.chaveCliente()));
                 processados.add(new ItemProcessado(item.chaveCliente(), pagamento.id().valor(), pagamento.fatoContabilId()));
             } catch (RuntimeException erro) {
                 // Fail-soft (ADR-0013): item malformado (ex.: natureza/valor/UUID inválido, não só
@@ -72,7 +85,8 @@ final class PagamentoController {
         return ResponseEntity.status(207).body(new LotePagamentoResponse(processados, erros));
     }
 
-    private Pagamento executar(UUID enteId, PagamentoRequest requisicao, Sessao sessao) {
+    private Pagamento executar(
+            UUID enteId, PagamentoRequest requisicao, Sessao sessao, Optional<ChaveIdempotencia> chaveIdempotencia) {
         return registrarPagamento.executar(
                 sessao,
                 new TenantId(enteId),
@@ -82,7 +96,20 @@ final class PagamentoController {
                 NaturezaPagamento.valueOf(requisicao.natureza().toUpperCase()),
                 Optional.ofNullable(requisicao.beneficiario()).map(BeneficiarioRequest::paraDominio),
                 Optional.ofNullable(requisicao.ordemBancaria()),
-                requisicao.historico());
+                requisicao.historico(),
+                chaveIdempotencia);
+    }
+
+    /**
+     * {@code chave} em branco/ausente = sem idempotência (comportamento anterior, sem opt-in).
+     * {@code prefixo} evita colisão entre o {@code Idempotency-Key} do endpoint individual e o
+     * {@code chaveCliente} do lote — sem ele, o mesmo valor usado nos dois pontos de entrada
+     * (mesmo ente) faria curto-circuito para um pagamento não relacionado.
+     */
+    private static Optional<ChaveIdempotencia> chaveIdempotencia(String prefixo, String chave) {
+        return (chave == null || chave.isBlank())
+                ? Optional.empty()
+                : Optional.of(ChaveIdempotencia.de(prefixo + ':' + chave));
     }
 
     record BeneficiarioRequest(String nome, String cpfCnpj) {

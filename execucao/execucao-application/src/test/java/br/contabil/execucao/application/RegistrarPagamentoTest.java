@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.Mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -31,6 +32,7 @@ import br.contabil.execucao.domain.Liquidacao;
 import br.contabil.execucao.domain.LiquidacaoId;
 import br.contabil.execucao.domain.NaturezaPagamento;
 import br.contabil.execucao.domain.Pagamento;
+import br.contabil.execucao.domain.PagamentoId;
 import br.contabil.execucao.domain.PagamentoNaoAprovadoException;
 import br.contabil.execucao.domain.ReferenciaFatoContabil;
 import br.contabil.execucao.domain.SaldoInsuficienteException;
@@ -38,9 +40,11 @@ import br.contabil.execucao.domain.SaldoLiquidacao;
 import br.contabil.execucao.domain.StatusAprovacao;
 import br.contabil.execucao.domain.repository.ExecucaoContabilPort;
 import br.contabil.execucao.domain.repository.ExecucaoContabilPort.SolicitacaoEscrituracaoPagamento;
+import br.contabil.execucao.domain.repository.IdempotenciaPagamentoRepository;
 import br.contabil.execucao.domain.repository.LiquidacaoRepository;
 import br.contabil.execucao.domain.repository.PagamentoRepository;
 import br.contabil.execucao.domain.repository.SaldosExecucaoPort;
+import br.contabil.plataforma.domain.ChaveIdempotencia;
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
 import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
@@ -72,6 +76,9 @@ class RegistrarPagamentoTest {
     private PagamentoRepository repositorio;
 
     @Mock
+    private IdempotenciaPagamentoRepository idempotencia;
+
+    @Mock
     private PublicacaoTransparenciaExecucaoPort publicacaoTransparencia;
 
     @Mock
@@ -94,6 +101,7 @@ class RegistrarPagamentoTest {
                 saldos,
                 escrituracao,
                 repositorio,
+                idempotencia,
                 publicacaoTransparencia,
                 auditoria,
                 relogioFixo);
@@ -139,7 +147,8 @@ class RegistrarPagamentoTest {
                 NaturezaPagamento.ORCAMENTARIO,
                 Optional.of(fornecedor),
                 Optional.of("OB-10"),
-                "pagamento NF 123");
+                "pagamento NF 123",
+                Optional.empty());
 
         assertThat(pagamento.liquidacaoId()).isEqualTo(liquidacaoId);
         assertThat(pagamento.fatoContabilId()).isEqualTo(fatoContabilId.valor());
@@ -171,7 +180,8 @@ class RegistrarPagamentoTest {
                         NaturezaPagamento.ORCAMENTARIO,
                         Optional.empty(),
                         Optional.empty(),
-                        "pagamento sem beneficiário"))
+                        "pagamento sem beneficiário",
+                        Optional.empty()))
                 .isInstanceOf(ExecucaoInvalidaException.class);
 
         verifyNoInteractions(liquidacaoRepositorio, saldos, escrituracao, repositorio, publicacaoTransparencia, auditoria);
@@ -196,7 +206,8 @@ class RegistrarPagamentoTest {
                         NaturezaPagamento.ORCAMENTARIO,
                         Optional.of(fornecedor),
                         Optional.empty(),
-                        "pagamento acima do saldo"))
+                        "pagamento acima do saldo",
+                        Optional.empty()))
                 .isInstanceOf(SaldoInsuficienteException.class);
 
         verify(escrituracao, never()).registrarPagamento(any());
@@ -226,7 +237,8 @@ class RegistrarPagamentoTest {
                         NaturezaPagamento.ORCAMENTARIO,
                         Optional.of(fornecedor),
                         Optional.empty(),
-                        "pagamento NF 123"))
+                        "pagamento NF 123",
+                        Optional.empty()))
                 .isInstanceOf(IllegalStateException.class);
 
         verify(repositorio, never()).inserir(any());
@@ -254,7 +266,8 @@ class RegistrarPagamentoTest {
                         NaturezaPagamento.ORCAMENTARIO,
                         Optional.of(fornecedor),
                         Optional.empty(),
-                        "pagamento NF 123"))
+                        "pagamento NF 123",
+                        Optional.empty()))
                 .isInstanceOf(SemPermissaoException.class);
 
         verify(servicoIdentidade, never()).autorizar(any(), any(), any());
@@ -278,7 +291,8 @@ class RegistrarPagamentoTest {
                         NaturezaPagamento.ORCAMENTARIO,
                         Optional.of(fornecedor),
                         Optional.empty(),
-                        "pagamento de liquidação não aprovada"))
+                        "pagamento de liquidação não aprovada",
+                        Optional.empty()))
                 .isInstanceOf(PagamentoNaoAprovadoException.class)
                 .satisfies(erro -> assertThat(((PagamentoNaoAprovadoException) erro).codigo())
                         .isEqualTo("pagamento_nao_aprovado"));
@@ -303,10 +317,84 @@ class RegistrarPagamentoTest {
                         NaturezaPagamento.ORCAMENTARIO,
                         Optional.of(fornecedor),
                         Optional.empty(),
-                        "pagamento de liquidação devolvida"))
+                        "pagamento de liquidação devolvida",
+                        Optional.empty()))
                 .isInstanceOf(PagamentoNaoAprovadoException.class);
 
         verifyNoInteractions(saldos, escrituracao, repositorio, publicacaoTransparencia, auditoria);
+    }
+
+    @Test
+    @DisplayName("RAZ-134: chave nova reserva antes de escriturar e segue o fluxo normal")
+    void chaveNovaReservaAntesDeEscriturarESegueFluxoNormal() {
+        Sessao sessao = sessao();
+        ReferenciaFatoContabil fatoContabilId = new ReferenciaFatoContabil(UUID.randomUUID());
+        ChaveIdempotencia chave = ChaveIdempotencia.de("chave-nova-1");
+        when(servicoIdentidade.autorizar(sessao, RECURSO, Acao.CRIAR)).thenReturn(true);
+        when(liquidacaoRepositorio.buscarPorId(enteId, liquidacaoId))
+                .thenReturn(Optional.of(liquidacaoComStatus(StatusAprovacao.APROVADA)));
+        when(saldos.saldoLiquidacao(enteId, liquidacaoId))
+                .thenReturn(new SaldoLiquidacao(liquidacaoId, Dinheiro.de("1000.00"), Dinheiro.de("200.00")));
+        when(escrituracao.registrarPagamento(any(SolicitacaoEscrituracaoPagamento.class)))
+                .thenReturn(fatoContabilId);
+        when(idempotencia.reservar(eq(enteId), eq(chave), any(PagamentoId.class)))
+                .thenAnswer(invocacao -> invocacao.getArgument(2));
+
+        Pagamento pagamento = useCase.executar(
+                sessao,
+                enteId,
+                liquidacaoId,
+                dataCompetencia,
+                Dinheiro.de("300.00"),
+                NaturezaPagamento.ORCAMENTARIO,
+                Optional.of(fornecedor),
+                Optional.of("OB-10"),
+                "pagamento NF 123",
+                Optional.of(chave));
+
+        verify(idempotencia).reservar(eq(enteId), eq(chave), any(PagamentoId.class));
+        verify(repositorio).inserir(pagamento);
+        verify(publicacaoTransparencia).publicar(pagamento, sessao);
+    }
+
+    @Test
+    @DisplayName("RAZ-134: reenvio com a mesma chave devolve o pagamento original sem repetir o efeito")
+    void reenvioComMesmaChaveDevolveOPagamentoOriginalSemRepetirOEfeito() {
+        Sessao sessao = sessao();
+        ChaveIdempotencia chave = ChaveIdempotencia.de("chave-reenvio-1");
+        Pagamento pagamentoOriginal = Pagamento.registrar(
+                PagamentoId.novo(),
+                enteId,
+                liquidacaoId,
+                dataCompetencia,
+                Dinheiro.de("300.00"),
+                NaturezaPagamento.ORCAMENTARIO,
+                Optional.of(fornecedor),
+                Optional.of("OB-10"),
+                "pagamento NF 123",
+                UUID.randomUUID());
+        when(servicoIdentidade.autorizar(sessao, RECURSO, Acao.CRIAR)).thenReturn(true);
+        when(idempotencia.reservar(eq(enteId), eq(chave), any(PagamentoId.class)))
+                .thenReturn(pagamentoOriginal.id());
+        when(repositorio.buscarPorId(enteId, pagamentoOriginal.id())).thenReturn(Optional.of(pagamentoOriginal));
+
+        Pagamento pagamento = useCase.executar(
+                sessao,
+                enteId,
+                liquidacaoId,
+                dataCompetencia,
+                Dinheiro.de("300.00"),
+                NaturezaPagamento.ORCAMENTARIO,
+                Optional.of(fornecedor),
+                Optional.of("OB-10"),
+                "pagamento NF 123",
+                Optional.of(chave));
+
+        assertThat(pagamento).isEqualTo(pagamentoOriginal);
+        // Reenvio (mesma chave já usada): nem consulta liquidação/saldo nem repete a
+        // escrituração/persistência/publicação — mesmo que o saldo já esteja consumido.
+        verifyNoInteractions(liquidacaoRepositorio, saldos, escrituracao, publicacaoTransparencia, auditoria);
+        verify(repositorio, never()).inserir(any());
     }
 
     private Sessao sessao() {
