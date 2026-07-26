@@ -1,0 +1,42 @@
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "predev": "npm run tokens:build && npm run api:generate",
+    "dev": "vite",
+    "prebuild": "npm run tokens:build && npm run api:generate",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview",
+    "pretest": "npm run tokens:build && npm run api:generate",
+    "test": "vitest run",
+    "tokens:contrast": "node scripts/check-contrast.mjs",
+    "tokens:build": "npm run tokens:contrast && node scripts/build-tokens.mjs",
+    "api:generate": "node scripts/generate-api-client.mjs"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.101.4",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router-dom": "^7.18.1"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^24.13.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "jsdom": "^29.1.1",
+    "msw": "^2.15.0",
+    "openapi-typescript": "^7.13.0",
+    "oxlint": "^1.71.0",
+    "style-dictionary": "^5.5.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.1.1",
+    "vitest": "^4.1.10"
+  }
+}

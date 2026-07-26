@@ -1,0 +1,108 @@
+{
+  "color": {
+    "neutral": {
+      "0": { "$type": "color", "$value": "#ffffff" },
+      "50": { "$type": "color", "$value": "#f7f7f8" },
+      "100": { "$type": "color", "$value": "#e7e8ea" },
+      "200": { "$type": "color", "$value": "#d3d5d9" },
+      "300": { "$type": "color", "$value": "#b9bcc2" },
+      "400": { "$type": "color", "$value": "#8b8f98" },
+      "500": { "$type": "color", "$value": "#6b6f78" },
+      "600": { "$type": "color", "$value": "#565a63" },
+      "700": { "$type": "color", "$value": "#3c3f46" },
+      "900": { "$type": "color", "$value": "#17181b" }
+    },
+    "brand": {
+      "50": { "$type": "color", "$value": "#eaf1f8" },
+      "200": { "$type": "color", "$value": "#b7cee3" },
+      "500": {
+        "$type": "color",
+        "$value": "#2F6CAE",
+        "$description": "REAL — RAZ-100 (Paula), doc design-system-tokens-componentes.md §1.1: 'brand (9 passos, azul institucional #2F6CAE)'. Único valor hex documentado em texto (Foundations do Figma não pôde ser lido nesta sessão)."
+      },
+      "600": { "$type": "color", "$value": "#28609b", "$description": "PLACEHOLDER — passo real não documentado; usado para brand/hover." },
+      "700": { "$type": "color", "$value": "#1f4c7c", "$description": "PLACEHOLDER — passo real não documentado; usado para brand/pressed." },
+      "default": { "$type": "color", "$value": "{color.brand.500}" },
+      "hover": { "$type": "color", "$value": "{color.brand.600}" },
+      "pressed": { "$type": "color", "$value": "{color.brand.700}" },
+      "subtleBg": { "$type": "color", "$value": "{color.brand.50}" }
+    },
+    "success": {
+      "50": { "$type": "color", "$value": "#e6f4ea" },
+      "300": { "$type": "color", "$value": "#8fd19f" },
+      "700": { "$type": "color", "$value": "#146b2c" }
+    },
+    "warning": {
+      "50": { "$type": "color", "$value": "#fdf3e3" },
+      "300": { "$type": "color", "$value": "#e0b35c" },
+      "700": { "$type": "color", "$value": "#8a5a00" }
+    },
+    "danger": {
+      "50": { "$type": "color", "$value": "#fbe9e7" },
+      "300": { "$type": "color", "$value": "#e28b83" },
+      "700": { "$type": "color", "$value": "#b3261e" }
+    },
+    "bg": {
+      "canvas": { "$type": "color", "$value": "{color.neutral.50}" },
+      "surface": { "$type": "color", "$value": "{color.neutral.0}" },
+      "inset": { "$type": "color", "$value": "{color.neutral.100}" },
+      "disabled": { "$type": "color", "$value": "{color.neutral.100}" }
+    },
+    "text": {
+      "primary": { "$type": "color", "$value": "{color.neutral.900}" },
+      "secondary": { "$type": "color", "$value": "{color.neutral.600}" },
+      "tertiary": { "$type": "color", "$value": "{color.neutral.500}" },
+      "disabled": { "$type": "color", "$value": "{color.neutral.400}" },
+      "onBrand": { "$type": "color", "$value": "{color.neutral.0}" },
+      "link": { "$type": "color", "$value": "{color.brand.600}" }
+    },
+    "border": {
+      "default": { "$type": "color", "$value": "{color.neutral.300}" },
+      "strong": { "$type": "color", "$value": "{color.neutral.400}" },
+      "focus": { "$type": "color", "$value": "{color.brand.500}" }
+    },
+    "state": {
+      "neutral": {
+        "bg": { "$type": "color", "$value": "{color.neutral.100}" },
+        "fg": { "$type": "color", "$value": "{color.neutral.700}" },
+        "border": { "$type": "color", "$value": "{color.neutral.300}" }
+      },
+      "info": {
+        "bg": { "$type": "color", "$value": "{color.brand.50}" },
+        "fg": { "$type": "color", "$value": "{color.brand.700}" },
+        "border": { "$type": "color", "$value": "{color.brand.200}" }
+      },
+      "success": {
+        "bg": { "$type": "color", "$value": "{color.success.50}" },
+        "fg": { "$type": "color", "$value": "{color.success.700}" },
+        "border": { "$type": "color", "$value": "{color.success.300}" }
+      },
+      "warning": {
+        "bg": { "$type": "color", "$value": "{color.warning.50}" },
+        "fg": { "$type": "color", "$value": "{color.warning.700}" },
+        "border": { "$type": "color", "$value": "{color.warning.300}" }
+      },
+      "danger": {
+        "bg": { "$type": "color", "$value": "{color.danger.50}" },
+        "fg": { "$type": "color", "$value": "{color.danger.700}" },
+        "border": { "$type": "color", "$value": "{color.danger.300}" }
+      }
+    },
+    "pii": {
+      "maskBg": { "$type": "color", "$value": "{color.neutral.100}" },
+      "maskFg": { "$type": "color", "$value": "{color.neutral.700}" }
+    },
+    "$extensions": {
+      "contabil.contrastPairs": [
+        { "fg": "{color.text.primary}", "bg": "{color.bg.surface}", "context": "texto normal", "minRatio": 4.5 },
+        { "fg": "{color.text.secondary}", "bg": "{color.bg.surface}", "context": "texto normal", "minRatio": 4.5 },
+        { "fg": "{color.text.onBrand}", "bg": "{color.brand.default}", "context": "texto em botao/UI", "minRatio": 4.5 },
+        { "fg": "{color.state.success.fg}", "bg": "{color.state.success.bg}", "context": "badge/chip", "minRatio": 4.5 },
+        { "fg": "{color.state.warning.fg}", "bg": "{color.state.warning.bg}", "context": "badge/chip", "minRatio": 4.5 },
+        { "fg": "{color.state.danger.fg}", "bg": "{color.state.danger.bg}", "context": "badge/chip", "minRatio": 4.5 },
+        { "fg": "{color.state.info.fg}", "bg": "{color.state.info.bg}", "context": "badge/chip", "minRatio": 4.5 },
+        { "fg": "{color.pii.maskFg}", "bg": "{color.pii.maskBg}", "context": "chip de CPF mascarado", "minRatio": 4.5 }
+      ]
+    }
+  }
+}

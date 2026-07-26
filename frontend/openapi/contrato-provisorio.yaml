@@ -1,0 +1,248 @@
+# Contrato derivado do codigo real (RAZ-120) — NAO escrito por suposicao.
+#
+# CORRECAO IMPORTANTE (ver comentario e README): a primeira versao deste arquivo foi escrita
+# contra um `ExecucaoController` consolidado (3 POST, headers X-Govbr-*) encontrado numa copia
+# de workspace de agente (Aurelio) DESCONECTADA do repositorio real. Ao localizar o repositorio
+# real (bare metal, fora do sandbox do agente) em runtime, ele mostrou um contrato BEM MAIS RICO
+# e DIFERENTE: EmpenhoController/LiquidacaoController/PagamentoController separados (RAZ-105) +
+# ExecucaoConsultaController (RAZ-101/ADR-0029), enteId NO PATH (nao header), autenticacao via
+# UM UNICO header `Authorization: Bearer <assercao gov.br>` (nao 3 headers customizados) validado
+# a cada request por ServicoIdentidade (bootstrap/.../consulta/SessaoAutenticadaHttpResolver.java).
+# Este arquivo foi reescrito para bater com o codigo REAL (fonte: arquivos citados em `# java:`
+# em `/Volumes/Nash HD/projects/Oberware/contabil`, lidos diretamente nesta sessao).
+#
+# GAP DE ESCOPO (nao de fidelidade): o Empenho real tem campos ricos (dotacaoId, credorId,
+# unidadeGestoraId, contratoId, tipo, classificacaoOrcamentaria, fonteRecurso) que dependeriam de
+# telas de cadastro/autocomplete (dotacao, credor, unidade gestora) fora do escopo de "1 tela
+# minima". Os nomes/tipos de campo abaixo sao os REAIS; a tela minima aceita esses IDs como texto
+# livre (UUID colado), nao como picker — ver README "Gaps".
+#
+# GAP DE COBERTURA: fila de aprovacao (GET /liquidacoes), trilha (GET /liquidacoes/{id}/trilha),
+# aprovacao de liquidacao (POST /liquidacoes/{id}/aprovacao) e lote de pagamento
+# (POST /pagamentos:lote) EXISTEM no controller real mas NAO estao neste contrato/tela — follow-up.
+openapi: 3.0.3
+info:
+  title: SIAFIC — Execução orçamentária/financeira (derivado do código real)
+  version: 0.2.0
+  description: >
+    Empenho/liquidação/pagamento (escrita, RAZ-105) + execução orçamentária agregada
+    (consulta, RAZ-101). enteId sempre no path (ADR-0015). Autenticação: Authorization: Bearer
+    <asserção gov.br>, validada a cada request (stateless) por ServicoIdentidade.
+servers:
+  - url: /api/v1/entes/{enteId}
+    variables:
+      enteId:
+        default: '00000000-0000-0000-0000-000000000000'
+security:
+  - govbrBearer: []
+paths:
+  /execucao/empenhos:
+    post:
+      operationId: registrarEmpenho
+      summary: Registra um empenho. # java: escrita.EmpenhoController.registrar
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EmpenhoRequest' }
+      responses:
+        '201':
+          description: Empenho registrado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmpenhoResponse' }
+        '400': { $ref: '#/components/responses/ErroContrato' }
+        '401': { $ref: '#/components/responses/ErroContrato' }
+        '403': { $ref: '#/components/responses/ErroContrato' }
+  /execucao/liquidacoes:
+    post:
+      operationId: registrarLiquidacao
+      summary: Registra uma liquidação vinculada a um empenho. # java: escrita.LiquidacaoController.registrar
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LiquidacaoRequest' }
+      responses:
+        '201':
+          description: Liquidação registrada.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LiquidacaoResponse' }
+        '400': { $ref: '#/components/responses/ErroContrato' }
+        '401': { $ref: '#/components/responses/ErroContrato' }
+        '409': { $ref: '#/components/responses/ErroContrato' }
+  /execucao/pagamentos:
+    post:
+      operationId: registrarPagamento
+      summary: Registra um pagamento vinculado a uma liquidação. # java: escrita.PagamentoController.registrar
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PagamentoRequest' }
+      responses:
+        '201':
+          description: Pagamento registrado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PagamentoResponse' }
+        '400': { $ref: '#/components/responses/ErroContrato' }
+        '401': { $ref: '#/components/responses/ErroContrato' }
+        '409': { $ref: '#/components/responses/ErroContrato' }
+  /execucao/orcamentaria:
+    get:
+      operationId: consultarExecucaoOrcamentaria
+      summary: Execução orçamentária agregada do período. # java: consulta.ExecucaoConsultaController.orcamentaria
+      parameters:
+        - name: exercicio
+          in: query
+          required: true
+          schema: { type: integer }
+        - name: mes
+          in: query
+          required: true
+          schema: { type: integer, minimum: 1, maximum: 12 }
+      responses:
+        '200':
+          description: Execução orçamentária do período.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExecucaoOrcamentariaResponse' }
+        '401': { $ref: '#/components/responses/ErroContrato' }
+        '403': { $ref: '#/components/responses/ErroContrato' }
+components:
+  securitySchemes:
+    govbrBearer:
+      type: http
+      scheme: bearer
+      description: >
+        java: consulta.SessaoAutenticadaHttpResolver — "Authorization: Bearer <asserção gov.br>",
+        verificada a cada request via ServicoIdentidade.autenticar (stateless, sem cookie/sessão).
+  responses:
+    ErroContrato:
+      description: Envelope único de erro (RAZ-79 §6.1 / ADR-0030 §3). # java: consulta.ErroContratoExceptionHandler
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErroContratoResponse' }
+  schemas:
+    Dinheiro:
+      type: string
+      description: >
+        Decimal (escala 2) serializado como string pelo DinheiroJacksonModule real
+        (ADR-0030 §2) — nunca number no cliente.
+      example: '128450.00'
+    ErroContratoResponse:
+      type: object
+      required: [codigo, mensagem, detalhes]
+      properties:
+        codigo: { type: string, example: nao_autenticado }
+        mensagem: { type: string }
+        detalhes: { type: object, additionalProperties: { type: string } }
+    EmpenhoRequest:
+      type: object
+      required: [dotacaoId, tipo, credorId, unidadeGestoraId, valor, dataFato, exercicio, classificacaoOrcamentaria, fonteRecurso, historico]
+      properties:
+        dotacaoId: { type: string, format: uuid }
+        tipo: { type: string, enum: [ordinario, estimativo, global] }
+        credorId: { type: string, format: uuid }
+        unidadeGestoraId: { type: string, format: uuid }
+        contratoId: { type: string, format: uuid, nullable: true }
+        valor: { $ref: '#/components/schemas/Dinheiro' }
+        dataFato: { type: string, format: date }
+        exercicio: { type: integer }
+        classificacaoOrcamentaria: { type: string }
+        fonteRecurso: { type: string }
+        historico: { type: string }
+    EmpenhoResponse:
+      type: object
+      required: [id, numeroSequencial, exercicio, tipo, dotacaoId, credorId, unidadeGestoraId, valor, dataFato, classificacaoOrcamentaria, fonteRecurso, historico, fatoContabilId]
+      properties:
+        id: { type: string, format: uuid }
+        numeroSequencial: { type: integer, format: int64 }
+        exercicio: { type: integer }
+        tipo: { type: string, enum: [ordinario, estimativo, global] }
+        dotacaoId: { type: string, format: uuid }
+        credorId: { type: string, format: uuid }
+        unidadeGestoraId: { type: string, format: uuid }
+        contratoId: { type: string, format: uuid, nullable: true }
+        valor: { $ref: '#/components/schemas/Dinheiro' }
+        dataFato: { type: string, format: date }
+        classificacaoOrcamentaria: { type: string }
+        fonteRecurso: { type: string }
+        historico: { type: string }
+        fatoContabilId: { type: string, format: uuid }
+    LiquidacaoRequest:
+      type: object
+      required: [empenhoId, dataCompetencia, valor, documentosSuporte, historico]
+      properties:
+        empenhoId: { type: string, format: uuid }
+        dataCompetencia: { type: string, format: date }
+        valor: { $ref: '#/components/schemas/Dinheiro' }
+        documentosSuporte:
+          type: array
+          items: { $ref: '#/components/schemas/DocumentoSuporte' }
+        historico: { type: string }
+    DocumentoSuporte:
+      type: object
+      required: [tipo, numero, dataEmissao]
+      properties:
+        tipo: { type: string }
+        numero: { type: string }
+        dataEmissao: { type: string, format: date }
+        referenciaExterna: { type: string, nullable: true }
+    LiquidacaoResponse:
+      type: object
+      required: [id, empenhoId, dataCompetencia, valor, documentosSuporte, historico, fatoContabilId, status]
+      properties:
+        id: { type: string, format: uuid }
+        empenhoId: { type: string, format: uuid }
+        dataCompetencia: { type: string, format: date }
+        valor: { $ref: '#/components/schemas/Dinheiro' }
+        documentosSuporte:
+          type: array
+          items: { $ref: '#/components/schemas/DocumentoSuporte' }
+        historico: { type: string }
+        fatoContabilId: { type: string, format: uuid }
+        status: { type: string, enum: [pendente, aprovada, devolvida] }
+    PagamentoRequest:
+      type: object
+      required: [liquidacaoId, dataCompetencia, valor, natureza, historico]
+      properties:
+        liquidacaoId: { type: string, format: uuid }
+        dataCompetencia: { type: string, format: date }
+        valor: { $ref: '#/components/schemas/Dinheiro' }
+        natureza: { type: string }
+        beneficiario: { $ref: '#/components/schemas/Beneficiario', nullable: true }
+        ordemBancaria: { type: string, nullable: true }
+        historico: { type: string }
+    Beneficiario:
+      type: object
+      required: [nome, cpfCnpj]
+      properties:
+        nome: { type: string }
+        cpfCnpj: { type: string, description: 'Mascarado na resposta — nunca em claro (RAZ-79 §6.1).' }
+    PagamentoResponse:
+      type: object
+      required: [id, liquidacaoId, dataCompetencia, valor, natureza, historico, fatoContabilId]
+      properties:
+        id: { type: string, format: uuid }
+        liquidacaoId: { type: string, format: uuid }
+        dataCompetencia: { type: string, format: date }
+        valor: { $ref: '#/components/schemas/Dinheiro' }
+        natureza: { type: string }
+        beneficiario: { $ref: '#/components/schemas/Beneficiario', nullable: true }
+        ordemBancaria: { type: string, nullable: true }
+        historico: { type: string }
+        fatoContabilId: { type: string, format: uuid }
+    ExecucaoOrcamentariaResponse:
+      type: object
+      required: [exercicio, mes, totalEmpenhado, totalLiquidado, totalPago, saldoALiquidar, saldoAPagar]
+      properties:
+        exercicio: { type: integer }
+        mes: { type: integer }
+        totalEmpenhado: { $ref: '#/components/schemas/Dinheiro' }
+        totalLiquidado: { $ref: '#/components/schemas/Dinheiro' }
+        totalPago: { $ref: '#/components/schemas/Dinheiro' }
+        saldoALiquidar: { $ref: '#/components/schemas/Dinheiro' }
+        saldoAPagar: { $ref: '#/components/schemas/Dinheiro' }
