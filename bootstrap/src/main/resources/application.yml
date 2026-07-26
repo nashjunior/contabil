@@ -49,6 +49,15 @@ logging:
     org.flywaydb: INFO
 
 siafic:
+  entrega:
+    outbox:
+      enabled: ${OUTBOX_WORKER_ENABLED:false}
+      intervalo-ms: ${OUTBOX_WORKER_INTERVALO_MS:10000}
+      batch-size: ${OUTBOX_WORKER_BATCH_SIZE:50}
+      max-tentativas: ${OUTBOX_WORKER_MAX_TENTATIVAS:5}
+      lock-duration: ${OUTBOX_WORKER_LOCK_DURATION:PT2M}
+      backoff-base: ${OUTBOX_WORKER_BACKOFF_BASE:PT5S}
+      backoff-max: ${OUTBOX_WORKER_BACKOFF_MAX:PT15M}
   iam:
     enabled: ${IAM_ENABLED:false}
     session-ttl: ${IAM_SESSION_TTL:PT8H}

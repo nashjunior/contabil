@@ -1,13 +1,13 @@
 package br.contabil.migration;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.stream.Stream;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -61,6 +61,8 @@ class VazamentoCrossTenantRlsTest {
     private static final String DOTACAO_B = "dddddddd-4444-4444-4444-dddddddddddd";
     private static final String EMPENHO_A = "eeeeeeee-3333-3333-3333-eeeeeeeeeeee";
     private static final String EMPENHO_B = "eeeeeeee-4444-4444-4444-eeeeeeeeeeee";
+    private static final String OUTBOX_A = "99999999-3333-3333-3333-999999999999";
+    private static final String OUTBOX_B = "99999999-4444-4444-4444-999999999999";
 
     @BeforeAll
     static void migraESemeiaDuasEntesComDadosEmTodasAsTabelasProtegidas() throws SQLException {
@@ -122,10 +124,15 @@ class VazamentoCrossTenantRlsTest {
                        '0100000000', 'empenho ente B', '%s')
                     """.formatted(EMPENHO_A, ENTE_A, DOTACAO_A, FATO_A, EMPENHO_B, ENTE_B, DOTACAO_B, FATO_B));
             st.execute("""
-                    insert into outbox_mensagem (ente_id, chave, destino, tipo, conteudo) values
-                      ('%s', 'chave-a', 'transparencia', 'execucao.empenho.registrado.v1', '{}'),
-                      ('%s', 'chave-b', 'transparencia', 'execucao.empenho.registrado.v1', '{}')
-                    """.formatted(ENTE_A, ENTE_B));
+                    insert into outbox_mensagem (id, ente_id, chave, destino, tipo, conteudo) values
+                      ('%s', '%s', 'chave-a', 'transparencia', 'execucao.empenho.registrado.v1', '{}'),
+                      ('%s', '%s', 'chave-b', 'transparencia', 'execucao.empenho.registrado.v1', '{}')
+                    """.formatted(OUTBOX_A, ENTE_A, OUTBOX_B, ENTE_B));
+            st.execute("""
+                    insert into outbox_dlq (mensagem_id, ente_id, chave, destino, tipo, conteudo, tentativas, erro) values
+                      ('%s', '%s', 'chave-a', 'transparencia', 'execucao.empenho.registrado.v1', '{}', 5, 'poison A'),
+                      ('%s', '%s', 'chave-b', 'transparencia', 'execucao.empenho.registrado.v1', '{}', 5, 'poison B')
+                    """.formatted(OUTBOX_A, ENTE_A, OUTBOX_B, ENTE_B));
         }
     }
 
@@ -137,7 +144,7 @@ class VazamentoCrossTenantRlsTest {
     static Stream<String> tabelasProtegidasPorRls() {
         return Stream.of(
                 "conta_pcasp", "periodo_contabil", "fato_contabil", "lancamento",
-                "dotacao", "empenho", "outbox_mensagem");
+                "dotacao", "empenho", "outbox_mensagem", "outbox_dlq");
     }
 
     @ParameterizedTest(name = "{0}: soma do que A e B enxergam bate com o total — zero linha cruzada")

@@ -11,8 +11,7 @@ import org.springframework.stereotype.Component;
 /**
  * Adapter Postgres do outbox de entrega garantida (ADR-0004/0011). {@code enqueue}
  * grava a intenção de publicar na MESMA transação do fato que a originou — o
- * despacho assíncrono ao destino real (worker/broker) não faz parte deste
- * adapter, que cobre só a escrita idempotente e a consulta de status.
+ * despacho assíncrono ao destino real fica no worker/broker de entrega.
  *
  * <p>Fecha o gap de wiring do RAZ-9: sem este bean, qualquer caso de uso que
  * dependa de {@link ServicoEntrega} (ex.: publicação na transparência) impede
