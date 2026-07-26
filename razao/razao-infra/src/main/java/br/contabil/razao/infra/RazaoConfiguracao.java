@@ -6,11 +6,13 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import br.contabil.plataforma.domain.iam.ControleAcesso;
+import br.contabil.razao.application.ConsultarContas;
 import br.contabil.razao.application.ConsultarSaldo;
 import br.contabil.razao.application.EstornarFatoContabil;
 import br.contabil.razao.application.GerarBalancete;
 import br.contabil.razao.application.RegistrarFatoContabil;
 import br.contabil.razao.domain.repository.BalancetePort;
+import br.contabil.razao.domain.repository.CatalogoContasPort;
 import br.contabil.razao.domain.repository.ConsultaSaldoPort;
 import br.contabil.razao.domain.repository.ContadorFatoPort;
 import br.contabil.razao.domain.repository.FatoContabilRepository;
@@ -53,10 +55,20 @@ public class RazaoConfiguracao {
         return new EstornarFatoContabil(controleAcesso, repositorio, contadorFato, periodoContabil, clock);
     }
 
-    /** RAZ-59: fecha o gap de {@link ConsultaSaldoPort} sem use case (fora do advisor de tenant). */
+    /**
+     * RAZ-59: fecha o gap de {@link ConsultaSaldoPort} sem use case (fora do advisor de tenant).
+     * RAZ-117: injeta {@link CatalogoContasPort} para validar a existência da conta (gap 2 da ADR-0030).
+     */
     @Bean
-    public ConsultarSaldo consultarSaldo(ControleAcesso controleAcesso, ConsultaSaldoPort consultaSaldo) {
-        return new ConsultarSaldo(controleAcesso, consultaSaldo);
+    public ConsultarSaldo consultarSaldo(
+            ControleAcesso controleAcesso, ConsultaSaldoPort consultaSaldo, CatalogoContasPort catalogo) {
+        return new ConsultarSaldo(controleAcesso, consultaSaldo, catalogo);
+    }
+
+    /** RAZ-117: catálogo/busca de contas do PCASP (ADR-0030 §6) — o read port que faltava. */
+    @Bean
+    public ConsultarContas consultarContas(ControleAcesso controleAcesso, CatalogoContasPort catalogo) {
+        return new ConsultarContas(controleAcesso, catalogo);
     }
 
     /** RAZ-97: balancete de encerramento/comparativo entre períodos. */

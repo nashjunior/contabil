@@ -27,6 +27,8 @@ import br.contabil.plataforma.domain.iam.ServicoIdentidade.Recurso;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.SemPermissaoException;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
 import br.contabil.razao.domain.ContaContabilId;
+import br.contabil.razao.domain.ContaNaoEncontradaException;
+import br.contabil.razao.domain.repository.CatalogoContasPort;
 import br.contabil.razao.domain.repository.ConsultaSaldoPort;
 
 @ExtendWith(MockitoExtension.class)
@@ -37,6 +39,9 @@ class ConsultarSaldoTest {
 
     @Mock
     private ConsultaSaldoPort consultaSaldo;
+
+    @Mock
+    private CatalogoContasPort catalogo;
 
     private ConsultarSaldo useCase;
 
@@ -50,15 +55,16 @@ class ConsultarSaldoTest {
 
     @BeforeEach
     void setUp() {
-        useCase = new ConsultarSaldo(new ControleAcesso(servicoIdentidade), consultaSaldo);
+        useCase = new ConsultarSaldo(new ControleAcesso(servicoIdentidade), consultaSaldo, catalogo);
     }
 
     @Test
-    @DisplayName("devolve o saldo do port quando o RBAC autoriza — LER nunca exige MFA")
+    @DisplayName("devolve o saldo do port quando a conta existe e o RBAC autoriza — LER nunca exige MFA")
     void devolveSaldoAutorizado() {
         Sessao sessao = sessaoSemMfa();
         when(servicoIdentidade.autorizar(sessao, new Recurso("razao:saldo_conta"), ServicoIdentidade.Acao.LER))
                 .thenReturn(true);
+        when(catalogo.existe(enteId, contaId)).thenReturn(true);
         when(consultaSaldo.saldoDevedorLiquido(enteId, contaId)).thenReturn(Dinheiro.de("123.45"));
 
         Dinheiro saldo = useCase.executar(sessao, enteId, contaId);
@@ -67,7 +73,22 @@ class ConsultarSaldoTest {
     }
 
     @Test
-    @DisplayName("RAZ-33 deny: RBAC nega a consulta — SemPermissaoException sem tocar no port")
+    @DisplayName("RAZ-117 gap 2: conta inexistente lança conta_nao_encontrada sem ler o saldo (zero ≠ inexistente)")
+    void contaInexistenteLancaContaNaoEncontrada() {
+        Sessao sessao = sessaoSemMfa();
+        when(servicoIdentidade.autorizar(sessao, new Recurso("razao:saldo_conta"), ServicoIdentidade.Acao.LER))
+                .thenReturn(true);
+        when(catalogo.existe(enteId, contaId)).thenReturn(false);
+
+        assertThatThrownBy(() -> useCase.executar(sessao, enteId, contaId))
+                .isInstanceOf(ContaNaoEncontradaException.class)
+                .satisfies(e -> assertThat(((ContaNaoEncontradaException) e).codigo()).isEqualTo("conta_nao_encontrada"));
+
+        verifyNoInteractions(consultaSaldo);
+    }
+
+    @Test
+    @DisplayName("RAZ-33 deny: RBAC nega a consulta — SemPermissaoException sem tocar no catálogo nem no saldo")
     void negaSemAutorizacaoDoRbac() {
         Sessao sessao = sessaoSemMfa();
         when(servicoIdentidade.autorizar(sessao, new Recurso("razao:saldo_conta"), ServicoIdentidade.Acao.LER))
@@ -76,6 +97,7 @@ class ConsultarSaldoTest {
         assertThatThrownBy(() -> useCase.executar(sessao, enteId, contaId))
                 .isInstanceOf(SemPermissaoException.class);
 
+        verifyNoInteractions(catalogo);
         verifyNoInteractions(consultaSaldo);
     }
 
@@ -94,6 +116,7 @@ class ConsultarSaldoTest {
                 .isInstanceOf(SemPermissaoException.class);
 
         verify(servicoIdentidade, never()).autorizar(any(), any(), any());
+        verifyNoInteractions(catalogo);
         verifyNoInteractions(consultaSaldo);
     }
 }
