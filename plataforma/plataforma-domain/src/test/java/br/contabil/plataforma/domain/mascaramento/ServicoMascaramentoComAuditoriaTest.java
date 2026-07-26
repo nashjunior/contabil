@@ -36,15 +36,15 @@ class ServicoMascaramentoComAuditoriaTest {
     @Test
     @DisplayName("acesso permitido a CPF gera evento acesso_dado_pessoal sem o valor em claro")
     void acessoPermitidoGeraEventoAuditavel() {
-        ServicoMascaramento servico = new ServicoMascaramentoComAuditoria(
-                delegadoQueDevolve("***.456.***-**"), trilha, RELOGIO);
+        ServicoMascaramento servico =
+                new ServicoMascaramentoComAuditoria(new ServicoMascaramentoPadrao(), trilha, RELOGIO);
         // CPF sintético sem checksum válido (13-nfr §piso "sem PII real em não-produção").
         CampoSensivel cpf = new CampoSensivel("cpf", "11122233344", Categoria.CPF);
         ContextoAcesso contexto = new ContextoAcesso(ENTE, "auditor-1", "prestacao_de_contas", BaseLegalLgpd.OBRIGACAO_LEGAL);
 
-        String resultado = servico.mascarar(cpf, contexto, Audiencia.BACKOFFICE);
+        String resultado = servico.mascarar(cpf, contexto, Audiencia.PORTAL_PUBLICO);
 
-        assertThat(resultado).isEqualTo("***.456.***-**");
+        assertThat(resultado).isEqualTo("***.222.***-**");
         assertThat(trilha.eventos).hasSize(1);
         EventoAuditoria evento = trilha.eventos.get(0);
         assertThat(evento.tipo()).isEqualTo("acesso_dado_pessoal");
@@ -53,7 +53,7 @@ class ServicoMascaramentoComAuditoriaTest {
         assertThat(evento.recurso()).isEqualTo("cpf");
         assertThat(evento.detalhes())
                 .containsEntry("categoria", "CPF")
-                .containsEntry("audiencia", "BACKOFFICE")
+                .containsEntry("audiencia", "PORTAL_PUBLICO")
                 .containsEntry("base_legal", "OBRIGACAO_LEGAL")
                 .containsEntry("resultado", "permitido");
         // O evento não pode virar, ele mesmo, um vazamento de PII.
