@@ -10,6 +10,7 @@ import br.contabil.execucao.application.AprovarPagamento;
 import br.contabil.execucao.application.AssinarEmpenho;
 import br.contabil.execucao.application.ConsultarDocumentoEmpenho;
 import br.contabil.execucao.application.ConsultarDotacoes;
+import br.contabil.execucao.application.ConsultarEmpenhoPorId;
 import br.contabil.execucao.application.ConsultarEmpenhosRegistrados;
 import br.contabil.execucao.application.ConsultarExecucaoOrcamentaria;
 import br.contabil.execucao.application.ConsultarFilaAprovacao;
@@ -187,6 +188,16 @@ public class ExecucaoConfiguracao {
     public ConsultarEmpenhosRegistrados consultarEmpenhosRegistrados(
             ControleAcesso controleAcesso, EmpenhosRegistradosQuery empenhosRegistrados) {
         return new ConsultarEmpenhosRegistrados(controleAcesso, empenhosRegistrados);
+    }
+
+    /**
+     * RAZ-156/ADR-0039 decisão 1: leitura do empenho por id com status + bloco
+     * documento — sem read model dedicado, lê o mesmo agregado que {@link
+     * #assinarEmpenho}/{@link #consultarDocumentoEmpenho} via {@link EmpenhoRepository#buscarPorId}.
+     */
+    @Bean
+    public ConsultarEmpenhoPorId consultarEmpenhoPorId(ControleAcesso controleAcesso, EmpenhoRepository repositorio) {
+        return new ConsultarEmpenhoPorId(controleAcesso, repositorio);
     }
 
     /** RAZ-148/ADR-0038: dotações por ente/exercício com saldo inline para a tela de gestão. */

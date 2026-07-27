@@ -66,6 +66,31 @@ paths:
         '400': { $ref: '#/components/responses/ErroContrato' }
         '401': { $ref: '#/components/responses/ErroContrato' }
         '403': { $ref: '#/components/responses/ErroContrato' }
+  /execucao/empenhos/{id}:
+    get:
+      operationId: consultarEmpenhoPorId
+      summary: >-
+        Empenho por id com status e bloco documento (metadados de assinatura,
+        sem o binário — ADR-0039 decisão 1). # java: consulta.ExecucaoConsultaController.empenhoPorId
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Empenho com status e bloco documento.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmpenhoPorIdResponse' }
+        '401': { $ref: '#/components/responses/ErroContrato' }
+        '403': { $ref: '#/components/responses/ErroContrato' }
+        '404':
+          description: >-
+            Empenho inexistente para o ente — codigo `empenho_nao_encontrado`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErroContratoResponse' }
   /execucao/empenhos/{id}/documento:
     get:
       operationId: consultarDocumentoEmpenho
@@ -301,6 +326,49 @@ components:
         fonteRecurso: { type: string }
         historico: { type: string }
         fatoContabilId: { type: string, format: uuid }
+    EmpenhoPorIdResponse:
+      type: object
+      # java: consulta.ExecucaoConsultaController.EmpenhoPorIdResponse — RAZ-156/ADR-0039 decisão 1.
+      required: [id, numeroSequencial, exercicio, tipo, credorId, valor, dataFato, historico, status, documento]
+      properties:
+        id: { type: string, format: uuid }
+        numeroSequencial: { type: integer, format: int64 }
+        exercicio: { type: integer }
+        tipo: { type: string, enum: [ordinario, estimativo, global] }
+        credorId: { type: string, format: uuid }
+        valor: { $ref: '#/components/schemas/Dinheiro' }
+        dataFato: { type: string, format: date }
+        historico: { type: string }
+        status: { type: string, enum: [registrado, pendente_assinatura, assinado, assinatura_rejeitada] }
+        documento: { $ref: '#/components/schemas/DocumentoEmpenhoResponse' }
+    DocumentoEmpenhoResponse:
+      type: object
+      required: [pendenteUri, assinado]
+      properties:
+        pendenteUri:
+          type: string
+          nullable: true
+          description: >-
+            Indicador OPACO de presença do documento pendente — NUNCA a s3://
+            crua do object store (ADR-0009 §RAZ-45). Presente só quando status é
+            pendente_assinatura/assinatura_rejeitada; o binário sai por
+            GET .../empenhos/{id}/documento (RAZ-157), nunca por este campo.
+        assinado:
+          allOf:
+            - $ref: '#/components/schemas/DocumentoAssinadoResponse'
+          nullable: true
+          description: Preenchido só quando status = assinado.
+    DocumentoAssinadoResponse:
+      type: object
+      required: [hashSha256, idTransacao, nivel, signatario, assinadoEm]
+      properties:
+        hashSha256: { type: string }
+        idTransacao: { type: string, format: uuid }
+        nivel: { type: string, enum: [AVANCADA_GOVBR, QUALIFICADA_ICP_BRASIL] }
+        signatario:
+          type: string
+          description: 'CPF do signatário, mascarado no boundary (R4, ADR-0039) — nunca em claro.'
+        assinadoEm: { type: string, format: date-time }
     LiquidacaoRequest:
       type: object
       required: [empenhoId, dataCompetencia, valor, documentosSuporte, historico]

@@ -15,12 +15,16 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.contabil.execucao.application.ConsultarDotacoes;
+import br.contabil.execucao.application.ConsultarEmpenhoPorId;
 import br.contabil.execucao.application.ConsultarEmpenhosRegistrados;
 import br.contabil.execucao.application.ConsultarExecucaoOrcamentaria;
 import br.contabil.execucao.application.ConsultarFilaAprovacao;
 import br.contabil.execucao.application.ConsultarLiquidacoesRegistradas;
 import br.contabil.execucao.application.ConsultarPagamentosRegistrados;
 import br.contabil.execucao.application.ConsultarTrilhaLiquidacao;
+import br.contabil.execucao.domain.DocumentoAssinadoEmpenho;
+import br.contabil.execucao.domain.Empenho;
+import br.contabil.execucao.domain.EmpenhoId;
 import br.contabil.execucao.domain.FiltroFilaAprovacao;
 import br.contabil.execucao.domain.ItemDotacaoComSaldo;
 import br.contabil.execucao.domain.ItemEmpenhoRegistrado;
@@ -34,6 +38,7 @@ import br.contabil.execucao.domain.PaginaFilaAprovacao;
 import br.contabil.execucao.domain.PaginaLiquidacoesRegistradas;
 import br.contabil.execucao.domain.PaginaPagamentosRegistrados;
 import br.contabil.execucao.domain.StatusAprovacao;
+import br.contabil.execucao.domain.StatusEmpenho;
 import br.contabil.execucao.domain.TrilhaLiquidacao;
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
@@ -55,6 +60,7 @@ final class ExecucaoConsultaController {
     private final ConsultarFilaAprovacao consultarFilaAprovacao;
     private final ConsultarTrilhaLiquidacao consultarTrilhaLiquidacao;
     private final ConsultarEmpenhosRegistrados consultarEmpenhosRegistrados;
+    private final ConsultarEmpenhoPorId consultarEmpenhoPorId;
     private final ConsultarDotacoes consultarDotacoes;
     private final ConsultarLiquidacoesRegistradas consultarLiquidacoesRegistradas;
     private final ConsultarPagamentosRegistrados consultarPagamentosRegistrados;
@@ -64,6 +70,7 @@ final class ExecucaoConsultaController {
             ConsultarFilaAprovacao consultarFilaAprovacao,
             ConsultarTrilhaLiquidacao consultarTrilhaLiquidacao,
             ConsultarEmpenhosRegistrados consultarEmpenhosRegistrados,
+            ConsultarEmpenhoPorId consultarEmpenhoPorId,
             ConsultarDotacoes consultarDotacoes,
             ConsultarLiquidacoesRegistradas consultarLiquidacoesRegistradas,
             ConsultarPagamentosRegistrados consultarPagamentosRegistrados) {
@@ -74,6 +81,7 @@ final class ExecucaoConsultaController {
                 Objects.requireNonNull(consultarTrilhaLiquidacao, "consultarTrilhaLiquidacao");
         this.consultarEmpenhosRegistrados =
                 Objects.requireNonNull(consultarEmpenhosRegistrados, "consultarEmpenhosRegistrados");
+        this.consultarEmpenhoPorId = Objects.requireNonNull(consultarEmpenhoPorId, "consultarEmpenhoPorId");
         this.consultarDotacoes = Objects.requireNonNull(consultarDotacoes, "consultarDotacoes");
         this.consultarLiquidacoesRegistradas =
                 Objects.requireNonNull(consultarLiquidacoesRegistradas, "consultarLiquidacoesRegistradas");
@@ -171,6 +179,21 @@ final class ExecucaoConsultaController {
                 Optional.ofNullable(limit),
                 Optional.ofNullable(cursor));
         return EmpenhosRegistradosResponse.de(pagina);
+    }
+
+    /**
+     * RAZ-156/ADR-0039 decisão 1: leitura de 1 empenho por id, status + bloco
+     * {@code documento} (metadados de assinatura) para a tela de assinatura
+     * (RAZ-141). Distinto de {@link #empenhos} (lista, sem documento); mesma
+     * classe de leitura ({@code Acao.LER}, sem MFA). O binário nunca sai aqui —
+     * {@code pendenteUri} é só indicador opaco de presença, o PDF sai pelo
+     * endpoint irmão {@code .../documento} (RAZ-157).
+     */
+    @GetMapping("/empenhos/{id}")
+    EmpenhoPorIdResponse empenhoPorId(
+            @PathVariable("enteId") UUID enteId, @PathVariable("id") UUID id, Sessao sessao) {
+        Empenho empenho = consultarEmpenhoPorId.executar(sessao, new TenantId(enteId), new EmpenhoId(id));
+        return EmpenhoPorIdResponse.de(empenho);
     }
 
     /**
@@ -294,6 +317,72 @@ final class ExecucaoConsultaController {
                     item.dataFato(),
                     item.historico(),
                     item.status().name().toLowerCase());
+        }
+    }
+
+    /** RAZ-156/ADR-0039 decisão 1: mesma forma de {@link EmpenhoRegistradoResponse} + bloco {@code documento}. */
+    record EmpenhoPorIdResponse(
+            UUID id,
+            long numeroSequencial,
+            int exercicio,
+            String tipo,
+            UUID credorId,
+            String valor,
+            LocalDate dataFato,
+            String historico,
+            String status,
+            DocumentoEmpenhoResponse documento) {
+
+        static EmpenhoPorIdResponse de(Empenho empenho) {
+            return new EmpenhoPorIdResponse(
+                    empenho.id().valor(),
+                    empenho.numeroSequencial(),
+                    empenho.exercicio(),
+                    empenho.tipo().codigo(),
+                    empenho.credorId().valor(),
+                    empenho.valor().valor().toPlainString(),
+                    empenho.dataFato(),
+                    empenho.historico(),
+                    empenho.status().name().toLowerCase(),
+                    DocumentoEmpenhoResponse.de(empenho));
+        }
+    }
+
+    /**
+     * R4/ADR-0009 (RAZ-45): {@code pendenteUri} nunca é a s3:// crua do object
+     * store — é só o indicador opaco de presença do documento pendente (o
+     * binário sai por {@code .../empenhos/{id}/documento}, RAZ-157). Presente só
+     * em {@code PENDENTE_ASSINATURA}/{@code ASSINATURA_REJEITADA}: o {@code
+     * Optional} do agregado permanece preenchido depois de {@code ASSINADO}
+     * (nunca é limpo na transição), mas o contrato de leitura não expõe o
+     * pendente quando já existe assinado.
+     */
+    record DocumentoEmpenhoResponse(String pendenteUri, DocumentoAssinadoResponse assinado) {
+
+        private static final String INDICADOR_PENDENTE_PRESENTE = "presente";
+
+        static DocumentoEmpenhoResponse de(Empenho empenho) {
+            boolean pendente = empenho.documentoPendenteUri().isPresent()
+                    && (empenho.status() == StatusEmpenho.PENDENTE_ASSINATURA
+                            || empenho.status() == StatusEmpenho.ASSINATURA_REJEITADA);
+            DocumentoAssinadoResponse assinado = empenho.status() == StatusEmpenho.ASSINADO
+                    ? empenho.documentoAssinado().map(DocumentoAssinadoResponse::de).orElse(null)
+                    : null;
+            return new DocumentoEmpenhoResponse(pendente ? INDICADOR_PENDENTE_PRESENTE : null, assinado);
+        }
+    }
+
+    /** R4: {@code signatario} mascarado reusando {@code Cpf#mascarado()} (mesmo helper da trilha) — nunca CPF cru. */
+    record DocumentoAssinadoResponse(
+            String hashSha256, UUID idTransacao, String nivel, String signatario, Instant assinadoEm) {
+
+        static DocumentoAssinadoResponse de(DocumentoAssinadoEmpenho documento) {
+            return new DocumentoAssinadoResponse(
+                    documento.hashSha256(),
+                    documento.idTransacao(),
+                    documento.nivel().name(),
+                    documento.signatario().mascarado(),
+                    documento.assinadoEm());
         }
     }
 

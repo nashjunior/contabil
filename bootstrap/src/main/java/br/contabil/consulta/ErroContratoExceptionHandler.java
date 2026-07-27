@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import br.contabil.assinatura.AssinaturaGovBrOAuthProvedorIndisponivelException;
 import br.contabil.execucao.domain.AutoAprovacaoNaoPermitidaException;
 import br.contabil.execucao.domain.EmpenhoAssinaturaConflitanteException;
+import br.contabil.execucao.domain.EmpenhoNaoEncontradoException;
 import br.contabil.execucao.domain.ExecucaoInvalidaException;
 import br.contabil.execucao.domain.LiquidacaoJaDecididaException;
 import br.contabil.execucao.domain.PagamentoNaoAprovadoException;
@@ -131,6 +132,17 @@ class ErroContratoExceptionHandler {
     @ExceptionHandler(EmpenhoAssinaturaConflitanteException.class)
     ResponseEntity<ErroResponse> empenhoAssinaturaConflitante(EmpenhoAssinaturaConflitanteException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(corpo(e.codigo(), e));
+    }
+
+    /**
+     * RAZ-156/ADR-0039 decisão 1: leitura por id sem o empenho existir para o
+     * {@code enteId} do path (RLS já escopou a consulta) vira {@code
+     * empenho_nao_encontrado}, {@code 404} — mesmo envelope único, nenhuma
+     * taxonomia nova.
+     */
+    @ExceptionHandler(EmpenhoNaoEncontradoException.class)
+    ResponseEntity<ErroResponse> empenhoNaoEncontrado(EmpenhoNaoEncontradoException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(corpo(e.codigo(), e));
     }
 
     @ExceptionHandler(CertificadoInvalidoException.class)
