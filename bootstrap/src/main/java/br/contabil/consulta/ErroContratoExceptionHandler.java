@@ -19,6 +19,8 @@ import br.contabil.execucao.domain.PagamentoNaoAprovadoException;
 import br.contabil.execucao.domain.SaldoInsuficienteException;
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.CertificadoInvalidoException;
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.NivelInsuficienteException;
+import br.contabil.plataforma.domain.documento.ArmazenamentoDocumentos.DocumentoNaoEncontradoException;
+import br.contabil.plataforma.domain.documento.ArmazenamentoDocumentos.DocumentoTenantInvalidoException;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.MfaRequeridoException;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.NaoAutenticadoException;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.SemPermissaoException;
@@ -104,6 +106,26 @@ class ErroContratoExceptionHandler {
     @ExceptionHandler(PeriodoEncerradoException.class)
     ResponseEntity<ErroResponse> periodoEncerrado(PeriodoEncerradoException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(corpo("periodo_encerrado", e));
+    }
+
+    /**
+     * RAZ-157/ADR-0009: empenho sem documento (nem pendente nem assinado) ou id
+     * inexistente vira {@code documento_nao_encontrado}, {@code 404} — mesmo
+     * envelope único, nenhuma taxonomia nova.
+     */
+    @ExceptionHandler(DocumentoNaoEncontradoException.class)
+    ResponseEntity<ErroResponse> documentoNaoEncontrado(DocumentoNaoEncontradoException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(corpo(e.codigo(), e));
+    }
+
+    /**
+     * RAZ-157/ADR-0009 (RAZ-45): defesa em profundidade — URI cross-tenant nunca
+     * chega a resolver conteúdo; devolve o mesmo {@code 404} de "não encontrado"
+     * em vez de confirmar ao cliente que a URI existe, só que de outro ente.
+     */
+    @ExceptionHandler(DocumentoTenantInvalidoException.class)
+    ResponseEntity<ErroResponse> documentoTenantInvalido(DocumentoTenantInvalidoException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(corpo(e.codigo(), e));
     }
 
     @ExceptionHandler(EmpenhoAssinaturaConflitanteException.class)

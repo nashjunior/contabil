@@ -54,6 +54,30 @@ paths:
         '400': { $ref: '#/components/responses/ErroContrato' }
         '401': { $ref: '#/components/responses/ErroContrato' }
         '403': { $ref: '#/components/responses/ErroContrato' }
+  /execucao/empenhos/{id}/documento:
+    get:
+      operationId: consultarDocumentoEmpenho
+      summary: Stream do PDF ATUAL do empenho (assinado, senão o pendente). # java: consulta.EmpenhoDocumentoController.documento
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: PDF do empenho (assinado ou pendente de assinatura).
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/ErroContrato' }
+        '403': { $ref: '#/components/responses/ErroContrato' }
+        '404':
+          description: >
+            Empenho inexistente ou sem documento (nem pendente nem assinado) —
+            codigo `documento_nao_encontrado` (ADR-0009).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErroContratoResponse' }
   /execucao/liquidacoes:
     post:
       operationId: registrarLiquidacao

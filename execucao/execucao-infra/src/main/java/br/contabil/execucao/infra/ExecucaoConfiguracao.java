@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Configuration;
 
 import br.contabil.execucao.application.AprovarPagamento;
 import br.contabil.execucao.application.AssinarEmpenho;
+import br.contabil.execucao.application.ConsultarDocumentoEmpenho;
 import br.contabil.execucao.application.ConsultarEmpenhosRegistrados;
 import br.contabil.execucao.application.ConsultarExecucaoOrcamentaria;
 import br.contabil.execucao.application.ConsultarFilaAprovacao;
@@ -39,6 +40,7 @@ import br.contabil.plataforma.domain.assinatura.NivelAssinaturaExigidoPort;
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura;
 import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
 import br.contabil.plataforma.domain.auditoria.AuditoriaLeitura;
+import br.contabil.plataforma.domain.documento.ArmazenamentoDocumentos;
 import br.contabil.plataforma.domain.entrega.ServicoEntrega;
 import br.contabil.plataforma.domain.iam.ControleAcesso;
 import br.contabil.plataforma.domain.mascaramento.ServicoMascaramento;
@@ -95,6 +97,18 @@ public class ExecucaoConfiguracao {
             AuditoriaEscrita auditoria,
             Clock clock) {
         return new AssinarEmpenho(controleAcesso, repositorio, nivelAssinaturaExigido, servicoAssinatura, auditoria, clock);
+    }
+
+    /**
+     * RAZ-157/ADR-0039 decisão 2: bridge de leitura do PDF atual do empenho — só
+     * existe quando o object store está configurado (mesmo pré-requisito de {@link
+     * #assinarEmpenho}, sem o qual não há onde ler o documento).
+     */
+    @Bean
+    @ConditionalOnBean(ArmazenamentoDocumentos.class)
+    public ConsultarDocumentoEmpenho consultarDocumentoEmpenho(
+            ControleAcesso controleAcesso, EmpenhoRepository repositorio, ArmazenamentoDocumentos armazenamento) {
+        return new ConsultarDocumentoEmpenho(controleAcesso, repositorio, armazenamento);
     }
 
     /** RAZ-105: fecha o wiring que RAZ-67 (use case) deixou pendente — mesmo padrão de {@link #registrarEmpenho}. */
