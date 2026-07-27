@@ -35,6 +35,7 @@ import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
 class AssinaturaGovBrOAuthControllerTest {
 
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-07-19T12:00:00Z"), ZoneOffset.UTC);
+    private static final URI FRONTEND_RETORNO_URI = URI.create("http://localhost:5173/execucao/assinatura/retorno");
 
     @AfterEach
     void limparRequestContext() {
@@ -66,7 +67,7 @@ class AssinaturaGovBrOAuthControllerTest {
     }
 
     @Test
-    void callbackValidaStateTrocaCodeEExpoeTokenParaSupplierDaSessaoHttp() {
+    void callbackValidaStateTrocaCodeERedirecionaParaFrontendComResultadoOk() {
         var fixture = fixture();
         MockHttpSession sessao = new MockHttpSession();
         TenantId ente = new TenantId(UUID.randomUUID());
@@ -76,10 +77,15 @@ class AssinaturaGovBrOAuthControllerTest {
 
         var resposta = fixture.controller().callback("codigo-autorizacao", state, null, null, sessao);
 
-        assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.FOUND);
+        String location = resposta.getHeaders().getLocation().toString();
+        assertThat(location).startsWith(FRONTEND_RETORNO_URI.toString());
+        assertThat(queryDe(resposta).getFirst("resultado")).isEqualTo("ok");
+        assertThat(queryDe(resposta).getFirst("codigo")).isNull();
         assertThat(fixture.cliente().codeRecebido()).isEqualTo("codigo-autorizacao");
         assertThat(fixture.cliente().codeVerifierRecebido()).isNotBlank();
 
+        // sucesso ainda grava token/sessao mesmo devolvendo 302 em vez de 204 (ADR-0039 decisao 3)
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setSession(sessao);
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
@@ -92,7 +98,17 @@ class AssinaturaGovBrOAuthControllerTest {
     }
 
     @Test
-    void callbackComStateDiferenteNaoGuardaToken() {
+    void callbackSemStateRedirecionaComCodigoStateAusente() {
+        var fixture = fixture();
+        MockHttpSession sessao = new MockHttpSession();
+
+        var resposta = fixture.controller().callback("codigo", null, null, null, sessao);
+
+        assertRedirecionaComErro(resposta, "state_ausente");
+    }
+
+    @Test
+    void callbackComStateDiferenteRedirecionaComCodigoStateInvalidoENaoGuardaToken() {
         var fixture = fixture();
         MockHttpSession sessao = new MockHttpSession();
         fixture.sessoesIam().gravarVerificada(sessao, sessaoAutenticada(new TenantId(UUID.randomUUID())));
@@ -100,7 +116,7 @@ class AssinaturaGovBrOAuthControllerTest {
 
         var resposta = fixture.controller().callback("codigo", "state-invasor", null, null, sessao);
 
-        assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertRedirecionaComErro(resposta, "state_invalido");
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setSession(sessao);
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
@@ -111,7 +127,34 @@ class AssinaturaGovBrOAuthControllerTest {
     }
 
     @Test
-    void callbackComFalhaDoProvedorGovBrPropagaProvedorIndisponivelSemMapearNoController() {
+    void callbackComErrorDoGovBrRedirecionaComCodigoOauthRecusado() {
+        var fixture = fixture();
+        MockHttpSession sessao = new MockHttpSession();
+        TenantId ente = new TenantId(UUID.randomUUID());
+        fixture.sessoesIam().gravarVerificada(sessao, sessaoAutenticada(ente));
+        String state = stateDe(fixture.controller().iniciar(sessao));
+
+        var resposta = fixture.controller()
+                .callback(null, state, "access_denied", "Usuario recusou a solicitacao", sessao);
+
+        assertRedirecionaComErro(resposta, "oauth_recusado");
+    }
+
+    @Test
+    void callbackSemCodeRedirecionaComCodigoCodeAusente() {
+        var fixture = fixture();
+        MockHttpSession sessao = new MockHttpSession();
+        TenantId ente = new TenantId(UUID.randomUUID());
+        fixture.sessoesIam().gravarVerificada(sessao, sessaoAutenticada(ente));
+        String state = stateDe(fixture.controller().iniciar(sessao));
+
+        var resposta = fixture.controller().callback(null, state, null, null, sessao);
+
+        assertRedirecionaComErro(resposta, "code_ausente");
+    }
+
+    @Test
+    void callbackComFalhaDoProvedorGovBrRedirecionaComCodigoProvedorIndisponivelENaoGuardaToken() {
         var fixture = fixture();
         MockHttpSession sessao = new MockHttpSession();
         TenantId ente = new TenantId(UUID.randomUUID());
@@ -119,9 +162,9 @@ class AssinaturaGovBrOAuthControllerTest {
         fixture.cliente().falharComProximaChamada();
         String state = stateDe(fixture.controller().iniciar(sessao));
 
-        assertThatExceptionOfType(AssinaturaGovBrOAuthProvedorIndisponivelException.class)
-                .isThrownBy(() -> fixture.controller().callback("codigo-autorizacao", state, null, null, sessao))
-                .withCauseInstanceOf(IllegalStateException.class);
+        var resposta = fixture.controller().callback("codigo-autorizacao", state, null, null, sessao);
+
+        assertRedirecionaComErro(resposta, "oauth_provedor_indisponivel");
 
         // nao guarda token nenhum apos falha do provedor
         MockHttpServletRequest request = new MockHttpServletRequest();
@@ -129,6 +172,16 @@ class AssinaturaGovBrOAuthControllerTest {
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
         var supplier = new AssinaturaGovBrTokenSessaoSupplier(fixture.repositorio());
         assertThatExceptionOfType(IllegalStateException.class).isThrownBy(supplier::get);
+    }
+
+    @Test
+    void callbackSemFrontendRetornoUriConfiguradoFalhaFechado() {
+        var fixture = fixture(null);
+        MockHttpSession sessao = new MockHttpSession();
+
+        assertThatExceptionOfType(NullPointerException.class)
+                .isThrownBy(() -> fixture.controller().callback("codigo", "state-qualquer", null, null, sessao))
+                .withMessageContaining("frontend-retorno-uri");
     }
 
     @Test
@@ -141,7 +194,7 @@ class AssinaturaGovBrOAuthControllerTest {
     }
 
     @Test
-    void callbackComIamDeOutroEnteNaoGuardaTokenNemTrocaSessao() {
+    void callbackComIamDeOutroEnteRedirecionaComCodigoEnteDivergenteENaoGuardaTokenNemTrocaSessao() {
         var fixture = fixture();
         MockHttpSession sessao = new MockHttpSession();
         TenantId enteDaSessao = new TenantId(UUID.randomUUID());
@@ -153,8 +206,7 @@ class AssinaturaGovBrOAuthControllerTest {
 
         var resposta = fixture.controller().callback("codigo", state, null, null, sessao);
 
-        assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
-        assertThat(resposta.getBody()).isEqualTo(java.util.Map.of("erro", "ente_divergente"));
+        assertRedirecionaComErro(resposta, "ente_divergente");
         assertThat(new ResolvedorSessaoAssinaturaGovBrHttpSession(fixture.sessoesIam()).enteAutenticado(sessao))
                 .isEqualTo(enteDaSessao);
         MockHttpServletRequest request = new MockHttpServletRequest();
@@ -194,13 +246,36 @@ class AssinaturaGovBrOAuthControllerTest {
                 .getFirst("state");
     }
 
+    private static org.springframework.util.MultiValueMap<String, String> queryDe(
+            org.springframework.http.ResponseEntity<?> resposta) {
+        return UriComponentsBuilder.fromUriString(resposta.getHeaders().getLocation().toString())
+                .build()
+                .getQueryParams();
+    }
+
+    /** Confere o contrato comum dos ramos de erro do callback: 302 + resultado=erro + codigo (nunca corpo JSON). */
+    private static void assertRedirecionaComErro(org.springframework.http.ResponseEntity<?> resposta, String codigoEsperado) {
+        assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.FOUND);
+        assertThat(resposta.getBody()).isNull();
+        String location = resposta.getHeaders().getLocation().toString();
+        assertThat(location).startsWith(FRONTEND_RETORNO_URI.toString());
+        var query = queryDe(resposta);
+        assertThat(query.getFirst("resultado")).isEqualTo("erro");
+        assertThat(query.getFirst("codigo")).isEqualTo(codigoEsperado);
+    }
+
     private static Fixture fixture() {
+        return fixture(FRONTEND_RETORNO_URI);
+    }
+
+    private static Fixture fixture(URI frontendRetornoUri) {
         AssinaturaGovBrOAuthProperties properties = new AssinaturaGovBrOAuthProperties(
                 URI.create("https://cas.staging.iti.br/oauth2.0/authorize"),
                 URI.create("https://cas.staging.iti.br/oauth2.0/accessToken"),
                 "cliente-siafic",
                 "segredo",
                 URI.create("http://localhost:8080/assinatura/oauth/callback"),
+                frontendRetornoUri,
                 List.of("sign", "signature_session"),
                 Duration.ofMinutes(10));
         var repositorio = new RepositorioSessaoAssinaturaGovBr(new SecureRandom(), CLOCK, properties);

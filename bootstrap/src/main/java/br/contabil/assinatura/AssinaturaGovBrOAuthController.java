@@ -1,14 +1,15 @@
 package br.contabil.assinatura;
 
 import java.net.URI;
-import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
-import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,9 +23,20 @@ import br.contabil.plataforma.domain.TenantId;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade;
 import jakarta.servlet.http.HttpSession;
 
+/**
+ * O callback do OAuth2 gov.br é aberto pelo navegador do operador, não por um
+ * cliente {@code fetch} — por isso responde sempre com {@code 302} para a rota
+ * fixa do SPA ({@code frontend-retorno-uri}, ADR-0039 decisão 3), nunca com corpo
+ * JSON cru: o navegador do gov.br não tem onde renderizar isso. {@code resultado}
+ * e {@code codigo} (taxonomia {@code ErroContrato} §6.1) são os únicos dados na
+ * query string — nenhum material sensível (token, CPF, hash) trafega ali (R4 da
+ * ratificação RAZ-152).
+ */
 @RestController
 @RequestMapping("/assinatura/oauth")
 final class AssinaturaGovBrOAuthController {
+
+    private static final Logger LOG = LoggerFactory.getLogger(AssinaturaGovBrOAuthController.class);
 
     private final AssinaturaGovBrOAuthProperties properties;
     private final RepositorioSessaoAssinaturaGovBr repositorio;
@@ -75,36 +87,62 @@ final class AssinaturaGovBrOAuthController {
             @RequestParam(value = "error", required = false) String error,
             @RequestParam(value = "error_description", required = false) String errorDescription,
             HttpSession sessao) {
+        properties.exigirConfiguracaoCompleta();
         if (state == null || state.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("erro", "state_ausente"));
+            return redirecionarParaFrontend("state_ausente");
         }
         RepositorioSessaoAssinaturaGovBr.FluxoPendente fluxo;
         try {
             fluxo = repositorio.consumirFluxo(sessao, state);
         } catch (IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("erro", "state_invalido"));
+            return redirecionarParaFrontend("state_invalido");
         }
         if (error != null && !error.isBlank()) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("erro", "oauth_recusado", "detalhe", sanitizar(errorDescription, error)));
+            LOG.info("gov.br recusou OAuth2 de assinatura: error={} error_description={}", error, errorDescription);
+            return redirecionarParaFrontend("oauth_recusado");
         }
         if (code == null || code.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("erro", "code_ausente"));
+            return redirecionarParaFrontend("code_ausente");
         }
         AssinaturaGovBrOAuthToken token;
         try {
             token = clienteToken.trocarCodigoPorToken(code, fluxo.codeVerifier());
         } catch (IllegalStateException e) {
-            throw new AssinaturaGovBrOAuthProvedorIndisponivelException(e);
+            AssinaturaGovBrOAuthProvedorIndisponivelException falha = new AssinaturaGovBrOAuthProvedorIndisponivelException(e);
+            String correlationId = UUID.randomUUID().toString();
+            LOG.error("Falha ao trocar code OAuth2 por token gov.br [correlationId={}]", correlationId, falha);
+            return redirecionarParaFrontend(falha.codigo());
         }
         ServicoIdentidade.Sessao sessaoIam =
                 servicoIdentidade.autenticar(new ServicoIdentidade.CredencialGovBr(token.accessToken()));
         if (!sessaoIam.ente().equals(fluxo.ente())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("erro", "ente_divergente"));
+            return redirecionarParaFrontend("ente_divergente");
         }
         sessoesIam.gravarVerificada(sessao, sessaoIam);
         repositorio.guardarToken(sessao, fluxo.ente(), token);
-        return ResponseEntity.noContent().build();
+        return redirecionarParaFrontendComSucesso();
+    }
+
+    private ResponseEntity<?> redirecionarParaFrontendComSucesso() {
+        URI destino = UriComponentsBuilder.fromUri(
+                        Objects.requireNonNull(properties.frontendRetornoUri(), "frontendRetornoUri"))
+                .queryParam("resultado", "ok")
+                .build()
+                .encode()
+                .toUri();
+        return ResponseEntity.status(HttpStatus.FOUND).header(HttpHeaders.LOCATION, destino.toString()).build();
+    }
+
+    /** {@code codigo} é sempre a taxonomia estável do §6.1 — nunca texto livre vindo do gov.br (R4 da ratificação RAZ-152). */
+    private ResponseEntity<?> redirecionarParaFrontend(String codigo) {
+        URI destino = UriComponentsBuilder.fromUri(
+                        Objects.requireNonNull(properties.frontendRetornoUri(), "frontendRetornoUri"))
+                .queryParam("resultado", "erro")
+                .queryParam("codigo", codigo)
+                .build()
+                .encode()
+                .toUri();
+        return ResponseEntity.status(HttpStatus.FOUND).header(HttpHeaders.LOCATION, destino.toString()).build();
     }
 
     private static String codeChallenge(String codeVerifier) {
@@ -115,10 +153,5 @@ final class AssinaturaGovBrOAuthController {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 indisponivel na JVM", e);
         }
-    }
-
-    private static String sanitizar(String valor, String fallback) {
-        String texto = valor == null || valor.isBlank() ? fallback : valor;
-        return URLEncoder.encode(texto, StandardCharsets.UTF_8);
     }
 }

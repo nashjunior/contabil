@@ -57,6 +57,7 @@ class AssinaturaGovBrOAuthClientTest {
                 "cliente-siafic",
                 "segredo",
                 URI.create("http://localhost:8080/assinatura/oauth/callback"),
+                URI.create("http://localhost:5173/execucao/assinatura/retorno"),
                 List.of("sign", "signature_session"),
                 Duration.ofMinutes(10));
         var client = new AssinaturaGovBrOAuthClient(
