@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 
 import br.contabil.assinatura.AssinaturaGovBrOAuthProvedorIndisponivelException;
+import br.contabil.execucao.domain.EmpenhoNaoEncontradoException;
 import br.contabil.execucao.domain.ExecucaoInvalidaException;
 import br.contabil.execucao.domain.LiquidacaoId;
 import br.contabil.execucao.domain.LiquidacaoJaDecididaException;
@@ -80,6 +81,15 @@ class ErroContratoExceptionHandlerTest {
         assertThat(resposta.getBody().codigo()).isEqualTo("conta_nao_encontrada");
         assertThat(resposta.getBody().mensagem()).isNotBlank();
         assertThat(resposta.getBody().detalhes()).isEmpty();
+    }
+
+    @Test
+    void empenhoNaoEncontradoDevolve404ComCodigoDoContrato() {
+        var resposta = handler.empenhoNaoEncontrado(new EmpenhoNaoEncontradoException("empenho não encontrado"));
+
+        assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(resposta.getBody().codigo()).isEqualTo("empenho_nao_encontrado");
+        assertThat(resposta.getBody().mensagem()).isEqualTo("empenho não encontrado");
     }
 
     @Test

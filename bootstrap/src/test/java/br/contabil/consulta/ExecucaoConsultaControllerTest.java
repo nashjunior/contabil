@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.net.URI;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -23,6 +24,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import br.contabil.execucao.application.ConsultarDotacoes;
+import br.contabil.execucao.application.ConsultarEmpenhoPorId;
 import br.contabil.execucao.application.ConsultarEmpenhosRegistrados;
 import br.contabil.execucao.application.ConsultarExecucaoOrcamentaria;
 import br.contabil.execucao.application.ConsultarFilaAprovacao;
@@ -30,8 +32,11 @@ import br.contabil.execucao.application.ConsultarLiquidacoesRegistradas;
 import br.contabil.execucao.application.ConsultarPagamentosRegistrados;
 import br.contabil.execucao.application.ConsultarTrilhaLiquidacao;
 import br.contabil.execucao.domain.CredorId;
+import br.contabil.execucao.domain.DocumentoAssinadoEmpenho;
 import br.contabil.execucao.domain.DotacaoId;
+import br.contabil.execucao.domain.Empenho;
 import br.contabil.execucao.domain.EmpenhoId;
+import br.contabil.execucao.domain.EmpenhoNaoEncontradoException;
 import br.contabil.execucao.domain.ExecucaoOrcamentariaPeriodo;
 import br.contabil.execucao.domain.FiltroFilaAprovacao;
 import br.contabil.execucao.domain.ItemDotacaoComSaldo;
@@ -47,6 +52,7 @@ import br.contabil.execucao.domain.PaginaEmpenhosRegistrados;
 import br.contabil.execucao.domain.PaginaFilaAprovacao;
 import br.contabil.execucao.domain.PaginaLiquidacoesRegistradas;
 import br.contabil.execucao.domain.PaginaPagamentosRegistrados;
+import br.contabil.execucao.domain.ReferenciaFatoContabil;
 import br.contabil.execucao.domain.StatusAprovacao;
 import br.contabil.execucao.domain.StatusEmpenho;
 import br.contabil.execucao.domain.TipoEmpenho;
@@ -54,6 +60,7 @@ import br.contabil.execucao.domain.TrilhaLiquidacao;
 import br.contabil.execucao.domain.UnidadeGestoraId;
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.NivelAssinatura;
 import br.contabil.plataforma.domain.auditoria.EventoAuditoria;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.SemPermissaoException;
@@ -75,6 +82,9 @@ class ExecucaoConsultaControllerTest {
     private ConsultarEmpenhosRegistrados consultarEmpenhosRegistrados;
 
     @Mock
+    private ConsultarEmpenhoPorId consultarEmpenhoPorId;
+
+    @Mock
     private ConsultarDotacoes consultarDotacoes;
 
     @Mock
@@ -84,7 +94,9 @@ class ExecucaoConsultaControllerTest {
     private ConsultarPagamentosRegistrados consultarPagamentosRegistrados;
 
     /** Mesma serialização da app: {@link DinheiroJacksonModule} emite Dinheiro como string decimal (§6.1). */
-    private final ObjectMapper json = new ObjectMapper().registerModule(new DinheiroJacksonModule());
+    private final ObjectMapper json = new ObjectMapper()
+            .registerModule(new DinheiroJacksonModule())
+            .registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
 
     private ExecucaoConsultaController controller() {
         return new ExecucaoConsultaController(
@@ -92,6 +104,7 @@ class ExecucaoConsultaControllerTest {
                 consultarFilaAprovacao,
                 consultarTrilhaLiquidacao,
                 consultarEmpenhosRegistrados,
+                consultarEmpenhoPorId,
                 consultarDotacoes,
                 consultarLiquidacoesRegistradas,
                 consultarPagamentosRegistrados);
@@ -254,6 +267,131 @@ class ExecucaoConsultaControllerTest {
 
         assertThatThrownBy(() -> controller().empenhos(enteId, null, null, null, null, null, sessao))
                 .isInstanceOf(SemPermissaoException.class);
+    }
+
+    private Empenho empenhoRegistrado(UUID enteId, EmpenhoId empenhoId, CredorId credorId) {
+        return Empenho.registrar(
+                empenhoId,
+                new TenantId(enteId),
+                9L,
+                2026,
+                TipoEmpenho.ORDINARIO,
+                DotacaoId.novo(),
+                credorId,
+                UnidadeGestoraId.novo(),
+                null,
+                Dinheiro.de("5000.00"),
+                LocalDate.of(2026, 7, 20),
+                "04.122.0001.2001",
+                "0100000000",
+                "empenho de teste RAZ-156",
+                new ReferenciaFatoContabil(UUID.randomUUID()),
+                new Cpf("11122233344"));
+    }
+
+    private URI uriDoEnte(UUID enteId, String sufixo) {
+        return URI.create("s3://ged/%s/%s".formatted(enteId, sufixo));
+    }
+
+    @Test
+    void empenhoPorIdAdaptaPathEDevolveDocumentoNuloQuandoRegistradoSemDocumento() {
+        UUID enteId = UUID.randomUUID();
+        Sessao sessao = sessaoDe(new TenantId(enteId));
+        EmpenhoId empenhoId = EmpenhoId.novo();
+        CredorId credorId = CredorId.novo();
+        Empenho empenho = empenhoRegistrado(enteId, empenhoId, credorId);
+        when(consultarEmpenhoPorId.executar(eq(sessao), eq(new TenantId(enteId)), eq(empenhoId))).thenReturn(empenho);
+
+        var resposta = controller().empenhoPorId(enteId, empenhoId.valor(), sessao);
+
+        assertThat(resposta.id()).isEqualTo(empenhoId.valor());
+        assertThat(resposta.credorId()).isEqualTo(credorId.valor());
+        assertThat(resposta.valor()).isEqualTo("5000.00");
+        assertThat(resposta.status()).isEqualTo("registrado");
+        assertThat(resposta.documento().pendenteUri()).isNull();
+        assertThat(resposta.documento().assinado()).isNull();
+    }
+
+    @Test
+    void empenhoPorIdDevolvePendenteUriOpacoQuandoPendenteAssinaturaENuncaAS3Crua() throws Exception {
+        UUID enteId = UUID.randomUUID();
+        Sessao sessao = sessaoDe(new TenantId(enteId));
+        EmpenhoId empenhoId = EmpenhoId.novo();
+        URI uriPendente = uriDoEnte(enteId, "nota-empenho.pdf");
+        Empenho empenho = empenhoRegistrado(enteId, empenhoId, CredorId.novo()).marcarPendenteAssinatura(uriPendente);
+        when(consultarEmpenhoPorId.executar(eq(sessao), eq(new TenantId(enteId)), eq(empenhoId))).thenReturn(empenho);
+
+        var resposta = controller().empenhoPorId(enteId, empenhoId.valor(), sessao);
+
+        assertThat(resposta.status()).isEqualTo("pendente_assinatura");
+        assertThat(resposta.documento().pendenteUri()).isNotNull().isNotEqualTo(uriPendente.toString());
+        assertThat(resposta.documento().assinado()).isNull();
+
+        String corpo = json.writeValueAsString(resposta);
+        assertThat(corpo).doesNotContain("s3://");
+    }
+
+    @Test
+    void empenhoPorIdDevolvePendenteUriOpacoQuandoAssinaturaRejeitada() {
+        UUID enteId = UUID.randomUUID();
+        Sessao sessao = sessaoDe(new TenantId(enteId));
+        EmpenhoId empenhoId = EmpenhoId.novo();
+        URI uriPendente = uriDoEnte(enteId, "nota-empenho.pdf");
+        Empenho empenho = empenhoRegistrado(enteId, empenhoId, CredorId.novo())
+                .marcarPendenteAssinatura(uriPendente)
+                .rejeitarAssinatura();
+        when(consultarEmpenhoPorId.executar(eq(sessao), eq(new TenantId(enteId)), eq(empenhoId))).thenReturn(empenho);
+
+        var resposta = controller().empenhoPorId(enteId, empenhoId.valor(), sessao);
+
+        assertThat(resposta.status()).isEqualTo("assinatura_rejeitada");
+        assertThat(resposta.documento().pendenteUri()).isNotNull();
+        assertThat(resposta.documento().assinado()).isNull();
+    }
+
+    @Test
+    void empenhoPorIdDevolveBlocoAssinadoComCpfMascaradoENuncaAS3CruaQuandoAssinado() throws Exception {
+        UUID enteId = UUID.randomUUID();
+        Sessao sessao = sessaoDe(new TenantId(enteId));
+        EmpenhoId empenhoId = EmpenhoId.novo();
+        URI uriPendente = uriDoEnte(enteId, "nota-empenho.pdf");
+        URI uriAssinado = uriDoEnte(enteId, "nota-empenho-assinado.pdf");
+        UUID idTransacao = UUID.randomUUID();
+        DocumentoAssinadoEmpenho documentoAssinado = new DocumentoAssinadoEmpenho(
+                uriAssinado, "hash-abc", "manifesto-xyz", idTransacao, NivelAssinatura.AVANCADA_GOVBR,
+                new Cpf("98765432109"), Instant.parse("2026-07-26T12:00:00Z"));
+        Empenho empenho = empenhoRegistrado(enteId, empenhoId, CredorId.novo())
+                .marcarPendenteAssinatura(uriPendente)
+                .assinar(documentoAssinado);
+        when(consultarEmpenhoPorId.executar(eq(sessao), eq(new TenantId(enteId)), eq(empenhoId))).thenReturn(empenho);
+
+        var resposta = controller().empenhoPorId(enteId, empenhoId.valor(), sessao);
+
+        assertThat(resposta.status()).isEqualTo("assinado");
+        // pendenteUri não vaza mesmo com o Optional do agregado ainda preenchido (nunca é limpo na transição).
+        assertThat(resposta.documento().pendenteUri()).isNull();
+        assertThat(resposta.documento().assinado()).isNotNull();
+        assertThat(resposta.documento().assinado().hashSha256()).isEqualTo("hash-abc");
+        assertThat(resposta.documento().assinado().idTransacao()).isEqualTo(idTransacao);
+        assertThat(resposta.documento().assinado().nivel()).isEqualTo("AVANCADA_GOVBR");
+        assertThat(resposta.documento().assinado().signatario()).isEqualTo("***.654.***-**");
+        assertThat(resposta.documento().assinado().assinadoEm()).isEqualTo(Instant.parse("2026-07-26T12:00:00Z"));
+
+        String corpo = json.writeValueAsString(resposta);
+        assertThat(corpo).doesNotContain("s3://");
+        assertThat(corpo).doesNotContain("98765432109");
+    }
+
+    @Test
+    void empenhoPorIdPropagaErroDeNegocioSemMapearNoController() {
+        UUID enteId = UUID.randomUUID();
+        Sessao sessao = sessaoDe(new TenantId(enteId));
+        EmpenhoId empenhoId = EmpenhoId.novo();
+        when(consultarEmpenhoPorId.executar(eq(sessao), eq(new TenantId(enteId)), eq(empenhoId)))
+                .thenThrow(new EmpenhoNaoEncontradoException("empenho não encontrado"));
+
+        assertThatThrownBy(() -> controller().empenhoPorId(enteId, empenhoId.valor(), sessao))
+                .isInstanceOf(EmpenhoNaoEncontradoException.class);
     }
 
     @Test
