@@ -16,6 +16,7 @@ import br.contabil.execucao.domain.repository.DotacaoRepository;
 import br.contabil.execucao.domain.repository.DotacaoRepository.ErroItemLote;
 import br.contabil.execucao.domain.repository.DotacaoRepository.ResultadoLote;
 import br.contabil.plataforma.domain.Dinheiro;
+import br.contabil.plataforma.domain.ErroContrato;
 import br.contabil.plataforma.domain.TenantId;
 import br.contabil.plataforma.domain.Validacoes;
 import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
@@ -85,6 +86,7 @@ public class IngerirDotacoes {
                 errosValidacao.add(new ErroItemLote(
                         "fixacao[%d] classificacao=%s fonte=%s"
                                 .formatted(i, item.classificacaoOrcamentaria(), item.fonteRecurso()),
+                        codigo(e),
                         e.getMessage()));
             }
         }
@@ -96,7 +98,7 @@ public class IngerirDotacoes {
                 candidatosCredito.add(credito);
             } catch (RuntimeException e) {
                 errosValidacao.add(new ErroItemLote(
-                        "credito dotacaoId=%s".formatted(credito.dotacaoId().valor()), e.getMessage()));
+                        "credito dotacaoId=%s".formatted(credito.dotacaoId().valor()), codigo(e), e.getMessage()));
             }
         }
 
@@ -154,6 +156,10 @@ public class IngerirDotacoes {
 
     private static String juntarIds(List<DotacaoId> ids) {
         return ids.stream().map(id -> id.valor().toString()).collect(Collectors.joining(","));
+    }
+
+    private static String codigo(RuntimeException erro) {
+        return erro instanceof ErroContrato erroContrato ? erroContrato.codigo() : "item_invalido";
     }
 
     /** Item de entrada da Fixação (carga da LOA): dados de uma nova dotação a inserir. */

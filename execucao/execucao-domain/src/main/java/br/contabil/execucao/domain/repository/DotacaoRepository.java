@@ -41,11 +41,12 @@ public interface DotacaoRepository {
         }
     }
 
-    /** Falha de um item do lote: referência do item (não o objeto inteiro) + motivo. */
-    record ErroItemLote(String referencia, String motivo) {
+    /** Falha de um item do lote: referência do item (não o objeto inteiro) + erro de contrato. */
+    record ErroItemLote(String referencia, String codigo, String mensagem) {
         public ErroItemLote {
             Objects.requireNonNull(referencia, "referência não pode ser nula");
-            Validacoes.exigirNaoNulo(motivo, "motivo");
+            Validacoes.exigirNaoNulo(codigo, "codigo");
+            Validacoes.exigirNaoNulo(mensagem, "mensagem");
         }
     }
 }

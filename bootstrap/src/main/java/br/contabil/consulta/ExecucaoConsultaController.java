@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import br.contabil.execucao.application.ConsultarDotacoes;
 import br.contabil.execucao.application.ConsultarEmpenhosRegistrados;
 import br.contabil.execucao.application.ConsultarExecucaoOrcamentaria;
 import br.contabil.execucao.application.ConsultarFilaAprovacao;
@@ -21,11 +22,13 @@ import br.contabil.execucao.application.ConsultarLiquidacoesRegistradas;
 import br.contabil.execucao.application.ConsultarPagamentosRegistrados;
 import br.contabil.execucao.application.ConsultarTrilhaLiquidacao;
 import br.contabil.execucao.domain.FiltroFilaAprovacao;
+import br.contabil.execucao.domain.ItemDotacaoComSaldo;
 import br.contabil.execucao.domain.ItemEmpenhoRegistrado;
 import br.contabil.execucao.domain.ItemFilaAprovacao;
 import br.contabil.execucao.domain.ItemLiquidacaoRegistrada;
 import br.contabil.execucao.domain.ItemPagamentoRegistrado;
 import br.contabil.execucao.domain.LiquidacaoId;
+import br.contabil.execucao.domain.PaginaDotacoes;
 import br.contabil.execucao.domain.PaginaEmpenhosRegistrados;
 import br.contabil.execucao.domain.PaginaFilaAprovacao;
 import br.contabil.execucao.domain.PaginaLiquidacoesRegistradas;
@@ -52,6 +55,7 @@ final class ExecucaoConsultaController {
     private final ConsultarFilaAprovacao consultarFilaAprovacao;
     private final ConsultarTrilhaLiquidacao consultarTrilhaLiquidacao;
     private final ConsultarEmpenhosRegistrados consultarEmpenhosRegistrados;
+    private final ConsultarDotacoes consultarDotacoes;
     private final ConsultarLiquidacoesRegistradas consultarLiquidacoesRegistradas;
     private final ConsultarPagamentosRegistrados consultarPagamentosRegistrados;
 
@@ -60,6 +64,7 @@ final class ExecucaoConsultaController {
             ConsultarFilaAprovacao consultarFilaAprovacao,
             ConsultarTrilhaLiquidacao consultarTrilhaLiquidacao,
             ConsultarEmpenhosRegistrados consultarEmpenhosRegistrados,
+            ConsultarDotacoes consultarDotacoes,
             ConsultarLiquidacoesRegistradas consultarLiquidacoesRegistradas,
             ConsultarPagamentosRegistrados consultarPagamentosRegistrados) {
         this.consultarExecucaoOrcamentaria =
@@ -69,10 +74,35 @@ final class ExecucaoConsultaController {
                 Objects.requireNonNull(consultarTrilhaLiquidacao, "consultarTrilhaLiquidacao");
         this.consultarEmpenhosRegistrados =
                 Objects.requireNonNull(consultarEmpenhosRegistrados, "consultarEmpenhosRegistrados");
+        this.consultarDotacoes = Objects.requireNonNull(consultarDotacoes, "consultarDotacoes");
         this.consultarLiquidacoesRegistradas =
                 Objects.requireNonNull(consultarLiquidacoesRegistradas, "consultarLiquidacoesRegistradas");
         this.consultarPagamentosRegistrados =
                 Objects.requireNonNull(consultarPagamentosRegistrados, "consultarPagamentosRegistrados");
+    }
+
+    /**
+     * RAZ-148/ADR-0038: listagem de dotações por ente/exercício com saldo inline
+     * para a tela de gestão e o combo de dotação do empenho. Saldo deriva de
+     * {@code valorAutorizado - valorComprometido}; sem campo "bloqueado", pois
+     * reserva/pré-empenho ainda não existe no domínio.
+     */
+    @GetMapping("/dotacoes")
+    DotacoesResponse dotacoes(
+            @PathVariable("enteId") UUID enteId,
+            @RequestParam("exercicio") int exercicio,
+            @RequestParam(value = "busca", required = false) String busca,
+            @RequestParam(value = "cursor", required = false) String cursor,
+            @RequestParam(value = "limit", required = false) Integer limit,
+            Sessao sessao) {
+        PaginaDotacoes pagina = consultarDotacoes.executar(
+                sessao,
+                new TenantId(enteId),
+                exercicio,
+                Optional.ofNullable(busca),
+                Optional.ofNullable(limit),
+                Optional.ofNullable(cursor));
+        return DotacoesResponse.de(pagina);
     }
 
     @GetMapping("/orcamentaria")
@@ -264,6 +294,38 @@ final class ExecucaoConsultaController {
                     item.dataFato(),
                     item.historico(),
                     item.status().name().toLowerCase());
+        }
+    }
+
+    record DotacoesResponse(List<DotacaoResponse> itens, String proximoCursor) {
+
+        static DotacoesResponse de(PaginaDotacoes pagina) {
+            return new DotacoesResponse(
+                    pagina.itens().stream().map(DotacaoResponse::de).toList(),
+                    pagina.proximoCursor().orElse(null));
+        }
+    }
+
+    record DotacaoResponse(
+            UUID id,
+            int exercicio,
+            String classificacaoOrcamentaria,
+            String fonteRecurso,
+            UUID unidadeGestoraId,
+            String valorAutorizado,
+            String valorComprometido,
+            String saldoDisponivel) {
+
+        static DotacaoResponse de(ItemDotacaoComSaldo item) {
+            return new DotacaoResponse(
+                    item.id().valor(),
+                    item.exercicio(),
+                    item.classificacaoOrcamentaria(),
+                    item.fonteRecurso(),
+                    item.unidadeGestoraId().valor(),
+                    item.valorAutorizado().valor().toPlainString(),
+                    item.valorComprometido().valor().toPlainString(),
+                    item.saldoDisponivel().valor().toPlainString());
         }
     }
 

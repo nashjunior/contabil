@@ -22,6 +22,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import br.contabil.execucao.application.ConsultarDotacoes;
 import br.contabil.execucao.application.ConsultarEmpenhosRegistrados;
 import br.contabil.execucao.application.ConsultarExecucaoOrcamentaria;
 import br.contabil.execucao.application.ConsultarFilaAprovacao;
@@ -29,9 +30,11 @@ import br.contabil.execucao.application.ConsultarLiquidacoesRegistradas;
 import br.contabil.execucao.application.ConsultarPagamentosRegistrados;
 import br.contabil.execucao.application.ConsultarTrilhaLiquidacao;
 import br.contabil.execucao.domain.CredorId;
+import br.contabil.execucao.domain.DotacaoId;
 import br.contabil.execucao.domain.EmpenhoId;
 import br.contabil.execucao.domain.ExecucaoOrcamentariaPeriodo;
 import br.contabil.execucao.domain.FiltroFilaAprovacao;
+import br.contabil.execucao.domain.ItemDotacaoComSaldo;
 import br.contabil.execucao.domain.ItemEmpenhoRegistrado;
 import br.contabil.execucao.domain.ItemFilaAprovacao;
 import br.contabil.execucao.domain.ItemLiquidacaoRegistrada;
@@ -39,6 +42,7 @@ import br.contabil.execucao.domain.ItemPagamentoRegistrado;
 import br.contabil.execucao.domain.LiquidacaoId;
 import br.contabil.execucao.domain.NaturezaPagamento;
 import br.contabil.execucao.domain.PagamentoId;
+import br.contabil.execucao.domain.PaginaDotacoes;
 import br.contabil.execucao.domain.PaginaEmpenhosRegistrados;
 import br.contabil.execucao.domain.PaginaFilaAprovacao;
 import br.contabil.execucao.domain.PaginaLiquidacoesRegistradas;
@@ -47,6 +51,7 @@ import br.contabil.execucao.domain.StatusAprovacao;
 import br.contabil.execucao.domain.StatusEmpenho;
 import br.contabil.execucao.domain.TipoEmpenho;
 import br.contabil.execucao.domain.TrilhaLiquidacao;
+import br.contabil.execucao.domain.UnidadeGestoraId;
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
 import br.contabil.plataforma.domain.auditoria.EventoAuditoria;
@@ -70,6 +75,9 @@ class ExecucaoConsultaControllerTest {
     private ConsultarEmpenhosRegistrados consultarEmpenhosRegistrados;
 
     @Mock
+    private ConsultarDotacoes consultarDotacoes;
+
+    @Mock
     private ConsultarLiquidacoesRegistradas consultarLiquidacoesRegistradas;
 
     @Mock
@@ -84,6 +92,7 @@ class ExecucaoConsultaControllerTest {
                 consultarFilaAprovacao,
                 consultarTrilhaLiquidacao,
                 consultarEmpenhosRegistrados,
+                consultarDotacoes,
                 consultarLiquidacoesRegistradas,
                 consultarPagamentosRegistrados);
     }
@@ -244,6 +253,58 @@ class ExecucaoConsultaControllerTest {
                 .thenThrow(new SemPermissaoException("sem_permissao"));
 
         assertThatThrownBy(() -> controller().empenhos(enteId, null, null, null, null, null, sessao))
+                .isInstanceOf(SemPermissaoException.class);
+    }
+
+    @Test
+    void dotacoesAdaptaQueryParamsEMapeiaSaldoInlineComoStringDecimal() throws Exception {
+        UUID enteId = UUID.randomUUID();
+        Sessao sessao = sessaoDe(new TenantId(enteId));
+        DotacaoId dotacaoId = DotacaoId.novo();
+        UnidadeGestoraId unidadeGestoraId = UnidadeGestoraId.novo();
+        ItemDotacaoComSaldo item = new ItemDotacaoComSaldo(
+                dotacaoId,
+                2026,
+                "12.361.0021.2044",
+                "01 - Recursos ordinarios",
+                unidadeGestoraId,
+                Dinheiro.de("150000.00"),
+                Dinheiro.de("21550.00"));
+        when(consultarDotacoes.executar(eq(sessao), eq(new TenantId(enteId)), eq(2026), any(), any(), any()))
+                .thenReturn(new PaginaDotacoes(List.of(item), Optional.of("cursor-dot")));
+
+        var resposta = controller().dotacoes(enteId, 2026, "12.361", null, 50, sessao);
+
+        verify(consultarDotacoes)
+                .executar(
+                        eq(sessao),
+                        eq(new TenantId(enteId)),
+                        eq(2026),
+                        eq(Optional.of("12.361")),
+                        eq(Optional.of(50)),
+                        eq(Optional.empty()));
+        assertThat(resposta.proximoCursor()).isEqualTo("cursor-dot");
+        assertThat(resposta.itens()).hasSize(1);
+        assertThat(resposta.itens().get(0).id()).isEqualTo(dotacaoId.valor());
+        assertThat(resposta.itens().get(0).exercicio()).isEqualTo(2026);
+        assertThat(resposta.itens().get(0).classificacaoOrcamentaria()).isEqualTo("12.361.0021.2044");
+        assertThat(resposta.itens().get(0).unidadeGestoraId()).isEqualTo(unidadeGestoraId.valor());
+        assertThat(resposta.itens().get(0).valorAutorizado()).isEqualTo("150000.00");
+        assertThat(resposta.itens().get(0).valorComprometido()).isEqualTo("21550.00");
+        assertThat(resposta.itens().get(0).saldoDisponivel()).isEqualTo("128450.00");
+
+        String corpo = json.writeValueAsString(resposta);
+        assertThat(corpo).contains("\"saldoDisponivel\":\"128450.00\"");
+    }
+
+    @Test
+    void dotacoesPropagaErroDeNegocioSemMapearNoController() {
+        UUID enteId = UUID.randomUUID();
+        Sessao sessao = sessaoDe(new TenantId(enteId));
+        when(consultarDotacoes.executar(any(), any(), eq(2026), any(), any(), any()))
+                .thenThrow(new SemPermissaoException("sem_permissao"));
+
+        assertThatThrownBy(() -> controller().dotacoes(enteId, 2026, null, null, null, sessao))
                 .isInstanceOf(SemPermissaoException.class);
     }
 

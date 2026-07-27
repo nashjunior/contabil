@@ -147,7 +147,8 @@ class IngerirDotacoesTest {
         assertThat(captor.getValue()).hasSize(1);
         assertThat(resultado.dotacoesInseridas()).hasSize(1);
         assertThat(resultado.erros()).hasSize(1);
-        assertThat(resultado.erros().get(0).motivo()).contains("positivo");
+        assertThat(resultado.erros().get(0).codigo()).isEqualTo("valor_invalido");
+        assertThat(resultado.erros().get(0).mensagem()).contains("positivo");
         verify(repositorio, never()).aplicarCreditosEmLote(any(), any());
     }
 
@@ -185,13 +186,17 @@ class IngerirDotacoesTest {
         when(repositorio.aplicarCreditosEmLote(eq(enteId), any()))
                 .thenReturn(new ResultadoLote<>(
                         List.of(),
-                        List.of(new ErroItemLote(dotacaoInexistente.valor().toString(), "dotação não encontrada"))));
+                        List.of(new ErroItemLote(
+                                dotacaoInexistente.valor().toString(),
+                                "dotacao_nao_encontrada",
+                                "dotação não encontrada"))));
 
         IngerirDotacoes.Resultado resultado = useCase.executar(sessao(true), enteId, List.of(), List.of(credito));
 
         assertThat(resultado.dotacoesAtualizadas()).isEmpty();
         assertThat(resultado.erros()).hasSize(1);
-        assertThat(resultado.erros().get(0).motivo()).isEqualTo("dotação não encontrada");
+        assertThat(resultado.erros().get(0).codigo()).isEqualTo("dotacao_nao_encontrada");
+        assertThat(resultado.erros().get(0).mensagem()).isEqualTo("dotação não encontrada");
     }
 
     @Test

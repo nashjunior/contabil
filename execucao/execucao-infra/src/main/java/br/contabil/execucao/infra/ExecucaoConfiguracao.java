@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Configuration;
 import br.contabil.execucao.application.AprovarPagamento;
 import br.contabil.execucao.application.AssinarEmpenho;
 import br.contabil.execucao.application.ConsultarDocumentoEmpenho;
+import br.contabil.execucao.application.ConsultarDotacoes;
 import br.contabil.execucao.application.ConsultarEmpenhosRegistrados;
 import br.contabil.execucao.application.ConsultarExecucaoOrcamentaria;
 import br.contabil.execucao.application.ConsultarFilaAprovacao;
@@ -25,6 +26,7 @@ import br.contabil.execucao.application.SinalizacaoSlaTransparenciaPort;
 import br.contabil.execucao.application.SolicitacaoDocumentoAssinaturaPort;
 import br.contabil.execucao.domain.repository.ContadorEmpenhoPort;
 import br.contabil.execucao.domain.repository.DotacaoRepository;
+import br.contabil.execucao.domain.repository.DotacoesQuery;
 import br.contabil.execucao.domain.repository.EmpenhoRepository;
 import br.contabil.execucao.domain.repository.EmpenhosRegistradosQuery;
 import br.contabil.execucao.domain.repository.ExecucaoContabilPort;
@@ -185,6 +187,12 @@ public class ExecucaoConfiguracao {
     public ConsultarEmpenhosRegistrados consultarEmpenhosRegistrados(
             ControleAcesso controleAcesso, EmpenhosRegistradosQuery empenhosRegistrados) {
         return new ConsultarEmpenhosRegistrados(controleAcesso, empenhosRegistrados);
+    }
+
+    /** RAZ-148/ADR-0038: dotações por ente/exercício com saldo inline para a tela de gestão. */
+    @Bean
+    public ConsultarDotacoes consultarDotacoes(ControleAcesso controleAcesso, DotacoesQuery dotacoes) {
+        return new ConsultarDotacoes(controleAcesso, dotacoes);
     }
 
     /** RAZ-121: registro completo de liquidações por ente/período — distinto do gate (fila) de {@link ConsultarFilaAprovacao}. */

@@ -110,7 +110,9 @@ public class PostgresDotacaoRepository implements DotacaoRepository {
             DotacaoId id = dotacoes.get(i).id();
             if (linhasAfetadas[i] == 0) {
                 erros.add(new ErroItemLote(
-                        id.valor().toString(), "dotação já existe (id duplicado) — ignorada (reentrega idempotente)"));
+                        id.valor().toString(),
+                        "dotacao_duplicada",
+                        "dotação já existe (id duplicado) — ignorada (reentrega idempotente)"));
             } else {
                 inseridas.add(id);
             }
@@ -135,7 +137,9 @@ public class PostgresDotacaoRepository implements DotacaoRepository {
             DotacaoId id = creditos.get(i).dotacaoId();
             if (linhasAfetadas[i] == 0) {
                 erros.add(new ErroItemLote(
-                        id.valor().toString(), "dotação não encontrada para o ente — crédito não aplicado"));
+                        id.valor().toString(),
+                        "dotacao_nao_encontrada",
+                        "dotação não encontrada para o ente — crédito não aplicado"));
             } else {
                 atualizadas.add(id);
             }
