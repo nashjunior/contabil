@@ -13,6 +13,7 @@ record AssinaturaGovBrOAuthProperties(
         String clientId,
         String clientSecret,
         URI redirectUri,
+        URI frontendRetornoUri,
         List<String> scopes,
         Duration stateTtl) {
 
@@ -27,6 +28,7 @@ record AssinaturaGovBrOAuthProperties(
         clientId = clientId == null ? "" : clientId.trim();
         clientSecret = clientSecret == null ? "" : clientSecret;
         redirectUri = redirectUri == null ? null : redirectUri;
+        frontendRetornoUri = frontendRetornoUri == null ? null : frontendRetornoUri;
         scopes = scopes == null || scopes.isEmpty() ? SCOPES_PADRAO : List.copyOf(scopes);
         stateTtl = stateTtl == null ? STATE_TTL_PADRAO : stateTtl;
         if (stateTtl.isNegative() || stateTtl.isZero()) {
@@ -38,6 +40,7 @@ record AssinaturaGovBrOAuthProperties(
         exigirAbsoluta(authorizationUri, "authorization-uri");
         exigirAbsoluta(tokenUri, "token-uri");
         exigirAbsoluta(redirectUri, "redirect-uri");
+        exigirAbsoluta(frontendRetornoUri, "frontend-retorno-uri");
         exigirTexto(clientId, "client-id");
         exigirTexto(clientSecret, "client-secret");
     }

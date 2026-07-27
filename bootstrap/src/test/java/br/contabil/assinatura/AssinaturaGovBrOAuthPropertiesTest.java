@@ -74,13 +74,50 @@ class AssinaturaGovBrOAuthPropertiesTest {
                 .hasMessageContaining("token-uri");
     }
 
+    @Test
+    void frontendRetornoUriAusenteLancaExcecao() {
+        var properties = propriedades(
+                URI.create("https://cas.staging.iti.br/oauth2.0/authorize"),
+                URI.create("https://cas.staging.iti.br/oauth2.0/accessToken"),
+                URI.create("https://siafic.exemplo.gov.br/assinatura/oauth/callback"),
+                null);
+
+        assertThatThrownBy(properties::exigirConfiguracaoCompleta)
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("frontend-retorno-uri");
+    }
+
+    @Test
+    void frontendRetornoUriHttpForaDeLoopbackLancaExcecao() {
+        var properties = propriedades(
+                URI.create("https://cas.staging.iti.br/oauth2.0/authorize"),
+                URI.create("https://cas.staging.iti.br/oauth2.0/accessToken"),
+                URI.create("https://siafic.exemplo.gov.br/assinatura/oauth/callback"),
+                URI.create("http://app.exemplo.gov.br/execucao/assinatura/retorno"));
+
+        assertThatThrownBy(properties::exigirConfiguracaoCompleta)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("frontend-retorno-uri")
+                .hasMessageContaining("https");
+    }
+
     private static AssinaturaGovBrOAuthProperties propriedades(URI authorizationUri, URI tokenUri, URI redirectUri) {
+        return propriedades(
+                authorizationUri,
+                tokenUri,
+                redirectUri,
+                URI.create("https://app.exemplo.gov.br/execucao/assinatura/retorno"));
+    }
+
+    private static AssinaturaGovBrOAuthProperties propriedades(
+            URI authorizationUri, URI tokenUri, URI redirectUri, URI frontendRetornoUri) {
         return new AssinaturaGovBrOAuthProperties(
                 authorizationUri,
                 tokenUri,
                 "cliente-siafic",
                 "segredo",
                 redirectUri,
+                frontendRetornoUri,
                 List.of("sign", "signature_session"),
                 Duration.ofMinutes(10));
     }

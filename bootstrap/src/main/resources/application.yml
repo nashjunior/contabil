@@ -89,6 +89,7 @@ siafic:
         client-id: ${GOVBR_ASSINATURA_OAUTH_CLIENT_ID:}
         client-secret-ref: ${GOVBR_ASSINATURA_OAUTH_CLIENT_SECRET_REF:cofre://siafic/f0/assinatura/govbr/oauth/client-secret}
         redirect-uri: ${GOVBR_ASSINATURA_OAUTH_REDIRECT_URI:http://localhost:8080/assinatura/oauth/callback}
+        frontend-retorno-uri: ${GOVBR_ASSINATURA_OAUTH_FRONTEND_RETORNO_URI:http://localhost:5173/execucao/assinatura/retorno}
         scopes:
           - sign
           - signature_session

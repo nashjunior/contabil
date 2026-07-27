@@ -20,14 +20,26 @@
 # GAP DE COBERTURA: fila de aprovacao (GET /liquidacoes), trilha (GET /liquidacoes/{id}/trilha),
 # aprovacao de liquidacao (POST /liquidacoes/{id}/aprovacao) e lote de pagamento
 # (POST /pagamentos:lote) EXISTEM no controller real mas NAO estao neste contrato/tela — follow-up.
+#
+# FLUXO DE ASSINATURA GOVBR (RAZ-141/ADR-0039 decisao 5): os 3 endpoints de
+# POST .../assinatura + GET .../oauth/iniciar + GET .../oauth/callback usam
+# HttpSession/cookie, NAO Authorization: Bearer (unica excecao ao security scheme
+# padrao — ADR-0017). Os controllers reais (AssinaturaEmpenhoController,
+# AssinaturaGovBrOAuthController) tambem NAO usam o prefixo /api/v1 dos demais
+# controllers de execucao (RAZ-105) nem, os 2 de oauth, o path {enteId} — por isso
+# os 3 paths abaixo tem `servers: [{url: /}]` proprio (absoluto), fora do server
+# template /api/v1/entes/{enteId} do resto do contrato. Fiel ao codigo real, nao
+# uma inconsistencia deste arquivo.
 openapi: 3.0.3
 info:
   title: SIAFIC — Execução orçamentária/financeira (derivado do código real)
-  version: 0.2.0
+  version: 0.3.0
   description: >
     Empenho/liquidação/pagamento (escrita, RAZ-105) + execução orçamentária agregada
-    (consulta, RAZ-101). enteId sempre no path (ADR-0015). Autenticação: Authorization: Bearer
-    <asserção gov.br>, validada a cada request (stateless) por ServicoIdentidade.
+    (consulta, RAZ-101) + assinatura eletrônica gov.br do empenho (RAZ-141/ADR-0039).
+    enteId sempre no path (ADR-0015). Autenticação: Authorization: Bearer <asserção gov.br>,
+    validada a cada request (stateless) por ServicoIdentidade — exceto os 3 endpoints de
+    assinatura, que usam HttpSession/cookie (ADR-0017, única exceção documentada ao §6.1).
 servers:
   - url: /api/v1/entes/{enteId}
     variables:
@@ -111,6 +123,90 @@ paths:
               schema: { $ref: '#/components/schemas/ExecucaoOrcamentariaResponse' }
         '401': { $ref: '#/components/responses/ErroContrato' }
         '403': { $ref: '#/components/responses/ErroContrato' }
+  /entes/{enteId}/execucao/empenhos/{id}/assinatura:
+    servers:
+      - url: /
+    post:
+      operationId: assinarEmpenho
+      summary: >-
+        Dispara AssinarEmpenho na sessão OAuth2 interativa do ordenador já aberta pelo
+        fluxo abaixo (ADR-0027 (c), RAZ-103). # java: assinatura.AssinaturaEmpenhoController.assinar
+      security:
+        - assinaturaSessao: []
+      parameters:
+        - name: enteId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Empenho assinado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AssinaturaEmpenhoResponse' }
+        '403':
+          description: >-
+            Envelope único de erro com codigo ente_divergente — sessão IAM ou token gov.br
+            de outro ente (RAZ-79 §6.1).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErroContratoResponse' }
+  /assinatura/oauth/iniciar:
+    servers:
+      - url: /
+    get:
+      operationId: iniciarOAuthAssinatura
+      summary: >-
+        302 para o authorization endpoint gov.br (PKCE) — inicia a assinatura eletrônica
+        interativa do ordenador; state/codeVerifier ficam na HttpSession (ADR-0017).
+        # java: assinatura.AssinaturaGovBrOAuthController.iniciar
+      security:
+        - assinaturaSessao: []
+      responses:
+        '302':
+          description: Redirect para o authorization endpoint gov.br com state/PKCE.
+          headers:
+            Location: { schema: { type: string, format: uri } }
+  /assinatura/oauth/callback:
+    servers:
+      - url: /
+    get:
+      operationId: callbackOAuthAssinatura
+      summary: >-
+        Callback aberto pelo navegador do gov.br após o login — nunca um cliente fetch, por
+        isso sempre devolve 302 para a rota fixa do SPA (frontend-retorno-uri), nunca corpo
+        JSON (ADR-0039 decisão 3). Sucesso: ?resultado=ok. Erro: ?resultado=erro&codigo=<taxonomia
+        §6.1> (state_ausente, state_invalido, oauth_recusado, code_ausente, ente_divergente,
+        oauth_provedor_indisponivel) — nenhum material sensível (token/CPF/hash) na query
+        string (R4, ratificação RAZ-152). # java: assinatura.AssinaturaGovBrOAuthController.callback
+      security:
+        - assinaturaSessao: []
+      parameters:
+        - name: code
+          in: query
+          required: false
+          schema: { type: string }
+        - name: state
+          in: query
+          required: false
+          schema: { type: string }
+        - name: error
+          in: query
+          required: false
+          schema: { type: string }
+        - name: error_description
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        '302':
+          description: Redirect para frontend-retorno-uri com ?resultado=ok|erro[&codigo=...].
+          headers:
+            Location: { schema: { type: string, format: uri } }
 components:
   securitySchemes:
     govbrBearer:
@@ -119,6 +215,15 @@ components:
       description: >
         java: consulta.SessaoAutenticadaHttpResolver — "Authorization: Bearer <asserção gov.br>",
         verificada a cada request via ServicoIdentidade.autenticar (stateless, sem cookie/sessão).
+    assinaturaSessao:
+      type: apiKey
+      in: cookie
+      name: JSESSIONID
+      description: >
+        java: assinatura.AssinaturaGovBrOAuthController / assinatura.AssinaturaEmpenhoController —
+        HttpSession/cookie (RepositorioSessaoAssinaturaGovBr guarda state/PKCE/token na sessão),
+        NÃO Authorization: Bearer. Única exceção documentada ao security scheme padrão deste
+        contrato (§6.1) — ADR-0017, decisão 5 do ADR-0039.
   responses:
     ErroContrato:
       description: Envelope único de erro (RAZ-79 §6.1 / ADR-0030 §3). # java: consulta.ErroContratoExceptionHandler
@@ -246,3 +351,15 @@ components:
         totalPago: { $ref: '#/components/schemas/Dinheiro' }
         saldoALiquidar: { $ref: '#/components/schemas/Dinheiro' }
         saldoAPagar: { $ref: '#/components/schemas/Dinheiro' }
+    AssinaturaEmpenhoResponse:
+      type: object
+      # java: assinatura.AssinaturaEmpenhoResponse — documentoAssinadoUri hoje e a URI crua do
+      # object store (gap conhecido, ver ADR-0039 alternativas rejeitadas; RAZ-157 fecha isso
+      # para leitura via bridge HTTP, este POST nao muda).
+      required: [empenhoId, status, documentoAssinadoUri, hashSha256, idTransacao]
+      properties:
+        empenhoId: { type: string, format: uuid }
+        status: { type: string, description: 'Status do empenho após assinatura (ex.: ASSINADO).' }
+        documentoAssinadoUri: { type: string }
+        hashSha256: { type: string }
+        idTransacao: { type: string, format: uuid }
