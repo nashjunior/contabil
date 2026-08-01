@@ -93,10 +93,13 @@ export function LoginPage() {
         <h2>Modo desenvolvimento</h2>
         <p role="note" style={{ color: 'var(--color-state-warning-fg)' }}>
           <strong>Stand-in de dev, sem curso em produção.</strong> Simula a claim gov.br
-          verificada + a escolha de ente para testar as telas contra a API real sem o fluxo
-          OAuth completo (o backend real ainda não tem um endpoint para este SPA aprender
-          quem é o usuário logado depois do redirect de gov.br — ver comentário no topo deste
-          arquivo).
+          verificada + a escolha de ente para testar as telas sem o fluxo OAuth completo. O
+          backend já aprende quem está logado via <code>GET /sessao/atual</code> (RAZ-203/205) —
+          o que falta é um bearer <em>real</em> aqui: hoje este formulário fabrica uma string
+          opaca (<code>dev.&lt;cpf&gt;.&lt;ente&gt;</code>), que o backend real rejeita por não
+          ser um JWT válido. RAZ-221/ADR-0052 propõe um endpoint de dev-IdP no backend para
+          substituir essa string por um JWT assinado de verdade — até lá, este modo só serve
+          para <code>VITE_API_MODE=mock</code> (ver comentário no topo deste arquivo).
         </p>
 
         <form onSubmit={handleSubmitDev} noValidate>
