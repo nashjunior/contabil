@@ -13,13 +13,16 @@ O **fechamento** apura resultados, encerra contas transitórias, gera as demonst
 abre o exercício seguinte — sempre por **lançamentos de encerramento** (fatos novos),
 nunca por `UPDATE`/`DELETE`.
 
-- **Lei 4.320/1964** arts. 101–105 — demonstrações contábeis obrigatórias (Balanço
-  Orçamentário, Balanço Financeiro, Balanço Patrimonial, Demonstração das Variações
-  Patrimoniais).
+- **Lei 4.320/1964** arts. 101–106 — demonstrações contábeis obrigatórias: Balanço
+  Orçamentário (art. 102, Anexo 12), Balanço Financeiro (art. 103, Anexo 13), Demonstração
+  das Variações Patrimoniais/DVP (art. 104, Anexo 14) e Balanço Patrimonial (arts. 105–106,
+  Anexo 15) — mapeamento confirmado na fonte oficial (ver Fontes/a revalidar).
 - **LRF (LC 101/2000)** — resultado e apuração fiscal do período (alimenta RREO/RGF).
-- **MCASP (STN, edição vigente)** `[REVALIDAR]` — procedimento de encerramento do
-  exercício: apuração do resultado **patrimonial** (encerramento de VPA/VPD → superávit ou
-  déficit patrimonial) e **orçamentário**, e a estrutura das demonstrações DCASP.
+- **MCASP (STN, 11ª edição, dez/2024 — edição vigente)** — a estrutura das 4 demonstrações
+  DCASP está confirmada (ver acima). O procedimento de encerramento do exercício segue
+  `[REVALIDAR PARCIAL]`: a apuração do resultado **patrimonial** (encerramento de VPA/VPD)
+  tem achado de fonte secundária a confirmar na fonte primária; a apuração
+  **orçamentária** segue sem fonte encontrada (ver Fontes/a revalidar).
 - **Decreto 10.540/2020** — o SIAFIC deve gerar as demonstrações e permitir o encerramento
   com integridade e trilha.
 
@@ -94,11 +97,25 @@ Operador (com RBAC+MFA) solicita encerrar período/exercício
 
 ## Fontes / a revalidar
 
-- `[REVALIDAR]` **MCASP edição vigente** — procedimento de encerramento (apuração de
-  resultado patrimonial e orçamentário; contas de resultado; lançamentos de encerramento).
-- `[REVALIDAR]` **MCASP/DCASP** — estrutura obrigatória das 4 demonstrações (Balanço
-  Orçamentário/Financeiro/Patrimonial, DVP).
-- Lei 4.320/1964 arts. 101–105 (texto oficial).
+- **Estrutura das DCASP** — confirmado (Lei 4.320/1964 arts. 101–106 + MCASP 11ª edição,
+  STN, dez/2024, Parte V): Balanço Orçamentário = art. 102/Anexo 12; Balanço Financeiro =
+  art. 103/Anexo 13; DVP = art. 104/Anexo 14; Balanço Patrimonial = arts. 105–106/Anexo 15.
+- `[REVALIDAR PARCIAL]` **Apuração do resultado patrimonial (MCASP/IPC-03)** — achado: as
+  contas de VPA (classe 4 do PCASP) e VPD (classe 3) encerram em contrapartida à conta
+  **2.3.7.1.0.00.00 — Superávits ou Déficits do Exercício** (patrimônio líquido, saldo por
+  1 dia em 31/dez), cujo saldo alimenta a DVP como resultado patrimonial do exercício.
+  Fonte: citação de terceiro do texto da IPC-03/STN, não a fonte primária — a extração
+  direta do PDF oficial da IPC-03/MCASP falhou nesta pesquisa (ferramenta não decodificou o
+  PDF). Serve de base de trabalho para `EncerrarExercicio`, mas exige confirmação do texto
+  oficial antes de produção.
+- `[REVALIDAR]` **Apuração do resultado orçamentário (MCASP, classes 5/6 do PCASP)** —
+  nenhuma fonte concreta encontrada (nem primária nem secundária) sobre o roteiro de
+  encerramento das contas de controle da execução (empenhado/liquidado/pago). Lacuna real,
+  a resolver antes de implementar essa parte de `EncerrarExercicio`.
+- Lei 4.320/1964 arts. 101–106 (texto oficial) — planalto.gov.br ficou intermitente nesta
+  pesquisa (mesma limitação já registrada no projeto); art. 104 confirmado literal via
+  mirror oficial de órgão público e fontes cruzadas; demais artigos pendentes de
+  confirmação literal direta contra o Planalto.
 - Decreto 10.540/2020 (SIAFIC).
 
 ## ADRs a registrar
