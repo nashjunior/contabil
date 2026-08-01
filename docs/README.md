@@ -40,6 +40,7 @@ Organizada por tema (o número no arquivo é só o prefixo; a leitura segue os g
 ### Estratégia e gestão
 
 - [07 · Roadmap](./07-roadmap.md) — fases F0 a F4
+- [14 · Status de entrega (feito × pendente)](./14-status-feito-pendente.md) — acompanhamento por fase (entregue · em curso · pendente); espelha o roadmap (07) e a maturidade dos serviços (11), sem ser fonte de fases
 - [08 · Cenário de mercado](./08-mercado.md) — incumbentes, barreiras de entrada e diferenciação
 
 ### Referência
