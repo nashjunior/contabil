@@ -5,7 +5,7 @@
 -- mensagem. Linhas legadas usam o próprio id da mensagem como correlação
 -- técnica para continuarem rastreáveis sem inventar vínculo histórico.
 
-alter table outbox_mensagem add column correlation_id text;
+alter table outbox_mensagem add column correlation_id text default uuid_generate_v4()::text;
 update outbox_mensagem
    set correlation_id = id::text
  where correlation_id is null;
@@ -14,7 +14,7 @@ alter table outbox_mensagem
   add constraint ck_outbox_mensagem_correlation_id
   check (correlation_id ~ '^[A-Za-z0-9._:-]{1,128}$');
 
-alter table outbox_dlq add column correlation_id text;
+alter table outbox_dlq add column correlation_id text default uuid_generate_v4()::text;
 update outbox_dlq d
    set correlation_id = m.correlation_id
   from outbox_mensagem m
@@ -28,7 +28,7 @@ alter table outbox_dlq
   add constraint ck_outbox_dlq_correlation_id
   check (correlation_id ~ '^[A-Za-z0-9._:-]{1,128}$');
 
-alter table execucao_empenho_documento_outbox add column correlation_id text;
+alter table execucao_empenho_documento_outbox add column correlation_id text default uuid_generate_v4()::text;
 update execucao_empenho_documento_outbox
    set correlation_id = id::text
  where correlation_id is null;

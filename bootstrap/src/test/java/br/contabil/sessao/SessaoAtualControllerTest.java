@@ -39,7 +39,7 @@ class SessaoAtualControllerTest {
     void atualComOrgaoAusenteDevolveOrgaoNulo() {
         Sessao sessao = new Sessao(
                 UUID.randomUUID(),
-                new Cpf("98765432100"),
+                new Cpf("98765432109"),
                 new TenantId(UUID.randomUUID()),
                 Optional.empty(),
                 false,
