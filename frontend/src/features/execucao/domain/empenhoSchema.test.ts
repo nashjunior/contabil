@@ -46,6 +46,14 @@ describe('empenhoSchema', () => {
     }
   });
 
+  it('dotacaoId vazio (nada escolhido no picker) tem mensagem própria, distinta de UUID malformado', () => {
+    const resultado = empenhoSchema.safeParse({ ...CAMPOS_VALIDOS, dotacaoId: '' });
+    expect(resultado.success).toBe(false);
+    if (!resultado.success) {
+      expect(resultado.error.issues.map((i) => i.message)).toEqual(['Selecione uma dotação.']);
+    }
+  });
+
   it('contratoId vazio é válido (campo opcional)', () => {
     expect(empenhoSchema.safeParse({ ...CAMPOS_VALIDOS, contratoId: '' }).success).toBe(true);
   });

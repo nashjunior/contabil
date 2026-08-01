@@ -43,7 +43,9 @@ function renderForm() {
 }
 
 async function preencherCamposValidos(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByLabelText(/id da dotação/i), '11111111-1111-4111-8111-000000000001');
+  // DotacaoPicker (RAZ-199): combo assíncrono, não texto livre — abre e escolhe pelo rótulo.
+  await user.click(screen.getByLabelText(/dotação/i));
+  await user.click(await screen.findByRole('option', { name: /04\.122\.0001\.2001\.3\.3\.90\.30/ }));
   await user.selectOptions(screen.getByLabelText(/^tipo/i), 'ordinario');
   await user.type(screen.getByLabelText(/id do credor/i), '11111111-1111-4111-8111-000000000002');
   await user.type(screen.getByLabelText(/id da unidade gestora/i), '11111111-1111-4111-8111-000000000003');
@@ -64,7 +66,8 @@ describe('EmpenhoForm', () => {
     await screen.findByRole('form', { name: /registrar empenho/i });
     await user.click(screen.getByRole('button', { name: /registrar empenho/i }));
 
-    expect(await screen.findAllByText('Informe um UUID válido.')).not.toHaveLength(0);
+    expect(await screen.findByText('Selecione uma dotação.')).toBeInTheDocument();
+    expect(screen.getAllByText('Informe um UUID válido.')).not.toHaveLength(0);
     expect(screen.getByText('Selecione o tipo.')).toBeInTheDocument();
     expect(screen.getByText('Informe um valor decimal válido (ex.: 1000.00).')).toBeInTheDocument();
     expect(screen.queryByText('Empenho registrado.')).not.toBeInTheDocument();
@@ -79,7 +82,7 @@ describe('EmpenhoForm', () => {
     await user.click(screen.getByRole('button', { name: /registrar empenho/i }));
 
     await waitFor(() => expect(screen.getByText('Empenho registrado.')).toBeInTheDocument());
-    expect(screen.getByLabelText(/id da dotação/i)).toHaveValue('');
+    expect(screen.getByLabelText(/dotação/i)).toHaveValue('');
     expect(screen.getByLabelText(/histórico/i)).toHaveValue('');
   });
 
