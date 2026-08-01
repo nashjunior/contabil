@@ -101,6 +101,31 @@ async function tratarResposta<TResponse>(response: Response): Promise<TResponse>
   return parsed as TResponse;
 }
 
+type ObservadorSessaoExpirada = () => void;
+let observadorSessaoExpirada: ObservadorSessaoExpirada | null = null;
+
+/**
+ * Registra o observador de expiração de sessão (RAZ-239). `AuthProvider` (React) o registra
+ * para saber quando uma chamada AUTENTICADA (não a hidratação `sessaoClient.atual`) devolve
+ * 401 — sinal de que a sessão que existia expirou/foi revogada no meio do uso, distinto de
+ * "nunca logou". client.ts permanece agnóstico de React: só guarda o callback. `null`
+ * desregistra (cleanup do efeito).
+ */
+export function registrarObservadorSessaoExpirada(observador: ObservadorSessaoExpirada | null): void {
+  observadorSessaoExpirada = observador;
+}
+
+/**
+ * Trata a resposta de uma chamada autenticada (`get`/`post`, sempre com `GovbrContexto` de
+ * sessão ativa — `useGovbrContexto` lança sem sessão). Um 401 aqui NÃO é "nunca logou" (isso
+ * é a hidratação `sessaoClient.atual`, que chama `tratarResposta` direto): é uma sessão que
+ * caiu no meio do uso — avisa o observador antes de propagar o `ApiError` normal ao chamador.
+ */
+async function tratarRespostaAutenticada<TResponse>(response: Response): Promise<TResponse> {
+  if (response.status === 401) observadorSessaoExpirada?.();
+  return tratarResposta<TResponse>(response);
+}
+
 async function post<TResponse>(
   path: string,
   body: Record<string, unknown>,
@@ -114,7 +139,7 @@ async function post<TResponse>(
     credentials: 'include',
     signal: options?.signal,
   });
-  return tratarResposta<TResponse>(response);
+  return tratarRespostaAutenticada<TResponse>(response);
 }
 
 async function get<TResponse>(
@@ -132,7 +157,7 @@ async function get<TResponse>(
     credentials: 'include',
     signal: options?.signal,
   });
-  return tratarResposta<TResponse>(response);
+  return tratarRespostaAutenticada<TResponse>(response);
 }
 
 export type SessaoAtualResponse = components['schemas']['SessaoAtualResponse'];

@@ -19,9 +19,9 @@
  * consumidores). `expiraEm` NÃO existe no contrato de `SessaoAtualResponse` — a
  * expiração é responsabilidade do cookie/sessão do servidor, o SPA não precisa dela.
  */
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { maskCpf } from '../lib/cpf';
-import { sessaoClient } from '../api/client';
+import { registrarObservadorSessaoExpirada, sessaoClient } from '../api/client';
 import type { GovbrContexto } from '../api/client';
 
 export type Sessao = {
@@ -42,6 +42,13 @@ type AuthContextValue = {
   sessao: Sessao | null;
   /** true enquanto a hidratação inicial (`GET /sessao/atual`) do mount está em voo. */
   carregando: boolean;
+  /**
+   * true quando a sessão terminou porque uma chamada autenticada devolveu 401 DEPOIS de já
+   * ter havido sessão (expirou/foi revogada no meio do uso), distinto de "nunca logou" — RAZ-239.
+   * `RequireAuth` traduz isso no `motivo` do redirect; `entrar`/`sair` zeram. Um logout
+   * explícito (`sair`) não é expiração.
+   */
+  sessaoExpirada: boolean;
   entrar: (dados: { cpfDigits: string; enteId: string; enteNome: string }) => void;
   sair: () => void;
 };
@@ -51,6 +58,27 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [sessao, setSessao] = useState<Sessao | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const [sessaoExpirada, setSessaoExpirada] = useState(false);
+
+  // Reflete a sessão atual para o observador de 401 (assíncrono) ler sem recriar o callback
+  // registrado — só marca expiração se HAVIA sessão (senão um 401 tardio de "nunca logou"
+  // viraria falso "expirou").
+  const sessaoRef = useRef<Sessao | null>(null);
+  useEffect(() => {
+    sessaoRef.current = sessao;
+  }, [sessao]);
+
+  // 401 numa chamada AUTENTICADA pós-hidratação (`get`/`post`, nunca `sessaoClient.atual`) =
+  // sessão caiu no meio do uso: derruba a sessão e marca o motivo para `RequireAuth`/`LoginPage`.
+  useEffect(() => {
+    registrarObservadorSessaoExpirada(() => {
+      if (!sessaoRef.current) return;
+      sessaoRef.current = null; // evita re-marcar por 401s concorrentes da mesma queda
+      setSessaoExpirada(true);
+      setSessao(null);
+    });
+    return () => registrarObservadorSessaoExpirada(null);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -75,6 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const entrar = useCallback((dados: { cpfDigits: string; enteId: string; enteNome: string }) => {
+    setSessaoExpirada(false);
     setSessao({
       cpfMascarado: maskCpf(dados.cpfDigits),
       enteId: dados.enteId,
@@ -87,9 +116,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setCarregando(false);
   }, []);
 
-  const sair = useCallback(() => setSessao(null), []);
+  // Logout explícito ≠ expiração: zera o motivo para não mostrar "sessão expirou" a quem saiu.
+  const sair = useCallback(() => {
+    setSessaoExpirada(false);
+    setSessao(null);
+  }, []);
 
-  const value = useMemo(() => ({ sessao, carregando, entrar, sair }), [sessao, carregando, entrar, sair]);
+  const value = useMemo(
+    () => ({ sessao, carregando, sessaoExpirada, entrar, sair }),
+    [sessao, carregando, sessaoExpirada, entrar, sair],
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

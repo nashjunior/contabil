@@ -17,9 +17,11 @@
  */
 import { useId, useState, type FormEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { Alert } from '@siafic/design-system';
 import { apiOrigin } from '../api/client';
 import { apiMode } from '../api/mode';
 import { useAuth } from './AuthContext';
+import { MOTIVO_SESSAO_EXPIRADA, type EstadoRedirecionamentoLogin } from './redirecionamentoLogin';
 
 // IDs sao UUID: java TenantId.de(String) faz UUID.fromString(valor) e lanca
 // IllegalArgumentException para qualquer coisa que nao seja UUID valido.
@@ -40,6 +42,11 @@ export function LoginPage() {
   const [enteSelecionado, setEnteSelecionado] = useState(ENTES_DEV[0].id);
   const [erro, setErro] = useState<string | null>(null);
 
+  // Motivo é navegação-específico (anexado por `RequireAuth` só no redirect por expiração),
+  // não estado global: uma visita direta a `/entrar` não carrega `state` e cai no form simples.
+  const estado = location.state as EstadoRedirecionamentoLogin | null;
+  const sessaoExpirada = estado?.motivo === MOTIVO_SESSAO_EXPIRADA;
+
   function handleSubmitDev(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const digits = cpf.replace(/\D/g, '');
@@ -54,13 +61,22 @@ export function LoginPage() {
     }
     setErro(null);
     entrar({ cpfDigits: digits, enteId: ente.id, enteNome: ente.nome });
-    const destino = (location.state as { from?: Location })?.from?.pathname ?? '/execucao';
+    const destino = estado?.from?.pathname ?? '/execucao';
     navigate(destino, { replace: true });
   }
 
   return (
     <main style={{ maxWidth: 420, margin: '0 auto', padding: 'var(--spacing-xl)' }}>
       <h1>Entrar</h1>
+
+      {sessaoExpirada && (
+        <div style={{ marginBottom: 'var(--spacing-lg)' }}>
+          <Alert level="warning">
+            <Alert.Title>Sessão expirada</Alert.Title>
+            <Alert.Body>Sua sessão expirou. Entre novamente para continuar.</Alert.Body>
+          </Alert>
+        </div>
+      )}
 
       <section style={{ marginBottom: 'var(--spacing-xl)' }}>
         <h2>gov.br</h2>
