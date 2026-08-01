@@ -33,8 +33,9 @@ nunca por `UPDATE`/`DELETE`.
    o roteiro exato no MCASP.
 3. **Apuração do resultado orçamentário**: encerramento das contas de controle da execução
    (empenhado/liquidado/pago) e do resultado da execução orçamentária.
-4. **Inscrição de restos a pagar** no encerramento — *interface* com a frente **Restos a
-   pagar** (a inscrição de RP processados/não-processados acontece no rito de encerramento).
+4. **Inscrição de restos a pagar** no encerramento — *interface* com a frente
+   [**Restos a pagar**](./17-restos-a-pagar.md) (a inscrição de RP processados/não-processados
+   acontece no rito de encerramento; a trava do art. 42 gateia o que pode ser inscrito por fonte).
 5. **Abertura do exercício seguinte**: transposição de saldos das contas patrimoniais
    (permanentes) para o período inicial do novo exercício.
 6. **Demonstrações DCASP** (Lei 4.320 + MCASP): Balanço Orçamentário, Balanço Financeiro,
@@ -87,8 +88,8 @@ Operador (com RBAC+MFA) solicita encerrar período/exercício
 ## Faseamento
 
 - **F1 (go-live):** encerramento de período + apuração de resultado + demonstrações DCASP
-  mínimas + inscrição de RP (interface) + abertura do exercício. Pré-requisito de **Restos a
-  pagar** e de **Prestação de contas**.
+  mínimas + inscrição de RP (interface) + abertura do exercício. Pré-requisito de
+  [**Restos a pagar**](./17-restos-a-pagar.md) e de [**Prestação de contas**](./16-prestacao-de-contas.md).
 - **F2+:** reabertura controlada; consolidação; ajustes avançados.
 
 ## Fontes / a revalidar

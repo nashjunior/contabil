@@ -28,6 +28,7 @@ Organizada por tema (o número no arquivo é só o prefixo; a leitura segue os g
 - [10 · Modelo de dados (anexo)](./10-modelo-dados.md) — ciclo da despesa: entidades, cardinalidades, tipos de empenho
 - [15 · Fechamento contábil](./15-fechamento-contabil.md) — encerramento de período/exercício, apuração de resultado append-only, demonstrações DCASP
 - [16 · Prestação de contas (MSC/SICONFI + TCE-CE)](./16-prestacao-de-contas.md) — MSC como contrato único; submissão assistida ao SICONFI; remessa ao TCE-CE (SIM)
+- [17 · Restos a pagar + trava LRF art. 42](./17-restos-a-pagar.md) — inscrição de RP (processados/não processados) no encerramento, cancelamento append-only, contas de controle PCASP/DDR e o gate de disponibilidade de caixa por fonte
 
 ### Implementação e operação
 

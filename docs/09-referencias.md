@@ -11,8 +11,11 @@
 
 ### Contábil, orçamentário e financeiro
 
-- Lei nº 4.320/1964 — normas gerais de direito financeiro; empenho, liquidação e pagamento (arts. 58–65); art. 85 (plano de contas único).
+- Lei nº 4.320/1964 — normas gerais de direito financeiro; empenho, liquidação e pagamento (arts. 58–65); **restos a pagar, processados e não processados (art. 36, art. 37); dívida flutuante (art. 92)**; art. 85 (plano de contas único).
 - Constituição Federal, arts. 165–169 — PPA, LDO, LOA e execução orçamentária.
+- LRF (LC 101/2000), art. 42 — vedação, nos dois últimos quadrimestres do mandato, de contrair obrigação sem disponibilidade de caixa (trava de fim de mandato / restos a pagar).
+- Decreto nº 93.872/1986, arts. 67–70 — vigência e cancelamento de restos a pagar (âmbito federal; para estados/municípios a validade é parametrizável por legislação local — *revalidar na fonte oficial*).
+- MCASP e MDF (STN, edição vigente) — contas de controle de restos a pagar, DDR (Disponibilidade por Destinação de Recursos) e Demonstrativo da Disponibilidade de Caixa e dos Restos a Pagar (*revalidar na fonte oficial*).
 
 ### Prestação de contas e controle externo
 
