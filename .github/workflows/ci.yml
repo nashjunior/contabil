@@ -80,6 +80,13 @@ jobs:
       - name: npm test
         run: npm test
 
+      # RAZ-195: gate de link Figma<->Storybook (addon-designs). Code Connect
+      # oficial ficou bloqueado por plano (Organization/Enterprise); este é o
+      # substituto — toda story de componente-núcleo precisa de
+      # parameters.design apontando pro frame real (ver src/figma-map.ts).
+      - name: Verifica link Figma nas stories (design-system)
+        run: npm run --workspace=@siafic/design-system design-links:check
+
   e2e-playwright:
     name: E2E navegador real (Playwright) — RAZ-211
     runs-on: ubuntu-latest

@@ -1,10 +1,14 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Alert } from './Alert';
+import { FIGMA_DESIGN_MAP } from '../../figma-map';
 
 const meta: Meta<typeof Alert> = {
   title: 'Componentes/Alert',
   component: Alert,
   tags: ['autodocs'],
+  parameters: {
+    design: { type: 'figma', url: FIGMA_DESIGN_MAP.Alert.url },
+  },
 };
 export default meta;
 

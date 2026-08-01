@@ -1,11 +1,17 @@
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { FormSection } from './FormSection';
+import { FIGMA_DESIGN_MAP } from '../../figma-map';
 
 const meta: Meta<typeof FormSection> = {
   title: 'Componentes/FormSection',
   component: FormSection,
   tags: ['autodocs'],
+  parameters: {
+    // Aponta pro frame "Campo de Valor" (FormSection.Field/FormSection.Select
+    // compartilham a mesma casca visual) — ver §4 da doc do design system.
+    design: { type: 'figma', url: FIGMA_DESIGN_MAP['FormSection.Field'].url },
+  },
 };
 export default meta;
 

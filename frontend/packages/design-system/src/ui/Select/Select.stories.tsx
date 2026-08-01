@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Select, type SelectOption } from './Select';
 import { useAsyncOptions } from './useAsyncOptions';
+import { FIGMA_DESIGN_MAP } from '../../figma-map';
 
 const meta: Meta<typeof Select> = {
   title: 'Componentes/Select',
@@ -45,6 +46,9 @@ function SincronoMultiploDemo() {
 
 export const SincronoMultiplo: Story = {
   render: () => <SincronoMultiploDemo />,
+  parameters: {
+    design: { type: 'figma', url: FIGMA_DESIGN_MAP['Select.Multiple'].url },
+  },
 };
 
 const TODOS_CREDORES: SelectOption[] = [
@@ -108,6 +112,9 @@ function AssincronoDemo() {
 
 export const Assincrono: Story = {
   render: () => <AssincronoDemo />,
+  parameters: {
+    design: { type: 'figma', url: FIGMA_DESIGN_MAP['Select.AsyncPanel'].url },
+  },
 };
 
 /**
