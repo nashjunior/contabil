@@ -79,7 +79,20 @@ class SessaoLoginGovBrOAuthControllerTest {
     }
 
     @Test
-    void callbackComStateDiferenteNaoAutenticaNemGuardaAssercao() {
+    void callbackSemStateRedirecionaParaLoginComErroSemCorpoJson() {
+        var fixture = fixture();
+        MockHttpSession sessao = new MockHttpSession();
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setSession(sessao);
+
+        var resposta = fixture.controller().callback("codigo", null, null, null, request, sessao);
+
+        assertRedirecionaParaLoginComErro(resposta, "state_ausente");
+        assertThat(fixture.repositorioAssercao().assercaoDaSessao(sessao)).isEmpty();
+    }
+
+    @Test
+    void callbackComStateDiferenteRedirecionaParaLoginComErroNaoAutenticaNemGuardaAssercao() {
         var fixture = fixture();
         MockHttpSession sessao = new MockHttpSession();
         MockHttpServletRequest request = new MockHttpServletRequest();
@@ -88,12 +101,45 @@ class SessaoLoginGovBrOAuthControllerTest {
 
         var resposta = fixture.controller().callback("codigo", "state-invasor", null, null, request, sessao);
 
-        assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertRedirecionaParaLoginComErro(resposta, "state_invalido");
         assertThat(fixture.repositorioAssercao().assercaoDaSessao(sessao)).isEmpty();
     }
 
     @Test
-    void callbackComFalhaDoProvedorGovBrPropagaProvedorIndisponivelSemMapearNoController() {
+    void callbackComErroDoGovBrRedirecionaComOauthRecusadoSemVazarTextoLivre() {
+        var fixture = fixture();
+        MockHttpSession sessao = new MockHttpSession();
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setSession(sessao);
+        String state = stateDe(fixture.controller().iniciar(sessao));
+
+        var resposta = fixture.controller().callback(
+                null, state, "access_denied", "usuario cancelou <script>", request, sessao);
+
+        assertRedirecionaParaLoginComErro(resposta, "oauth_recusado");
+        // taxonomia estável apenas — nenhum texto livre do gov.br trafega na query string (R4 RAZ-152)
+        assertThat(resposta.getHeaders().getLocation().toString())
+                .doesNotContain("access_denied")
+                .doesNotContain("usuario", "cancelou", "script");
+        assertThat(fixture.repositorioAssercao().assercaoDaSessao(sessao)).isEmpty();
+    }
+
+    @Test
+    void callbackSemCodeRedirecionaComCodeAusente() {
+        var fixture = fixture();
+        MockHttpSession sessao = new MockHttpSession();
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setSession(sessao);
+        String state = stateDe(fixture.controller().iniciar(sessao));
+
+        var resposta = fixture.controller().callback(null, state, null, null, request, sessao);
+
+        assertRedirecionaParaLoginComErro(resposta, "code_ausente");
+        assertThat(fixture.repositorioAssercao().assercaoDaSessao(sessao)).isEmpty();
+    }
+
+    @Test
+    void callbackComFalhaDoProvedorGovBrRedirecionaComCodigoProvedorIndisponivelSemGuardarAssercao() {
         var fixture = fixture();
         MockHttpSession sessao = new MockHttpSession();
         MockHttpServletRequest request = new MockHttpServletRequest();
@@ -101,10 +147,9 @@ class SessaoLoginGovBrOAuthControllerTest {
         fixture.cliente().falharComProximaChamada();
         String state = stateDe(fixture.controller().iniciar(sessao));
 
-        assertThatExceptionOfType(SessaoLoginGovBrOAuthProvedorIndisponivelException.class)
-                .isThrownBy(() -> fixture.controller().callback("codigo-autorizacao", state, null, null, request, sessao))
-                .withCauseInstanceOf(IllegalStateException.class);
+        var resposta = fixture.controller().callback("codigo-autorizacao", state, null, null, request, sessao);
 
+        assertRedirecionaParaLoginComErro(resposta, "login_oauth_provedor_indisponivel");
         assertThat(fixture.repositorioAssercao().assercaoDaSessao(sessao)).isEmpty();
     }
 
@@ -147,6 +192,16 @@ class SessaoLoginGovBrOAuthControllerTest {
                 .getFirst("state");
     }
 
+    /** Contrato comum dos ramos de erro do callback: 302 para /entrar?erro=<codigo>, nunca corpo JSON (RAZ-237/ADR-0039 §3). */
+    private static void assertRedirecionaParaLoginComErro(ResponseEntity<?> resposta, String codigoEsperado) {
+        assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.FOUND);
+        assertThat(resposta.getBody()).isNull();
+        String location = resposta.getHeaders().getLocation().toString();
+        assertThat(location).startsWith("/entrar");
+        var query = UriComponentsBuilder.fromUriString(location).build().getQueryParams();
+        assertThat(query.getFirst("erro")).isEqualTo(codigoEsperado);
+    }
+
     private static Fixture fixture() {
         SessaoLoginGovBrOAuthProperties properties = new SessaoLoginGovBrOAuthProperties(
                 URI.create("https://sso.staging.acesso.gov.br/authorize"),
@@ -155,6 +210,7 @@ class SessaoLoginGovBrOAuthControllerTest {
                 "segredo",
                 URI.create("http://localhost:8080/sessao/oauth/callback"),
                 URI.create("/"),
+                URI.create("/entrar"),
                 List.of("openid", "profile"),
                 Duration.ofMinutes(10));
         var repositorioFluxo = new RepositorioFluxoLoginGovBr(new SecureRandom(), CLOCK, properties);

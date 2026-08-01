@@ -22,12 +22,17 @@ record SessaoLoginGovBrOAuthProperties(
         String clientSecret,
         URI redirectUri,
         URI postLoginRedirectUri,
+        URI frontendErroUri,
         List<String> scopes,
         Duration stateTtl) {
 
     private static final URI AUTHORIZATION_URI_PADRAO = URI.create("https://sso.staging.acesso.gov.br/authorize");
     private static final URI TOKEN_URI_PADRAO = URI.create("https://sso.staging.acesso.gov.br/token");
     private static final URI POST_LOGIN_REDIRECT_URI_PADRAO = URI.create("/");
+    // Destino do 302 quando o callback falha (ADR-0039 decisão 3, espelhada no login por RAZ-237):
+    // reaproveita a própria rota de login do SPA — o login não tem tela de retorno dedicada como a
+    // assinatura. Relativa/mesma-origem, como {@code postLoginRedirectUri} — fora do exigirConfiguracaoCompleta.
+    private static final URI FRONTEND_ERRO_URI_PADRAO = URI.create("/entrar");
     private static final Duration STATE_TTL_PADRAO = Duration.ofMinutes(10);
     private static final List<String> SCOPES_PADRAO = List.of("openid", "profile");
     private static final List<String> SCOPES_PROIBIDOS = List.of("sign", "signature_session");
@@ -39,6 +44,7 @@ record SessaoLoginGovBrOAuthProperties(
         clientSecret = clientSecret == null ? "" : clientSecret;
         redirectUri = redirectUri == null ? null : redirectUri;
         postLoginRedirectUri = postLoginRedirectUri == null ? POST_LOGIN_REDIRECT_URI_PADRAO : postLoginRedirectUri;
+        frontendErroUri = frontendErroUri == null ? FRONTEND_ERRO_URI_PADRAO : frontendErroUri;
         scopes = scopes == null || scopes.isEmpty() ? SCOPES_PADRAO : List.copyOf(scopes);
         stateTtl = stateTtl == null ? STATE_TTL_PADRAO : stateTtl;
         if (stateTtl.isNegative() || stateTtl.isZero()) {

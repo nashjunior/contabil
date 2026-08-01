@@ -119,6 +119,7 @@ siafic:
         client-secret-ref: ${GOVBR_LOGIN_OAUTH_CLIENT_SECRET_REF:cofre://siafic/f0/login/govbr/oauth/client-secret}
         redirect-uri: ${GOVBR_LOGIN_OAUTH_REDIRECT_URI:http://localhost:8080/sessao/oauth/callback}
         post-login-redirect-uri: ${GOVBR_LOGIN_POST_LOGIN_REDIRECT_URI:/}
+        frontend-erro-uri: ${GOVBR_LOGIN_FRONTEND_ERRO_URI:/entrar}
         scopes:
           - openid
           - profile

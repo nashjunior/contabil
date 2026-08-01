@@ -59,6 +59,7 @@ class SessaoLoginGovBrOAuthClientTest {
                 "segredo",
                 URI.create("http://localhost:8080/sessao/oauth/callback"),
                 null,
+                null,
                 List.of("openid", "profile"),
                 Duration.ofMinutes(10));
         var client = new SessaoLoginGovBrOAuthClient(HttpClient.newHttpClient(), new ObjectMapper(), CLOCK, properties);

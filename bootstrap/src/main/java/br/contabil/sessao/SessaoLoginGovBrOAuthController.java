@@ -1,15 +1,15 @@
 package br.contabil.sessao;
 
 import java.net.URI;
-import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Base64;
-import java.util.Map;
 import java.util.Objects;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import br.contabil.plataforma.domain.iam.ServicoIdentidade;
+import br.contabil.plataforma.infra.observabilidade.CorrelacaoIds;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
@@ -32,10 +33,21 @@ import jakarta.servlet.http.HttpSession;
  * ao navegador; só um cookie de sessão {@code HttpOnly+Secure+SameSite=Lax} (o
  * {@code JSESSIONID} do container, ver {@code application.yml}) mais um cookie
  * anti-CSRF legível por JS ({@link CsrfCookieSessaoLogin}).
+ *
+ * <p>O callback é aberto pelo navegador do operador, não por um cliente {@code fetch}:
+ * por isso toda falha responde com {@code 302} para a rota de login do SPA
+ * ({@code frontend-erro-uri}, default {@code /entrar}) com {@code ?erro=<codigo>},
+ * nunca com corpo JSON cru — espelhando a decisão 3 do ADR-0039 já aplicada ao BFF de
+ * assinatura ({@link br.contabil.assinatura.AssinaturaGovBrOAuthController}). {@code codigo}
+ * é sempre a taxonomia estável do {@code ErroContrato} §6.1; nenhum texto livre do gov.br
+ * (nem material sensível) trafega na query string. O sucesso segue para
+ * {@code post-login-redirect-uri} (RAZ-237).
  */
 @RestController
 @RequestMapping("/sessao/oauth")
 final class SessaoLoginGovBrOAuthController {
+
+    private static final Logger LOG = LoggerFactory.getLogger(SessaoLoginGovBrOAuthController.class);
 
     private final SessaoLoginGovBrOAuthProperties properties;
     private final RepositorioFluxoLoginGovBr repositorioFluxo;
@@ -86,26 +98,30 @@ final class SessaoLoginGovBrOAuthController {
             HttpServletRequest request,
             HttpSession sessao) {
         if (state == null || state.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("erro", "state_ausente"));
+            return redirecionarParaLoginComErro("state_ausente");
         }
         RepositorioFluxoLoginGovBr.FluxoPendente fluxo;
         try {
             fluxo = repositorioFluxo.consumirFluxo(sessao, state);
         } catch (IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("erro", "state_invalido"));
+            return redirecionarParaLoginComErro("state_invalido");
         }
         if (error != null && !error.isBlank()) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("erro", "oauth_recusado", "detalhe", sanitizar(errorDescription, error)));
+            LOG.info("gov.br recusou OIDC de login: error={} error_description={}", error, errorDescription);
+            return redirecionarParaLoginComErro("oauth_recusado");
         }
         if (code == null || code.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("erro", "code_ausente"));
+            return redirecionarParaLoginComErro("code_ausente");
         }
         SessaoLoginGovBrOAuthToken token;
         try {
             token = clienteToken.trocarCodigoPorToken(code, fluxo.codeVerifier());
         } catch (IllegalStateException e) {
-            throw new SessaoLoginGovBrOAuthProvedorIndisponivelException(e);
+            SessaoLoginGovBrOAuthProvedorIndisponivelException falha =
+                    new SessaoLoginGovBrOAuthProvedorIndisponivelException(e);
+            String correlationId = CorrelacaoIds.atualOuNovo();
+            LOG.error("Falha ao trocar code OIDC por token gov.br de login [correlationId={}]", correlationId, falha);
+            return redirecionarParaLoginComErro(falha.codigo());
         }
         // Verifica que a assercao abre uma Sessao valida — falha fechado (propaga
         // NaoAutenticadoException/MfaRequeridoException/SemPermissaoException, ADR-0035
@@ -135,8 +151,18 @@ final class SessaoLoginGovBrOAuthController {
         }
     }
 
-    private static String sanitizar(String valor, String fallback) {
-        String texto = valor == null || valor.isBlank() ? fallback : valor;
-        return URLEncoder.encode(texto, StandardCharsets.UTF_8);
+    /**
+     * 302 para a rota de login do SPA com {@code ?erro=<codigo>}. {@code codigo} é sempre a taxonomia
+     * estável do {@code ErroContrato} §6.1 — nunca texto livre vindo do gov.br (ADR-0039 decisão 3 /
+     * R4 da ratificação RAZ-152, espelhado no login por RAZ-237).
+     */
+    private ResponseEntity<?> redirecionarParaLoginComErro(String codigo) {
+        URI destino = UriComponentsBuilder.fromUri(
+                        Objects.requireNonNull(properties.frontendErroUri(), "frontendErroUri"))
+                .queryParam("erro", codigo)
+                .build()
+                .encode()
+                .toUri();
+        return ResponseEntity.status(HttpStatus.FOUND).header(HttpHeaders.LOCATION, destino.toString()).build();
     }
 }

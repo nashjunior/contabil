@@ -86,12 +86,24 @@ class SessaoLoginGovBrOAuthPropertiesTest {
                 "",
                 URI.create("https://siafic.exemplo.gov.br/sessao/oauth/callback"),
                 null,
+                null,
                 List.of("openid", "profile"),
                 Duration.ofMinutes(10));
 
         assertThatThrownBy(properties::exigirConfiguracaoCompleta)
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("client-id");
+    }
+
+    @Test
+    void frontendErroUriPadraoERotaDeLoginDoSpa() {
+        var properties = propriedades(
+                URI.create("https://sso.staging.acesso.gov.br/authorize"),
+                URI.create("https://sso.staging.acesso.gov.br/token"),
+                URI.create("https://siafic.exemplo.gov.br/sessao/oauth/callback"),
+                List.of("openid", "profile"));
+
+        assertThat(properties.frontendErroUri()).isEqualTo(URI.create("/entrar"));
     }
 
     private static SessaoLoginGovBrOAuthProperties propriedades(
@@ -102,6 +114,7 @@ class SessaoLoginGovBrOAuthPropertiesTest {
                 "cliente-siafic-login",
                 "segredo",
                 redirectUri,
+                null,
                 null,
                 scopes,
                 Duration.ofMinutes(10));
