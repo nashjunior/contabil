@@ -5,6 +5,7 @@
  * (2) lista dos empenhos registrados nesta sessão (respostas reais dos POSTs).
  */
 import { useAuth } from '../../../shared/auth/AuthContext';
+import { FeatureNav } from '../../../shared/components/FeatureNav';
 import { EmpenhoForm } from '../components/EmpenhoForm';
 import { ExecucaoList } from '../components/ExecucaoList';
 import { ExecucaoOrcamentariaResumo } from '../components/ExecucaoOrcamentariaResumo';
@@ -32,6 +33,8 @@ export function ExecucaoPage() {
           </p>
         )}
       </header>
+
+      <FeatureNav />
 
       <section aria-labelledby="resumo-titulo">
         <h2 id="resumo-titulo">

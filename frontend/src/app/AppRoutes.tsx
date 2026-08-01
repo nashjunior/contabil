@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { DevLoginPage } from '../shared/auth/DevLoginPage';
 import { RequireAuth } from '../shared/auth/RequireAuth';
 import { ExecucaoPage } from '../features/execucao';
+import { BalancetePage, CatalogoContasPage, SaldoContaPage } from '../features/razao';
 
 export function AppRoutes() {
   return (
@@ -12,6 +13,30 @@ export function AppRoutes() {
         element={
           <RequireAuth>
             <ExecucaoPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/razao/saldo"
+        element={
+          <RequireAuth>
+            <SaldoContaPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/razao/balancete"
+        element={
+          <RequireAuth>
+            <BalancetePage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/razao/contas"
+        element={
+          <RequireAuth>
+            <CatalogoContasPage />
           </RequireAuth>
         }
       />
