@@ -110,7 +110,7 @@ class RegistrarLiquidacaoTest {
                 "liquidação NF 123");
 
         assertThat(liquidacao.empenhoId()).isEqualTo(empenhoId);
-        assertThat(liquidacao.fatoContabilId()).isEqualTo(fatoContabilId.valor());
+        assertThat(liquidacao.fatoContabilId()).isEqualTo(fatoContabilId);
         verify(repositorio).inserir(liquidacao);
         verify(publicacaoTransparencia).publicar(liquidacao, sessao);
         ArgumentCaptor<EventoAuditoria> evento = ArgumentCaptor.forClass(EventoAuditoria.class);

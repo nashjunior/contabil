@@ -14,6 +14,7 @@ import br.contabil.execucao.domain.LiquidacaoId;
 import br.contabil.execucao.domain.NaturezaPagamento;
 import br.contabil.execucao.domain.Pagamento;
 import br.contabil.execucao.domain.PagamentoId;
+import br.contabil.execucao.domain.ReferenciaFatoContabil;
 import br.contabil.execucao.domain.repository.PagamentoRepository;
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
@@ -58,7 +59,7 @@ public class PostgresPagamentoRepository implements PagamentoRepository {
                 pagamento.beneficiario().map(Beneficiario::cpfCnpj).orElse(null),
                 pagamento.ordemBancaria().orElse(null),
                 pagamento.historico(),
-                pagamento.fatoContabilId());
+                pagamento.fatoContabilId().valor());
     }
 
     @Override
@@ -84,7 +85,7 @@ public class PostgresPagamentoRepository implements PagamentoRepository {
                 beneficiario,
                 Optional.ofNullable(rs.getString("ordem_bancaria")),
                 rs.getString("historico"),
-                rs.getObject("fato_contabil_id", UUID.class));
+                new ReferenciaFatoContabil(rs.getObject("fato_contabil_id", UUID.class)));
     }
 
     private static String codigoNatureza(NaturezaPagamento natureza) {

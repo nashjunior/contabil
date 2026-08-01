@@ -116,7 +116,7 @@ class RegistrarPagamentoTest {
                 Dinheiro.de("1000.00"),
                 List.of(DocumentoSuporte.de("NF", "123", dataCompetencia)),
                 "liquidação NF 123",
-                UUID.randomUUID(),
+                new ReferenciaFatoContabil(UUID.randomUUID()),
                 new Cpf("11111111111"));
         return switch (status) {
             case PENDENTE -> registrada;
@@ -151,7 +151,7 @@ class RegistrarPagamentoTest {
                 Optional.empty());
 
         assertThat(pagamento.liquidacaoId()).isEqualTo(liquidacaoId);
-        assertThat(pagamento.fatoContabilId()).isEqualTo(fatoContabilId.valor());
+        assertThat(pagamento.fatoContabilId()).isEqualTo(fatoContabilId);
         verify(repositorio).inserir(pagamento);
         verify(publicacaoTransparencia).publicar(pagamento, sessao);
         ArgumentCaptor<EventoAuditoria> evento = ArgumentCaptor.forClass(EventoAuditoria.class);
@@ -372,7 +372,7 @@ class RegistrarPagamentoTest {
                 Optional.of(fornecedor),
                 Optional.of("OB-10"),
                 "pagamento NF 123",
-                UUID.randomUUID());
+                new ReferenciaFatoContabil(UUID.randomUUID()));
         when(servicoIdentidade.autorizar(sessao, RECURSO, Acao.CRIAR)).thenReturn(true);
         when(idempotencia.reservar(eq(enteId), eq(chave), any(PagamentoId.class)))
                 .thenReturn(pagamentoOriginal.id());

@@ -1,15 +1,16 @@
 package br.contabil.execucao.domain;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
-import br.contabil.plataforma.domain.Dinheiro;
-import br.contabil.plataforma.domain.TenantId;
 import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import br.contabil.plataforma.domain.Dinheiro;
+import br.contabil.plataforma.domain.TenantId;
 
 class PagamentoTest {
 
@@ -20,7 +21,7 @@ class PagamentoTest {
     @Test
     @DisplayName("registra pagamento orçamentário com beneficiário e fato contábil associado")
     void registraPagamentoValido() {
-        UUID fatoContabilId = UUID.randomUUID();
+        ReferenciaFatoContabil fatoContabilId = new ReferenciaFatoContabil(UUID.randomUUID());
 
         Pagamento pagamento = Pagamento.registrar(
                 PagamentoId.novo(),
@@ -52,7 +53,7 @@ class PagamentoTest {
                         Optional.empty(),
                         Optional.empty(),
                         "pagamento sem beneficiário",
-                        UUID.randomUUID()))
+                        new ReferenciaFatoContabil(UUID.randomUUID())))
                 .isInstanceOf(ExecucaoInvalidaException.class)
                 .hasMessageContaining("beneficiário");
     }
@@ -70,7 +71,7 @@ class PagamentoTest {
                 Optional.empty(),
                 Optional.empty(),
                 "pagamento consolidado de folha",
-                UUID.randomUUID());
+                new ReferenciaFatoContabil(UUID.randomUUID()));
 
         assertThat(pagamento.beneficiario()).isEmpty();
     }

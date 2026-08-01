@@ -2,7 +2,6 @@ package br.contabil.execucao.domain;
 
 import java.time.LocalDate;
 import java.util.Optional;
-import java.util.UUID;
 
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
@@ -23,7 +22,7 @@ public final class Pagamento {
     private final Optional<Beneficiario> beneficiario;
     private final Optional<String> ordemBancaria;
     private final String historico;
-    private final UUID fatoContabilId;
+    private final ReferenciaFatoContabil fatoContabilId;
 
     private Pagamento(
             PagamentoId id,
@@ -35,7 +34,7 @@ public final class Pagamento {
             Optional<Beneficiario> beneficiario,
             Optional<String> ordemBancaria,
             String historico,
-            UUID fatoContabilId) {
+            ReferenciaFatoContabil fatoContabilId) {
         this.id = id;
         this.enteId = enteId;
         this.liquidacaoId = liquidacaoId;
@@ -58,7 +57,7 @@ public final class Pagamento {
             Optional<Beneficiario> beneficiario,
             Optional<String> ordemBancaria,
             String historico,
-            UUID fatoContabilId) {
+            ReferenciaFatoContabil fatoContabilId) {
         validarEntrada(valor, natureza, beneficiario, ordemBancaria, historico);
         return new Pagamento(
                 Validacoes.exigirNaoNulo(id, "id"),
@@ -127,7 +126,7 @@ public final class Pagamento {
         return historico;
     }
 
-    public UUID fatoContabilId() {
+    public ReferenciaFatoContabil fatoContabilId() {
         return fatoContabilId;
     }
 }

@@ -87,7 +87,7 @@ public class RegistrarLiquidacao {
                 valor,
                 documentosSuporte,
                 historico,
-                fatoContabilId.valor(),
+                fatoContabilId,
                 usuarioAutenticado.titular());
         repositorio.inserir(liquidacao);
         publicacaoTransparencia.publicar(liquidacao, usuarioAutenticado);

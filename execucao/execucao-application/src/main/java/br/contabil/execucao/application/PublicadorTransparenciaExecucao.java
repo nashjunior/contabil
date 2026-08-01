@@ -1,5 +1,15 @@
 package br.contabil.execucao.application;
 
+import java.time.Clock;
+import java.time.DayOfWeek;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.StringJoiner;
+
 import br.contabil.execucao.domain.Beneficiario;
 import br.contabil.execucao.domain.DocumentoSuporte;
 import br.contabil.execucao.domain.Empenho;
@@ -17,15 +27,6 @@ import br.contabil.plataforma.domain.mascaramento.ServicoMascaramento.BaseLegalL
 import br.contabil.plataforma.domain.mascaramento.ServicoMascaramento.CampoSensivel;
 import br.contabil.plataforma.domain.mascaramento.ServicoMascaramento.Categoria;
 import br.contabil.plataforma.domain.mascaramento.ServicoMascaramento.ContextoAcesso;
-import java.time.Clock;
-import java.time.DayOfWeek;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.time.ZoneId;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.StringJoiner;
 
 /**
  * Publicador de eventos de execução para a transparência ativa.
@@ -136,7 +137,7 @@ public final class PublicadorTransparenciaExecucao implements PublicacaoTranspar
                 campo("enteId", liquidacao.enteId().valor().toString()),
                 campo("liquidacaoId", liquidacao.id().valor().toString()),
                 campo("empenhoId", liquidacao.empenhoId().valor().toString()),
-                campo("fatoContabilId", liquidacao.fatoContabilId().toString()),
+                campo("fatoContabilId", liquidacao.fatoContabilId().valor().toString()),
                 campo("dataCompetencia", liquidacao.dataCompetencia().toString()),
                 campo("valor", liquidacao.valor().valor().toPlainString()),
                 campo("historico", liquidacao.historico()),
@@ -157,7 +158,7 @@ public final class PublicadorTransparenciaExecucao implements PublicacaoTranspar
                 campo("enteId", pagamento.enteId().valor().toString()),
                 campo("pagamentoId", pagamento.id().valor().toString()),
                 campo("liquidacaoId", pagamento.liquidacaoId().valor().toString()),
-                campo("fatoContabilId", pagamento.fatoContabilId().toString()),
+                campo("fatoContabilId", pagamento.fatoContabilId().valor().toString()),
                 campo("dataCompetencia", pagamento.dataCompetencia().toString()),
                 campo("valor", pagamento.valor().valor().toPlainString()),
                 campo("natureza", pagamento.natureza().name()),

@@ -94,7 +94,7 @@ class AprovarPagamentoTest {
                 Dinheiro.de("1000.00"),
                 List.of(DocumentoSuporte.de("NF", "123", LocalDate.of(2026, 7, 10))),
                 "liquidação NF 123",
-                UUID.randomUUID(),
+                new ReferenciaFatoContabil(UUID.randomUUID()),
                 autorLiquidacao);
     }
 

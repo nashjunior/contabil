@@ -1,16 +1,17 @@
 package br.contabil.execucao.domain;
 
+import java.time.LocalDate;
+import java.util.List;
+import java.util.UUID;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
-import java.time.LocalDate;
-import java.util.List;
-import java.util.UUID;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
 
 class LiquidacaoTest {
 
@@ -24,7 +25,7 @@ class LiquidacaoTest {
     @Test
     @DisplayName("registra liquidação com documento de suporte e fato contábil associado, pendente de aprovação")
     void registraLiquidacaoValida() {
-        UUID fatoContabilId = UUID.randomUUID();
+        ReferenciaFatoContabil fatoContabilId = new ReferenciaFatoContabil(UUID.randomUUID());
 
         Liquidacao liquidacao = Liquidacao.registrar(
                 LiquidacaoId.novo(),
@@ -58,7 +59,7 @@ class LiquidacaoTest {
                         Dinheiro.de("100.00"),
                         List.of(),
                         "liquidação sem documento",
-                        UUID.randomUUID(),
+                        new ReferenciaFatoContabil(UUID.randomUUID()),
                         autor))
                 .isInstanceOf(ExecucaoInvalidaException.class)
                 .hasMessageContaining("documento de suporte");
@@ -75,7 +76,7 @@ class LiquidacaoTest {
                         Dinheiro.zero(),
                         List.of(notaFiscal),
                         "liquidação zero",
-                        UUID.randomUUID(),
+                        new ReferenciaFatoContabil(UUID.randomUUID()),
                         autor))
                 .isInstanceOf(ExecucaoInvalidaException.class)
                 .hasMessageContaining("positivo");
@@ -164,7 +165,7 @@ class LiquidacaoTest {
                 Dinheiro.de("100.00"),
                 List.of(notaFiscal),
                 "liquidação da NF 123",
-                UUID.randomUUID(),
+                new ReferenciaFatoContabil(UUID.randomUUID()),
                 autor);
     }
 }
