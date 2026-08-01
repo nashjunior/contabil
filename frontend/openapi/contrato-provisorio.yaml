@@ -375,6 +375,25 @@ paths:
               schema: { $ref: '#/components/schemas/BalanceteResponse' }
         '401': { $ref: '#/components/responses/ErroContrato' }
         '403': { $ref: '#/components/responses/ErroContrato' }
+  /razao/demonstracoes-dcasp:
+    get:
+      operationId: consultarDemonstracoesDcasp
+      summary: >-
+        Demonstrações DCASP do exercício: Balanço Orçamentário, Balanço Financeiro,
+        Balanço Patrimonial e DVP. # java: consulta.RazaoConsultaController.demonstracoesDcasp
+      parameters:
+        - name: exercicio
+          in: query
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Demonstrações DCASP derivadas do razão.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DemonstracoesDcaspResponse' }
+        '401': { $ref: '#/components/responses/ErroContrato' }
+        '403': { $ref: '#/components/responses/ErroContrato' }
   /razao/contas:
     get:
       operationId: consultarContas
@@ -825,6 +844,35 @@ components:
         confere:
           type: boolean
           description: 'Σdébitos = Σcréditos do período (razão append-only).'
+    LinhaDemonstracaoDcasp:
+      type: object
+      # java: consulta.DemonstracoesDcaspResponse.Linha
+      required: [codigo, descricao, valores]
+      properties:
+        codigo: { type: string }
+        descricao: { type: string }
+        valores:
+          type: object
+          additionalProperties: { $ref: '#/components/schemas/Dinheiro' }
+          description: 'Colunas nomeadas por demonstração; dinheiro sempre como string decimal.'
+    DemonstracaoDcasp:
+      type: object
+      # java: consulta.DemonstracoesDcaspResponse.Demonstracao
+      required: [linhas]
+      properties:
+        linhas:
+          type: array
+          items: { $ref: '#/components/schemas/LinhaDemonstracaoDcasp' }
+    DemonstracoesDcaspResponse:
+      type: object
+      # java: consulta.DemonstracoesDcaspResponse
+      required: [exercicio, balancoOrcamentario, balancoFinanceiro, balancoPatrimonial, dvp]
+      properties:
+        exercicio: { type: integer }
+        balancoOrcamentario: { $ref: '#/components/schemas/DemonstracaoDcasp' }
+        balancoFinanceiro: { $ref: '#/components/schemas/DemonstracaoDcasp' }
+        balancoPatrimonial: { $ref: '#/components/schemas/DemonstracaoDcasp' }
+        dvp: { $ref: '#/components/schemas/DemonstracaoDcasp' }
     ContaResumo:
       type: object
       # java: consulta.CatalogoContasController.ContaResumoResponse

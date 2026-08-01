@@ -13,6 +13,7 @@ import br.contabil.plataforma.domain.TenantId;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
 import br.contabil.razao.application.ConsultarSaldo;
 import br.contabil.razao.application.GerarBalancete;
+import br.contabil.razao.application.GerarDemonstracoesDcasp;
 import br.contabil.razao.domain.ContaContabilId;
 
 /**
@@ -29,10 +30,15 @@ final class RazaoConsultaController {
 
     private final ConsultarSaldo consultarSaldo;
     private final GerarBalancete gerarBalancete;
+    private final GerarDemonstracoesDcasp gerarDemonstracoesDcasp;
 
-    RazaoConsultaController(ConsultarSaldo consultarSaldo, GerarBalancete gerarBalancete) {
+    RazaoConsultaController(
+            ConsultarSaldo consultarSaldo,
+            GerarBalancete gerarBalancete,
+            GerarDemonstracoesDcasp gerarDemonstracoesDcasp) {
         this.consultarSaldo = Objects.requireNonNull(consultarSaldo, "consultarSaldo");
         this.gerarBalancete = Objects.requireNonNull(gerarBalancete, "gerarBalancete");
+        this.gerarDemonstracoesDcasp = Objects.requireNonNull(gerarDemonstracoesDcasp, "gerarDemonstracoesDcasp");
     }
 
     @GetMapping("/saldo")
@@ -50,5 +56,14 @@ final class RazaoConsultaController {
             Sessao sessao) {
         var balancete = gerarBalancete.executar(sessao, new TenantId(enteId), exercicio, mes);
         return BalanceteResponse.de(balancete);
+    }
+
+    @GetMapping("/demonstracoes-dcasp")
+    DemonstracoesDcaspResponse demonstracoesDcasp(
+            @PathVariable("enteId") UUID enteId,
+            @RequestParam("exercicio") int exercicio,
+            Sessao sessao) {
+        var demonstracoes = gerarDemonstracoesDcasp.executar(sessao, new TenantId(enteId), exercicio);
+        return DemonstracoesDcaspResponse.de(demonstracoes);
     }
 }

@@ -2,6 +2,7 @@ package br.contabil.consulta;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -22,9 +23,16 @@ import br.contabil.plataforma.domain.iam.ServicoIdentidade.SemPermissaoException
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
 import br.contabil.razao.application.ConsultarSaldo;
 import br.contabil.razao.application.GerarBalancete;
+import br.contabil.razao.application.GerarDemonstracoesDcasp;
 import br.contabil.razao.domain.Balancete;
+import br.contabil.razao.domain.BalancoFinanceiro;
+import br.contabil.razao.domain.BalancoOrcamentario;
+import br.contabil.razao.domain.BalancoPatrimonial;
 import br.contabil.razao.domain.ContaContabilId;
+import br.contabil.razao.domain.DemonstracoesDcasp;
+import br.contabil.razao.domain.Dvp;
 import br.contabil.razao.domain.LinhaBalancete;
+import br.contabil.razao.domain.LinhaDemonstracaoDcasp;
 
 /**
  * Testa só a adaptação HTTP → use case (RAZ-101): o RBAC/tenant já é coberto
@@ -41,11 +49,14 @@ class RazaoConsultaControllerTest {
     @Mock
     private GerarBalancete gerarBalancete;
 
+    @Mock
+    private GerarDemonstracoesDcasp gerarDemonstracoesDcasp;
+
     /** Mesma serialização da app: {@link DinheiroJacksonModule} emite Dinheiro como string decimal (§6.1). */
     private final ObjectMapper json = new ObjectMapper().registerModule(new DinheiroJacksonModule());
 
     private RazaoConsultaController controller() {
-        return new RazaoConsultaController(consultarSaldo, gerarBalancete);
+        return new RazaoConsultaController(consultarSaldo, gerarBalancete, gerarDemonstracoesDcasp);
     }
 
     private Sessao sessaoDe(TenantId ente) {
@@ -115,5 +126,33 @@ class RazaoConsultaControllerTest {
         String corpo = json.writeValueAsString(resposta);
         assertThat(corpo).contains("\"saldoAtual\":\"100.00\"");
         assertThat(corpo).contains("\"naturezaSaldo\":\"D\"");
+    }
+
+    @Test
+    void demonstracoesDcaspAdaptaPathEQueryEMapeiaAsQuatroSecoes() throws Exception {
+        UUID enteId = UUID.randomUUID();
+        TenantId tenant = new TenantId(enteId);
+        Sessao sessao = sessaoDe(tenant);
+        LinhaDemonstracaoDcasp linha =
+                new LinhaDemonstracaoDcasp("1.1.1", "Caixa", Map.of("exercicioAtual", Dinheiro.de("100.00")));
+        DemonstracoesDcasp demonstracoes = new DemonstracoesDcasp(
+                tenant,
+                2026,
+                new BalancoOrcamentario(tenant, 2026, List.of(linha)),
+                new BalancoFinanceiro(tenant, 2026, List.of(linha)),
+                new BalancoPatrimonial(tenant, 2026, List.of(linha)),
+                new Dvp(tenant, 2026, List.of(linha)));
+        when(gerarDemonstracoesDcasp.executar(sessao, tenant, 2026)).thenReturn(demonstracoes);
+
+        DemonstracoesDcaspResponse resposta = controller().demonstracoesDcasp(enteId, 2026, sessao);
+
+        assertThat(resposta.exercicio()).isEqualTo(2026);
+        assertThat(resposta.balancoOrcamentario().linhas()).hasSize(1);
+        assertThat(resposta.balancoFinanceiro().linhas()).hasSize(1);
+        assertThat(resposta.balancoPatrimonial().linhas()).hasSize(1);
+        assertThat(resposta.dvp().linhas()).hasSize(1);
+        assertThat(resposta.balancoPatrimonial().linhas().get(0).valores().get("exercicioAtual"))
+                .isEqualTo(Dinheiro.de("100.00"));
+        assertThat(json.writeValueAsString(resposta)).contains("\"exercicioAtual\":\"100.00\"");
     }
 }
