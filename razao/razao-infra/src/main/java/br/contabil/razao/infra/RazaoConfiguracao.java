@@ -13,11 +13,13 @@ import br.contabil.razao.application.EncerrarExercicio;
 import br.contabil.razao.application.EncerrarPeriodo;
 import br.contabil.razao.application.EstornarFatoContabil;
 import br.contabil.razao.application.GerarBalancete;
+import br.contabil.razao.application.GerarDemonstracoesDcasp;
 import br.contabil.razao.application.RegistrarFatoContabil;
 import br.contabil.razao.domain.repository.BalancetePort;
 import br.contabil.razao.domain.repository.CatalogoContasPort;
 import br.contabil.razao.domain.repository.ConsultaSaldoPort;
 import br.contabil.razao.domain.repository.ContadorFatoPort;
+import br.contabil.razao.domain.repository.DemonstracoesDcaspPort;
 import br.contabil.razao.domain.repository.FatoContabilRepository;
 import br.contabil.razao.domain.repository.PeriodoContabilPort;
 import br.contabil.razao.domain.repository.PeriodoContabilRepository;
@@ -83,6 +85,13 @@ public class RazaoConfiguracao {
     @Bean
     public GerarBalancete gerarBalancete(ControleAcesso controleAcesso, BalancetePort balancete) {
         return new GerarBalancete(controleAcesso, balancete);
+    }
+
+    /** RAZ-241: demonstrações DCASP via read models do razão, sem snapshot materializado. */
+    @Bean
+    public GerarDemonstracoesDcasp gerarDemonstracoesDcasp(
+            ControleAcesso controleAcesso, DemonstracoesDcaspPort demonstracoes) {
+        return new GerarDemonstracoesDcasp(controleAcesso, demonstracoes);
     }
 
     /** RAZ-206: encerramento de período comum (mês 1-12) — ADR-0045/ADR-0046. */
