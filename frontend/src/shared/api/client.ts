@@ -162,6 +162,22 @@ async function get<TResponse>(
 
 export type SessaoAtualResponse = components['schemas']['SessaoAtualResponse'];
 
+export type SessaoDevIdpRequest = { cpf: string; enteId: string };
+export type SessaoDevIdpResponse = { bearerToken: string };
+
+/** Erro de `POST /sessao/dev-idp/token` (RAZ-228) — envelope próprio (`{erro}`), distinto do
+ * `ErroContratoResponse` (`{codigo, mensagem, detalhes}`) das rotas de negócio: este endpoint é
+ * dev-only e não passa por `ErroContratoExceptionHandler`, ver `SessaoDevIdpController.java`. */
+export class DevIdpTokenError extends Error {
+  readonly erro: string;
+
+  constructor(erro: string) {
+    super(erro);
+    this.name = 'DevIdpTokenError';
+    this.erro = erro;
+  }
+}
+
 /**
  * GET /sessao/atual (RAZ-203/RAZ-205) — fora do template `/api/v1/entes/{enteId}`, igual
  * aos endpoints de assinatura: é justamente o dado que este endpoint descobre. Autenticação
@@ -177,6 +193,24 @@ export const sessaoClient = {
       credentials: 'include',
       signal: options?.signal,
     }).then((response) => tratarResposta<SessaoAtualResponse>(response)),
+  /** POST /sessao/dev-idp/token (RAZ-228/ADR-0052 item 1) — substitui a string opaca que o
+   * formulário "Modo desenvolvimento" fabricava por um JWT RS256 real, assinado pelo backend
+   * (`AssinadorJwtDevIdp`). Sem `credentials: 'include'`: stateless, não depende do cookie do
+   * BFF (ADR-0035) — a rota só existe (404 senão) quando o backend roda com as duas flags de
+   * dev-IdP ativas, ver `SessaoDevIdpController.java`. */
+  emitirTokenDev: async (body: SessaoDevIdpRequest, options?: RequestOptions): Promise<SessaoDevIdpResponse> => {
+    const response = await fetch(`${API_ORIGIN}/sessao/dev-idp/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: options?.signal,
+    });
+    const parsed = (await response.json()) as SessaoDevIdpResponse | { erro?: string };
+    if (!response.ok) {
+      throw new DevIdpTokenError('erro' in parsed && parsed.erro ? parsed.erro : 'erro_desconhecido');
+    }
+    return parsed as SessaoDevIdpResponse;
+  },
 };
 
 export type EmpenhoRequest = components['schemas']['EmpenhoRequest'];

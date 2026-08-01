@@ -18,6 +18,11 @@
  * de dev; a sessão hidratada por cookie não tem nome, só `enteId`, ver `useAuth`
  * consumidores). `expiraEm` NÃO existe no contrato de `SessaoAtualResponse` — a
  * expiração é responsabilidade do cookie/sessão do servidor, o SPA não precisa dela.
+ *
+ * `entrar` (RAZ-242, follow-up de frontend da RAZ-228/ADR-0052 item 1): o form de dev
+ * (`LoginPage`) não fabrica mais um bearer opaco — chama `sessaoClient.emitirTokenDev`
+ * (`POST /sessao/dev-idp/token`) e usa o JWT RS256 real devolvido. `entrar` virou async por
+ * causa desse round-trip; erros (`DevIdpTokenError`) propagam pro chamador (`LoginPage`) tratar.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { maskCpf } from '../lib/cpf';
@@ -49,7 +54,9 @@ type AuthContextValue = {
    * explícito (`sair`) não é expiração.
    */
   sessaoExpirada: boolean;
-  entrar: (dados: { cpfDigits: string; enteId: string; enteNome: string }) => void;
+  /** Lança `DevIdpTokenError` (ou o erro de rede) se `POST /sessao/dev-idp/token` falhar —
+   * a sessão só é gravada em caso de sucesso. */
+  entrar: (dados: { cpfDigits: string; enteId: string; enteNome: string }) => Promise<void>;
   sair: () => void;
 };
 
@@ -102,7 +109,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => controller.abort();
   }, []);
 
-  const entrar = useCallback((dados: { cpfDigits: string; enteId: string; enteNome: string }) => {
+  const entrar = useCallback(async (dados: { cpfDigits: string; enteId: string; enteNome: string }) => {
+    const { bearerToken } = await sessaoClient.emitirTokenDev({ cpf: dados.cpfDigits, enteId: dados.enteId });
     setSessaoExpirada(false);
     setSessao({
       cpfMascarado: maskCpf(dados.cpfDigits),
@@ -110,8 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       enteNome: dados.enteNome,
       orgao: null,
       mfaConcluido: false,
-      // DEV ONLY — nao e uma assercao gov.br real (ver comentario do arquivo).
-      bearerToken: `dev.${dados.cpfDigits}.${dados.enteId}`,
+      bearerToken,
     });
     setCarregando(false);
   }, []);

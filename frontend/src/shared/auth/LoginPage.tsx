@@ -14,11 +14,17 @@
  * de dev abaixo continua existindo por outro motivo: em `VITE_API_MODE=mock` não há gov.br
  * real pra gerar o cookie em primeiro lugar (o link fica desabilitado acima), então ele
  * segue sendo o único caminho para operar as telas autenticadas *neste ambiente*.
+ *
+ * (Fechado pela RAZ-242/ADR-0052 item 1 — não mais um gap): o formulário de dev não fabrica
+ * mais a string opaca `dev.<cpf>.<ente>` — `AuthContext.entrar` chama `POST
+ * /sessao/dev-idp/token` (RAZ-228) e usa o JWT RS256 real devolvido. `papel` não é enviado: o
+ * contrato do endpoint o aceita só para o form ficar estável, mas o backend nunca o lê (RBAC é
+ * 100% via `siafic.iam.concessoes` server-side) — este form não ganhou um seletor de papel.
  */
 import { useId, useState, type FormEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Alert } from '@siafic/design-system';
-import { apiOrigin } from '../api/client';
+import { apiOrigin, DevIdpTokenError } from '../api/client';
 import { apiMode } from '../api/mode';
 import { useAuth } from './AuthContext';
 import { MOTIVO_SESSAO_EXPIRADA, type EstadoRedirecionamentoLogin } from './redirecionamentoLogin';
@@ -29,6 +35,20 @@ const ENTES_DEV = [
   { id: '11111111-1111-4111-8111-111111111111', nome: 'Prefeitura Municipal de Exemplo (ente-a)' },
   { id: '22222222-2222-4222-8222-222222222222', nome: 'Secretaria Estadual de Exemplo (ente-b)' },
 ];
+
+// Client já valida CPF (11 dígitos)/ente (dropdown fechado) antes de chamar o endpoint — estes
+// dois códigos só chegam via alguma inconsistência fora do fluxo normal do form.
+const MENSAGEM_POR_ERRO_DEV_IDP: Record<string, string> = {
+  cpf_invalido: 'Informe um CPF com 11 dígitos.',
+  ente_id_invalido: 'Selecione um ente válido.',
+};
+
+function mensagemErroDevIdp(erro: unknown): string {
+  if (erro instanceof DevIdpTokenError) {
+    return MENSAGEM_POR_ERRO_DEV_IDP[erro.erro] ?? 'Não foi possível emitir o token de desenvolvimento. Tente novamente.';
+  }
+  return 'Não foi possível entrar. Verifique sua conexão e tente novamente.';
+}
 
 export function LoginPage() {
   const { entrar } = useAuth();
@@ -41,13 +61,14 @@ export function LoginPage() {
   const [cpf, setCpf] = useState('');
   const [enteSelecionado, setEnteSelecionado] = useState(ENTES_DEV[0].id);
   const [erro, setErro] = useState<string | null>(null);
+  const [entrando, setEntrando] = useState(false);
 
   // Motivo é navegação-específico (anexado por `RequireAuth` só no redirect por expiração),
   // não estado global: uma visita direta a `/entrar` não carrega `state` e cai no form simples.
   const estado = location.state as EstadoRedirecionamentoLogin | null;
   const sessaoExpirada = estado?.motivo === MOTIVO_SESSAO_EXPIRADA;
 
-  function handleSubmitDev(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmitDev(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const digits = cpf.replace(/\D/g, '');
     if (digits.length !== 11) {
@@ -60,9 +81,15 @@ export function LoginPage() {
       return;
     }
     setErro(null);
-    entrar({ cpfDigits: digits, enteId: ente.id, enteNome: ente.nome });
-    const destino = estado?.from?.pathname ?? '/execucao';
-    navigate(destino, { replace: true });
+    setEntrando(true);
+    try {
+      await entrar({ cpfDigits: digits, enteId: ente.id, enteNome: ente.nome });
+      const destino = estado?.from?.pathname ?? '/execucao';
+      navigate(destino, { replace: true });
+    } catch (erroEntrar) {
+      setErro(mensagemErroDevIdp(erroEntrar));
+      setEntrando(false);
+    }
   }
 
   return (
@@ -110,12 +137,11 @@ export function LoginPage() {
         <p role="note" style={{ color: 'var(--color-state-warning-fg)' }}>
           <strong>Stand-in de dev, sem curso em produção.</strong> Simula a claim gov.br
           verificada + a escolha de ente para testar as telas sem o fluxo OAuth completo. O
-          backend já aprende quem está logado via <code>GET /sessao/atual</code> (RAZ-203/205) —
-          o que falta é um bearer <em>real</em> aqui: hoje este formulário fabrica uma string
-          opaca (<code>dev.&lt;cpf&gt;.&lt;ente&gt;</code>), que o backend real rejeita por não
-          ser um JWT válido. RAZ-221/ADR-0052 propõe um endpoint de dev-IdP no backend para
-          substituir essa string por um JWT assinado de verdade — até lá, este modo só serve
-          para <code>VITE_API_MODE=mock</code> (ver comentário no topo deste arquivo).
+          backend já aprende quem está logado via <code>GET /sessao/atual</code> (RAZ-203/205);
+          o bearer vem de <code>POST /sessao/dev-idp/token</code> (RAZ-228/242), um JWT RS256
+          real assinado pelo backend — só existe quando o backend roda com as flags de dev-IdP
+          ativas (ver README do backend), então em <code>VITE_API_MODE=real</code> contra um
+          backend sem essas flags este modo devolve 404.
         </p>
 
         <form onSubmit={handleSubmitDev} noValidate>
@@ -150,7 +176,9 @@ export function LoginPage() {
             </p>
           )}
 
-          <button type="submit">Entrar</button>
+          <button type="submit" disabled={entrando}>
+            {entrando ? 'Entrando…' : 'Entrar'}
+          </button>
         </form>
       </section>
     </main>

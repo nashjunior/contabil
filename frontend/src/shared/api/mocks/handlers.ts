@@ -209,10 +209,27 @@ const TRILHA_POR_LIQUIDACAO: Record<string, { tipo: string; ator: string; quando
 export const handlers = [
   // GET /sessao/atual (RAZ-203/RAZ-205) — fora do template /api/v1/entes/:enteId. Neste
   // ambiente de mock nao ha cookie de sessao do BFF de login real (ADR-0035) pra simular, so
-  // o form de dev (que nunca chama este endpoint, so seta a sessao local) — 401 sempre,
-  // fiel ao caso real "sem cookie/bearer valido" que AuthProvider trata como "nao logado".
+  // o form de dev (que chama /sessao/dev-idp/token, nao este endpoint) — 401 sempre, fiel ao
+  // caso real "sem cookie/bearer valido" que AuthProvider trata como "nao logado".
   http.get('/sessao/atual', () => {
     return erroContrato(401, 'nao_autenticado', 'Nenhuma sessão de login (cookie) válida.');
+  }),
+
+  // POST /sessao/dev-idp/token (RAZ-228/RAZ-242/ADR-0052 item 1) — mesma validacao do
+  // SessaoDevIdpController.java real (cpf normalizado pra 11 digitos, enteId precisa ser UUID),
+  // envelope de erro proprio {erro} (nao ErroContratoResponse — este endpoint e dev-only e nao
+  // passa pelo ErroContratoExceptionHandler). Bearer de mock so precisa ser uma string presente
+  // — SessaoAutenticadaHttpResolver real e quem verifica JWT de verdade, fora do MSW.
+  http.post('/sessao/dev-idp/token', async ({ request }) => {
+    const body = (await request.json()) as { cpf?: string; enteId?: string };
+    const digitos = (body.cpf ?? '').replace(/\D/g, '');
+    if (digitos.length !== 11) {
+      return HttpResponse.json({ erro: 'cpf_invalido' }, { status: 400 });
+    }
+    if (!body.enteId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.enteId)) {
+      return HttpResponse.json({ erro: 'ente_id_invalido' }, { status: 400 });
+    }
+    return HttpResponse.json({ bearerToken: `dev-idp-mock.${digitos}.${body.enteId}` });
   }),
 
   http.post(`${BASE}/empenhos`, async ({ request, params }) => {
