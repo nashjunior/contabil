@@ -25,6 +25,7 @@ import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
 import br.contabil.plataforma.domain.auditoria.EventoAuditoria;
 import br.contabil.plataforma.domain.iam.ControleAcesso;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Acao;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Recurso;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
 
@@ -85,7 +86,8 @@ public class AssinarEmpenho {
         // Sessao (ADR-0015) não carrega nome do titular (minimização de PII) — só CPF,
         // única identidade nominal disponível para compor o Signatario aqui.
         String cpfOrdenador = usuarioAutenticado.titular().numero();
-        List<Signatario> signatarios = List.of(new Signatario(cpfOrdenador, cpfOrdenador));
+        String cpfOrdenadorMascarado = usuarioAutenticado.titular().mascarado();
+        List<Signatario> signatarios = List.of(new Signatario(cpfOrdenador, cpfOrdenadorMascarado));
 
         DocumentoAssinado resultado;
         try {
@@ -99,10 +101,10 @@ public class AssinarEmpenho {
                 auditoria.append(new EventoAuditoria(
                         enteId,
                         "execucao_empenho_assinatura_rejeitada",
-                        cpfOrdenador,
+                        cpfOrdenadorMascarado,
                         "execucao:empenho:%s".formatted(empenhoId.valor()),
                         Instant.now(clock),
-                        Map.of("motivo", String.valueOf(e.getMessage()))));
+                        Map.of("motivo", Cpf.mascararOcorrencias(String.valueOf(e.getMessage())))));
             }
             throw e;
         }
@@ -125,7 +127,7 @@ public class AssinarEmpenho {
         auditoria.append(new EventoAuditoria(
                 enteId,
                 "execucao_empenho_assinado",
-                cpfOrdenador,
+                cpfOrdenadorMascarado,
                 "execucao:empenho:%s".formatted(empenhoId.valor()),
                 Instant.now(clock),
                 Map.of("idTransacao", resultado.idTransacao().toString(), "nivel", nivel.name())));

@@ -16,6 +16,7 @@ import br.contabil.plataforma.domain.assinatura.ServicoAssinatura;
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.DocumentoParaAssinar;
 import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
 import br.contabil.plataforma.domain.auditoria.EventoAuditoria;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
 
 /**
  * {@link ServicoAssinatura} F0: provedor único gov.br avançada
@@ -121,7 +122,7 @@ public final class ServicoAssinaturaGovBrAvancada implements ServicoAssinatura {
         // assinasse o hash do PDF sem placeholder, o /ByteRange do dicionário de assinatura
         // não bateria com o que foi realmente assinado (PAdES inválido).
         PreparadorAssinaturaPades.PreparoAssinaturaPades preparo =
-                preparadorPades.preparar(conteudo, signatario.nome(), momento);
+                preparadorPades.preparar(conteudo, nomeExposto(signatario), momento);
         byte[] hash = preparo.hashSha256();
         String hashBase64 = Base64.getEncoder().encodeToString(hash);
         ContextoAssinatura contexto =
@@ -204,7 +205,7 @@ public final class ServicoAssinaturaGovBrAvancada implements ServicoAssinatura {
         trilha.append(new EventoAuditoria(
                 contexto.documento().ente(),
                 "assinatura_eletronica",
-                contexto.signatario().cpf(),
+                cpfMascarado(contexto.signatario().cpf()),
                 contexto.documento().origem().uri().toString(),
                 contexto.momento(),
                 Map.of(
@@ -213,19 +214,27 @@ public final class ServicoAssinaturaGovBrAvancada implements ServicoAssinatura {
                         "nivel", contexto.nivel().name(),
                         "hashSha256Base64", contexto.hashBase64(),
                         "bloqueado", String.valueOf(bloqueado),
-                        "detalhe", detalhe)));
+                        "detalhe", Cpf.mascararOcorrencias(detalhe))));
     }
 
     private static String construirManifesto(ContextoAssinatura contexto) {
         return "signatario=%s (CPF %s); tipo=%s; nivel=%s; momento=%s; hash_sha256=%s; id_transacao=%s"
                 .formatted(
-                        contexto.signatario().nome(),
-                        contexto.signatario().cpf(),
+                        nomeExposto(contexto.signatario()),
+                        cpfMascarado(contexto.signatario().cpf()),
                         contexto.documento().tipoDocumento(),
                         contexto.nivel(),
                         contexto.momento(),
                         contexto.hashBase64(),
                         contexto.idTransacao());
+    }
+
+    private static String nomeExposto(Signatario signatario) {
+        return Cpf.mascararOcorrencias(signatario.nome());
+    }
+
+    private static String cpfMascarado(String cpf) {
+        return new Cpf(cpf).mascarado();
     }
 
     /**

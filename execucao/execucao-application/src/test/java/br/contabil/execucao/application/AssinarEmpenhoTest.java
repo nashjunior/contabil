@@ -44,6 +44,7 @@ import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.CertificadoInv
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.DocumentoAssinado;
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.NivelAssinatura;
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.ReferenciaDocumento;
+import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.Signatario;
 import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
 import br.contabil.plataforma.domain.auditoria.EventoAuditoria;
 import br.contabil.plataforma.domain.iam.ControleAcesso;
@@ -142,9 +143,19 @@ class AssinarEmpenhoTest {
         assertThat(documentoCaptor.getValue().hashSha256()).isEqualTo("hash-sha256");
         assertThat(documentoCaptor.getValue().signatario()).isEqualTo(ordenador);
 
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<java.util.List<Signatario>> signatarios = ArgumentCaptor.forClass(java.util.List.class);
+        verify(servicoAssinatura).assinar(any(), eq(NivelAssinatura.AVANCADA_GOVBR), signatarios.capture());
+        assertThat(signatarios.getValue()).singleElement().satisfies(signatario -> {
+            assertThat(signatario.cpf()).isEqualTo(ordenador.numero());
+            assertThat(signatario.nome()).isEqualTo(ordenador.mascarado());
+        });
+
         ArgumentCaptor<EventoAuditoria> evento = ArgumentCaptor.forClass(EventoAuditoria.class);
         verify(auditoria).append(evento.capture());
         assertThat(evento.getValue().tipo()).isEqualTo("execucao_empenho_assinado");
+        assertThat(evento.getValue().ator()).isEqualTo(ordenador.mascarado()).isNotEqualTo(ordenador.numero());
+        assertThat(evento.getValue().toString()).doesNotContain(ordenador.numero());
     }
 
     @Test
@@ -210,7 +221,7 @@ class AssinarEmpenhoTest {
         when(repositorio.buscarPorId(enteId, empenhoId)).thenReturn(Optional.of(pendente));
         when(nivelAssinaturaExigido.nivelExigido(enteId, "nota_empenho")).thenReturn(NivelAssinatura.AVANCADA_GOVBR);
         when(servicoAssinatura.assinar(any(), eq(NivelAssinatura.AVANCADA_GOVBR), any()))
-                .thenThrow(new CertificadoInvalidoException("certificado revogado"));
+                .thenThrow(new CertificadoInvalidoException("certificado do CPF 33333333333 revogado"));
         when(repositorio.marcarAssinaturaRejeitada(enteId, empenhoId)).thenReturn(true);
 
         assertThatThrownBy(() -> useCase.executar(sessao, enteId, empenhoId))
@@ -221,6 +232,10 @@ class AssinarEmpenhoTest {
         ArgumentCaptor<EventoAuditoria> evento = ArgumentCaptor.forClass(EventoAuditoria.class);
         verify(auditoria).append(evento.capture());
         assertThat(evento.getValue().tipo()).isEqualTo("execucao_empenho_assinatura_rejeitada");
+        assertThat(evento.getValue().ator()).isEqualTo(ordenador.mascarado());
+        assertThat(evento.getValue().detalhes())
+                .containsEntry("motivo", "certificado do CPF ***.333.***-** revogado");
+        assertThat(evento.getValue().toString()).doesNotContain(ordenador.numero());
     }
 
     @Test

@@ -4,6 +4,8 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import br.contabil.plataforma.domain.ErroContrato;
 import br.contabil.plataforma.domain.TenantId;
@@ -65,6 +67,8 @@ public interface ServicoIdentidade {
 
     /** CPF do titular — identidade sempre nominal (sem usuário genérico). */
     record Cpf(String numero) {
+        static final Pattern CPF_CLARO = Pattern.compile("\\b\\d{3}\\.?\\d{3}\\.?\\d{3}-?\\d{2}\\b");
+
         public Cpf {
             Objects.requireNonNull(numero, "CPF não pode ser nulo");
             if (numero.isBlank()) {
@@ -85,6 +89,21 @@ public interface ServicoIdentidade {
                 return "*".repeat(numero.length());
             }
             return "***." + digitos.substring(3, 6) + ".***-**";
+        }
+
+        /**
+         * Remove CPF cru de textos de fronteira/trilha preservando contexto operacional.
+         * Útil para mensagens de erro de provedores externos antes de anexar na auditoria.
+         */
+        public static String mascararOcorrencias(String texto) {
+            Objects.requireNonNull(texto, "texto");
+            Matcher matcher = CPF_CLARO.matcher(texto);
+            StringBuilder mascarado = new StringBuilder();
+            while (matcher.find()) {
+                matcher.appendReplacement(mascarado, Matcher.quoteReplacement(new Cpf(matcher.group()).mascarado()));
+            }
+            matcher.appendTail(mascarado);
+            return mascarado.toString();
         }
     }
 

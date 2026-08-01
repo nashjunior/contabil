@@ -108,7 +108,11 @@ class ServicoAssinaturaGovBrAvancadaTest {
         byte[] hashDecodificado = java.util.Base64.getDecoder().decode(resultado.hash());
         assertThat(hashDecodificado).hasSize(32);
         assertThat(resultado.pdfAssinado()).isEqualTo(referenciaPublicada);
-        assertThat(resultado.manifesto()).contains("Fulana de Tal").contains("11122233344").contains("empenho");
+        assertThat(resultado.manifesto())
+                .contains("Fulana de Tal")
+                .contains("***.222.***-**")
+                .contains("empenho")
+                .doesNotContain("11122233344");
         assertThat(resultado.idTransacao()).isNotNull();
 
         assertThat(pdfPublicado).isNotNull();
@@ -125,7 +129,8 @@ class ServicoAssinaturaGovBrAvancadaTest {
         EventoAuditoria evento = captor.getValue();
         assertThat(evento.ente()).isEqualTo(ENTE);
         assertThat(evento.tipo()).isEqualTo("assinatura_eletronica");
-        assertThat(evento.ator()).isEqualTo(SIGNATARIO.cpf());
+        assertThat(evento.ator()).isEqualTo("***.222.***-**").isNotEqualTo(SIGNATARIO.cpf());
+        assertThat(evento.toString()).doesNotContain(SIGNATARIO.cpf());
         assertThat(evento.detalhes()).containsEntry("bloqueado", "false");
     }
 
@@ -156,14 +161,20 @@ class ServicoAssinaturaGovBrAvancadaTest {
     @DisplayName("conta gov.br não elegível (Bronze/CPF com situação) vira CertificadoInvalidoException e vai para a trilha")
     void rejeitaContaNaoElegivel() {
         when(provedor.assinarPkcs7(any()))
-                .thenThrow(new ProvedorAssinaturaGovBr.ContaGovBrNaoElegivelException("conta Bronze"));
+                .thenThrow(new ProvedorAssinaturaGovBr.ContaGovBrNaoElegivelException(
+                        "conta Bronze para CPF 11122233344"));
 
         assertThatExceptionOfType(CertificadoInvalidoException.class)
                 .isThrownBy(() -> servico.assinar(DOCUMENTO, NivelAssinatura.AVANCADA_GOVBR, List.of(SIGNATARIO)));
 
         ArgumentCaptor<EventoAuditoria> captor = ArgumentCaptor.forClass(EventoAuditoria.class);
         verify(trilha, times(1)).append(captor.capture());
-        assertThat(captor.getValue().detalhes()).containsEntry("bloqueado", "true");
+        EventoAuditoria evento = captor.getValue();
+        assertThat(evento.ator()).isEqualTo("***.222.***-**");
+        assertThat(evento.detalhes())
+                .containsEntry("bloqueado", "true")
+                .containsEntry("detalhe", "conta não elegível: conta Bronze para CPF ***.222.***-**");
+        assertThat(evento.toString()).doesNotContain(SIGNATARIO.cpf());
     }
 
     @Test
