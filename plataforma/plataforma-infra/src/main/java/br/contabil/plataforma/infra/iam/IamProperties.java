@@ -156,11 +156,10 @@ record IamProperties(
                         || (urn.equals("execucao:liquidacao") && acao == ServicoIdentidade.Acao.CRIAR);
                 case AUTORIZADOR -> (urn.equals("razao:fato_contabil")
                                 && (acao == ServicoIdentidade.Acao.APROVAR || acao == ServicoIdentidade.Acao.ASSINAR))
-                        || (urn.equals("execucao:empenho") && acao == ServicoIdentidade.Acao.ASSINAR);
+                        || (urn.equals("execucao:empenho") && acao == ServicoIdentidade.Acao.ASSINAR)
+                        || (urn.equals("execucao:pagamento") && acao == ServicoIdentidade.Acao.APROVAR);
                 case PAGADOR -> urn.equals("execucao:pagamento")
-                        && (acao == ServicoIdentidade.Acao.CRIAR
-                                || acao == ServicoIdentidade.Acao.APROVAR
-                                || acao == ServicoIdentidade.Acao.ASSINAR);
+                        && (acao == ServicoIdentidade.Acao.CRIAR || acao == ServicoIdentidade.Acao.ASSINAR);
                 case ADMIN_ACESSO -> urn.equals("plataforma:iam") && acao == ServicoIdentidade.Acao.ALTERAR;
                 case ADMIN_PLATAFORMA -> urn.startsWith("plataforma:")
                         || (urn.equals("execucao:dotacao")
