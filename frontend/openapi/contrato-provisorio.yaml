@@ -21,9 +21,11 @@
 # (GET /liquidacoes/{id}/trilha) foram adicionadas ao contrato — client.ts (RAZ-14x) ja as
 # consumia sem o contrato estar atualizado, quebrando `npm run build` (tipos fantasma).
 # GET /execucao/dotacoes foi adicionado (RAZ-199) para o combo de dotacao do EmpenhoForm.
-# Ainda EXISTEM no controller real mas NAO estao neste contrato: aprovacao de liquidacao
-# (POST /liquidacoes/{id}/aprovacao), lote de pagamento (POST /pagamentos:lote), consultas de
-# empenhos/liquidacoes/pagamentos "registrados" — follow-up.
+# POST /liquidacoes/{id}/aprovacao foi adicionado (RAZ-221/ADR-0052) — a decisao do gate
+# 4-eyes (LiquidacaoController.aprovar) so existia hardcoded no helper e2e, fora deste
+# contrato. Ainda EXISTEM no controller real mas NAO estao neste contrato: lote de
+# pagamento (POST /pagamentos:lote), consultas de empenhos/liquidacoes/pagamentos
+# "registrados" — follow-up.
 #
 # FLUXO DE ASSINATURA GOVBR (RAZ-141/ADR-0039 decisao 5): os 3 endpoints de
 # POST .../assinatura + GET .../oauth/iniciar + GET .../oauth/callback usam
@@ -236,6 +238,32 @@ paths:
               schema: { $ref: '#/components/schemas/TrilhaResponse' }
         '401': { $ref: '#/components/responses/ErroContrato' }
         '403': { $ref: '#/components/responses/ErroContrato' }
+  /execucao/liquidacoes/{id}/aprovacao:
+    post:
+      operationId: aprovarLiquidacao
+      summary: >-
+        Decisão do gate de aprovação 4-eyes sobre uma liquidação pendente (ADR-0023,
+        RAZ-221/ADR-0052). # java: escrita.LiquidacaoController.aprovar
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AprovacaoRequest' }
+      responses:
+        '200':
+          description: Liquidação decidida (aprovada ou devolvida).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LiquidacaoResponse' }
+        '400': { $ref: '#/components/responses/ErroContrato' }
+        '401': { $ref: '#/components/responses/ErroContrato' }
+        '403': { $ref: '#/components/responses/ErroContrato' }
+        '409': { $ref: '#/components/responses/ErroContrato' }
   /execucao/pagamentos:
     post:
       operationId: registrarPagamento
@@ -699,6 +727,14 @@ components:
         historico: { type: string }
         fatoContabilId: { type: string, format: uuid }
         status: { type: string, enum: [pendente, aprovada, devolvida] }
+    AprovacaoRequest:
+      # java: escrita.LiquidacaoController.AprovacaoRequest — decisao vira
+      # DecisaoAprovacao.valueOf(decisao.toUpperCase()) (execucao-domain).
+      type: object
+      required: [decisao]
+      properties:
+        decisao: { type: string, enum: [aprovar, devolver] }
+        motivo: { type: string, nullable: true }
     PagamentoRequest:
       type: object
       required: [liquidacaoId, dataCompetencia, valor, natureza, historico]

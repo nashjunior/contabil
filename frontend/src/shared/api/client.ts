@@ -158,6 +158,7 @@ export type EmpenhoRequest = components['schemas']['EmpenhoRequest'];
 export type EmpenhoResponse = components['schemas']['EmpenhoResponse'];
 export type LiquidacaoRequest = components['schemas']['LiquidacaoRequest'];
 export type LiquidacaoResponse = components['schemas']['LiquidacaoResponse'];
+export type AprovacaoRequest = components['schemas']['AprovacaoRequest'];
 export type PagamentoRequest = components['schemas']['PagamentoRequest'];
 export type PagamentoResponse = components['schemas']['PagamentoResponse'];
 export type ExecucaoOrcamentariaResponse = components['schemas']['ExecucaoOrcamentariaResponse'];
@@ -184,6 +185,13 @@ export const execucaoClient = {
   },
   registrarLiquidacao: (body: LiquidacaoRequest, contexto: GovbrContexto, options?: RequestOptions) =>
     post<LiquidacaoResponse>('/execucao/liquidacoes', body, contexto, options),
+  /** Decisão do gate 4-eyes (RAZ-221/ADR-0052) — java: escrita.LiquidacaoController.aprovar. */
+  aprovarLiquidacao: (
+    liquidacaoId: string,
+    body: AprovacaoRequest,
+    contexto: GovbrContexto,
+    options?: RequestOptions,
+  ) => post<LiquidacaoResponse>(`/execucao/liquidacoes/${liquidacaoId}/aprovacao`, body, contexto, options),
   registrarPagamento: (body: PagamentoRequest, contexto: GovbrContexto, options?: RequestOptions) =>
     post<PagamentoResponse>('/execucao/pagamentos', body, contexto, options),
   consultarExecucaoOrcamentaria: (exercicio: number, mes: number, contexto: GovbrContexto, options?: RequestOptions) =>

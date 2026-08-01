@@ -56,8 +56,9 @@
 | [0049](./0049-submissao-siconfi-passo-assistido.md) | Submissão ao SICONFI é passo assistido (empacota CSV Anexo II/XBRL GL zipado + upload web com e-CPF A3 ICP-Brasil; sem API M2M de escrita; conciliação via API de consulta read-only) | Aceita |
 | [0050](./0050-informacoes-complementares-msc-dimensoes-lancamento.md) | As 9 informações complementares da MSC (PO/FP/DC/FR/CO/NR/ND/FS/AI) são dimensões do lançamento capturadas na escrituração pela origem, não reconstruídas por heurística; MSC é projeção pura | Aceita |
 | [0051](./0051-sim-tce-ce-adaptador-remessa.md) | Remessa TCE-CE/SIM é adaptador de saída paralelo, parametrizável por leiaute, desacoplado da MSC (duas saídas independentes sobre o razão) | Aceita |
+| [0052](./0052-fluxo-completo-ui-dev-idp-proxy-telas-liquidacao-pagamento.md) | IdP de dev local exposto por HTTP (bearer JWT real, dono backend) + proxy Vite para dev local (resolve cookie `Secure`/CORS sem enfraquecer o default) + esqueleto de telas de liquidação/pagamento/gate de aprovação no padrão ADR-0032/0041, `aprovarLiquidacao` novo no client/contrato | Aceita |
 
-> **Nota:** o número **0019 não foi utilizado** — reservado durante execução paralela de agentes e nunca materializado em arquivo (o **mesmo** padrão-raiz endereçado pelo [ADR-0037](./0037-isolamento-e-guarda-commits-concorrentes-agentes.md)). Não renumerar os ADRs existentes (a numeração é histórica/imutável, mesmo princípio do ADR); o próximo ADR novo continua a partir do 0051.
+> **Nota:** o número **0019 não foi utilizado** — reservado durante execução paralela de agentes e nunca materializado em arquivo (o **mesmo** padrão-raiz endereçado pelo [ADR-0037](./0037-isolamento-e-guarda-commits-concorrentes-agentes.md)). Não renumerar os ADRs existentes (a numeração é histórica/imutável, mesmo princípio do ADR); o próximo ADR novo continua a partir do 0052.
 
 ## Como adicionar/mudar uma decisão
 
