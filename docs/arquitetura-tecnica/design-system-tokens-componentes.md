@@ -136,7 +136,9 @@ Cobertura (antes de RAZ-112): 91 variáveis (43 primitivas + 35 semânticas + 13
 
 ---
 
-## 3. Code Connect — mapeamento Figma ↔ código (RAZ-214)
+## 3. Code Connect — mapeamento Figma ↔ código (RAZ-214, via oficial abandonada)
+
+**Escopo redefinido em 2026-08-01: o Code Connect OFICIAL (`add_code_connect_map` e a API que ele grava) exige plano Figma Organization — a conta só tem Pro no time "internal projects". Via abandonada** (confirmado, não é bug de token/sessão — ver histórico de re-verificação abaixo). O substituto adotado é o mapa manual componente→frame do §4, que alimenta a RAZ-195 (addon-designs no Storybook) em vez do Code Connect nativo do Figma. O texto abaixo fica como registro histórico de como se chegou a essa conclusão.
 
 **Bloqueado — mesma causa raiz da RAZ-195 (licenciamento), re-verificada ao vivo em 2026-08-01 durante a RAZ-214.** `whoami` devolve exatamente os 3 planos já registrados na RAZ-195 (`CETIC`/View/starter, `estefania`/Full/starter, `internal projects`/Full/**pro**) — o arquivo do design system vive em `internal projects`, que segue abaixo do tier Organization/Enterprise exigido. Testado de novo, individualmente, contra o arquivo `ObQu8oMQ0cEGbONMXgpuLU`: `list_file_components_for_code_connect`, `get_code_connect_suggestions` e (por herança da RAZ-195) `get_context_for_code_connect` devolvem o mesmo erro do servidor Figma — *"You need a Dev or Full seat on an Organization or Enterprise plan to use Code Connect."* Não é regressão nem drift: é o mesmo bloqueio de plano, confirmado de novo, não uma causa nova. **Não abrir uma segunda issue de desbloqueio** — o dono do desbloqueio (upgrade do plano/seat "internal projects" pelo admin da conta Figma/billing) já está nomeado na RAZ-195; RAZ-214 referencia-a em vez de duplicá-la.
 
@@ -156,6 +158,39 @@ Cobertura (antes de RAZ-112): 91 variáveis (43 primitivas + 35 semânticas + 13
 **Quando a RAZ-195 destravar:** rodar `add_code_connect_map` para as 4 linhas "Pronto para mapear" acima primeiro (não exigem trabalho de código novo); decidir separadamente o caso do Trigger externo; abrir issue(s) de construção de componente (Tabela/etc. no pacote `@siafic/design-system`) antes de tentar mapear as linhas "Não mapeável ainda" — sem isso, Code Connect não tem contraparte de código pra apontar.
 
 **RAZ-216 (2026-08-01):** `Alert` construído em `frontend/packages/design-system/src/ui/Alert/` (mesmo padrão de compound component + tokens `var(--...)` de `Select`/`FormSection`, ADR-0032/ADR-0033), fiel às 4 variantes conferidas ao vivo via `get_design_context`/`get_screenshot` no node `49:6` — sem ícone (nenhuma variante do Figma usa um), cores/tipografia batem exatamente com as variáveis Figma (`get_variable_defs`), `role="alert"` para `danger`/`warning` e `role="status"` para `info`/`success`. A linha da tabela acima passa de "não mapeável" para "pronto para mapear" assim que a RAZ-195 destravar.
+
+## 4. Mapa componente → frame Figma (RAZ-214, escopo redefinido — sem Code Connect oficial)
+
+**Substitui a via de Code Connect nativa do §3 (Organization-only, abandonada).** Cada componente-núcleo do design system aponta para o node/frame real no Figma (`fileKey ObQu8oMQ0cEGbONMXgpuLU`) via URL com `node-id` — coletado com `use_figma`/`get_metadata` (leitura simples, não gated pelo plano). Alimenta a RAZ-195 (integração `addon-designs` no Storybook, ainda não instalado em `frontend/packages/design-system/.storybook/main.ts` — só `@storybook/addon-a11y`/`@storybook/addon-docs` hoje): a URL de cada linha é o valor pronto para `parameters.design.url` de cada story.
+
+| # | Componente (design system) | Frame Figma (component/component-set) | Variantes (`node-id`) | Código |
+| --- | --- | --- | --- | --- |
+| 1 | Valor Monetário | [node 6:12](https://www.figma.com/design/ObQu8oMQ0cEGbONMXgpuLU/SIAFIC-Design-System?node-id=6-12) | Padrão=`6:8`, Forte=`6:10` | — |
+| 2 | Campo de Valor | [node 8:19](https://www.figma.com/design/ObQu8oMQ0cEGbONMXgpuLU/SIAFIC-Design-System?node-id=8-19) | Default=`8:2`, Focus=`8:6`, Error=`8:10`, Disabled=`8:15` | `FormSection.Field` |
+| 3 | CPF Mascarado (PII) | [node 9:10](https://www.figma.com/design/ObQu8oMQ0cEGbONMXgpuLU/SIAFIC-Design-System?node-id=9-10) | Mascarado=`9:5`, Integral=`9:7` | — |
+| 4 | Seletor de Ente | [node 12:31](https://www.figma.com/design/ObQu8oMQ0cEGbONMXgpuLU/SIAFIC-Design-System?node-id=12-31) | Default=`12:5`, Open=`12:11`, Disabled=`12:25` | — |
+| 5 | Badge Estágio | [node 13:11](https://www.figma.com/design/ObQu8oMQ0cEGbONMXgpuLU/SIAFIC-Design-System?node-id=13-11) | Empenhado=`13:5`, Liquidado=`13:7`, Pago=`13:9` | — |
+| 6 | Badge Aprovação | [node 13:18](https://www.figma.com/design/ObQu8oMQ0cEGbONMXgpuLU/SIAFIC-Design-System?node-id=13-18) | Pendente=`13:12`, Aprovado=`13:14`, Devolvida=`13:16` | — |
+| 7 | Tabela — Seleção em Lote | [node 15:72](https://www.figma.com/design/ObQu8oMQ0cEGbONMXgpuLU/SIAFIC-Design-System?node-id=15-72) | Nenhuma=`15:2`, Parcial=`15:33` | — |
+| 8 | Formulário — Conta PCASP | [node 18:79](https://www.figma.com/design/ObQu8oMQ0cEGbONMXgpuLU/SIAFIC-Design-System?node-id=18-79) | Analítica=`18:5`, Sintética=`18:42` | — |
+| 9 | Gate de Aprovação (4-eyes) | [node 19:61](https://www.figma.com/design/ObQu8oMQ0cEGbONMXgpuLU/SIAFIC-Design-System?node-id=19-61) | Aprovar=`19:5`, Devolver=`19:31` | — |
+| 10 | Resumo Fail-soft | [node 21:26](https://www.figma.com/design/ObQu8oMQ0cEGbONMXgpuLU/SIAFIC-Design-System?node-id=21-26) | TudoOk=`21:5`, ParcialComErros=`21:9` | — |
+| 11 | Alerta / Mensagem Inline (Alert) | [node 49:6](https://www.figma.com/design/ObQu8oMQ0cEGbONMXgpuLU/SIAFIC-Design-System?node-id=49-6) | Crítico=`33:26`, Atenção=`49:3`, Informativo=`96:526`, Sucesso=`96:529` | `Alert` (RAZ-216) |
+| 12 | Tabela — Balancete | [node 64:3](https://www.figma.com/design/ObQu8oMQ0cEGbONMXgpuLU/SIAFIC-Design-System?node-id=64-3) | sem variantes (colunas fixas) | — |
+| 13 | Tabela — Dotações | [node 96:732](https://www.figma.com/design/ObQu8oMQ0cEGbONMXgpuLU/SIAFIC-Design-System?node-id=96-732) | sem variantes (colunas fixas) | — |
+| 14 | Picker de Conta PCASP | [node 96:1821](https://www.figma.com/design/ObQu8oMQ0cEGbONMXgpuLU/SIAFIC-Design-System?node-id=96-1821) | Vazio=`96:1465`, Selecionada=`96:1472`, Aberto=`96:1647` | — |
+| 14b | Picker — Linha de Resultado | [node 96:1258](https://www.figma.com/design/ObQu8oMQ0cEGbONMXgpuLU/SIAFIC-Design-System?node-id=96-1258) | Analítica=`96:1243`, Sintética=`96:1257` | — |
+| 15 | Select Customizado — Painel (assíncrono) | [node 96:1365](https://www.figma.com/design/ObQu8oMQ0cEGbONMXgpuLU/SIAFIC-Design-System?node-id=96-1365) | Carregando=`96:1362`, Vazio=`96:1363`, Erro=`96:1364` | `Select.Options` (painel async) |
+| 15b | Select Customizado — Múltiplo (chips) | [node 96:1440](https://www.figma.com/design/ObQu8oMQ0cEGbONMXgpuLU/SIAFIC-Design-System?node-id=96-1440) | sem variantes | `Select.Trigger` (modo `multiple`) |
+| 15c | Select Customizado — Trigger base | sem node local — instâncias do `Select Field` da biblioteca **Simple Design System** (externa a este arquivo, sem `node-id` estável neste fileKey) | — | `Select.Trigger` (base) |
+| 16 | Linha do Tempo — Evento de Trilha | [node 96:1207](https://www.figma.com/design/ObQu8oMQ0cEGbONMXgpuLU/SIAFIC-Design-System?node-id=96-1207) | 8 variantes (`Tipo`×`Último`) — ver §2 linha 16 | — |
+| 17 | Badge Assinatura | [node 96:1086](https://www.figma.com/design/ObQu8oMQ0cEGbONMXgpuLU/SIAFIC-Design-System?node-id=96-1086) | Pendente=`96:1083`, Assinado=`96:1084`, Rejeitada=`96:1085` | — |
+| 18 | Visualizador de Documento (PDF) | [node 96:1443](https://www.figma.com/design/ObQu8oMQ0cEGbONMXgpuLU/SIAFIC-Design-System?node-id=96-1443) | Pendente=`96:1441`, Assinado=`96:1442` | — |
+
+**Notas:**
+- Node ids acima são o `COMPONENT_SET` (mostra todas as variantes de uma vez — o frame mais útil pra um link único de `addon-designs`) quando existe; para os 3 componentes sem variantes (12, 13, 15b) é o próprio `COMPONENT`.
+- Coluna "Código": só 3 dos 20 componentes têm contraparte em `@siafic/design-system` hoje (`Select`, `FormSection`, `Alert`) — os demais ainda são só design, mesmo achado do §3 (não é gap desta issue, é o estado real do pacote).
+- Linha 15c (Trigger base do Select) não tem `node-id` estável porque é composto de instâncias de outra biblioteca (Simple Design System) — para linkar isso no Storybook, seria preciso o fileKey da própria Simple Design System, fora do escopo deste arquivo.
 
 ---
 
