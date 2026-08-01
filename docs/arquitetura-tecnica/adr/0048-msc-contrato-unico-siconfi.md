@@ -1,0 +1,18 @@
+# ADR-0048 · MSC é o contrato único de prestação de contas ao SICONFI (RREO/RGF/DCA derivam, não são gerados)
+
+- **Status:** Aceita
+- **Data:** 2026-08-01
+- **Contexto:** A prestação de contas ao ente federal (RAZ-209, [docs/16](../../16-prestacao-de-contas.md)) precisa produzir os demonstrativos fiscais e a consolidação. No SICONFI a **Matriz de Saldos Contábeis (MSC) é a fonte única**: pela Portaria STN nº 642/2019 (arts. 9º–10, fundamento LRF art. 48 §2º e art. 51), **RREO, RGF e DCA não são declarados separadamente — são gerados dentro do SICONFI a partir da MSC**. O produto já tem o razão de dupla entrada (Σ=Σ, append-only) como fonte da verdade e o balancete (`GerarBalancete`/`BalancetePort`) como projeção por período ([ADR-0007](./0007-read-models-cqrs.md)). O controle externo do Ceará (TCE-CE/SIM) é trilha paralela e independente (ver [ADR-0051](./0051-sim-tce-ce-adaptador-remessa.md)), não deriva da MSC.
+- **Decisão:**
+  - **O contrato primário do F1 é um só: gerar uma MSC correta.** Duas variantes: **MSC agregada** (mensal, movimentação por Poder/Órgão) e **MSC de encerramento** (anual, período `YYYY-13`, que zera contas de resultado e alimenta a DCA — depende do Fechamento, RAZ-206/[ADR-0045](./0045-encerramento-append-only-transicao-condicional.md)).
+  - **Não construir geradores próprios de RREO/RGF/DCA no F1.** Os demonstrativos fiscais derivam da MSC dentro do SICONFI; construí-los aqui seria superfície redundante que diverge da fonte única.
+  - **A MSC é um read model derivado do razão**, no mesmo padrão do balancete e das demonstrações DCASP ([ADR-0007](./0007-read-models-cqrs.md), [ADR-0047](./0047-dcasp-via-read-models.md)) — projeção reconstruível (conta PCASP último nível × informações complementares × `TIPO_VALOR` × `NATUREZA` × `VALOR`), não uma tabela materializada mutável por fora do razão. Reusa `GerarBalancete` como base de projeção por período.
+  - **Validador local espelha o SICONFI antes do envio:** Σdébito=Σcrédito por classe, saldo inicial + movimento = saldo final por combinação, sem negativos, colunas fixas, MSC não-vazia. O razão já garante Σ=Σ do fato; aqui é a projeção por classe/IC que precisa fechar.
+- **Consequências:** um único contrato-mãe reduz a superfície de F1 e mantém coerência com a fonte oficial; RREO/RGF/DCA saem do SICONFI sem código próprio. Custo/dependências: a MSC exige as 9 informações complementares modeladas ([ADR-0050](./0050-informacoes-complementares-msc-dimensoes-lancamento.md)) e a MSC de encerramento depende do Fechamento (RAZ-206). Fica em aberto (`[REVALIDAR #5]` da spec) se a **DCA** tem homologação própria ou é 100% derivada da MSC de encerramento.
+- **Alternativas consideradas:**
+  - **Geradores próprios de cada anexo RREO/RGF/DCA no F1** — rejeitada: redundante com o que o SICONFI já deriva da MSC, cria uma segunda fonte de verdade dos demonstrativos e contraria a Portaria 642/2019.
+  - **Persistir a MSC como snapshot no momento do envio** — rejeitada pelo mesmo motivo do [ADR-0047](./0047-dcasp-via-read-models.md): a MSC é derivável a qualquer momento do razão; um erro de projeção exigiria reprocessar snapshots em vez de corrigir a query. A MSC gerada para envio é empacotada/assinada como artefato ([ADR-0049](./0049-submissao-siconfi-passo-assistido.md)), mas a fonte continua sendo o razão.
+
+---
+
+[← ADRs](./README.md) · [ADR-0007 Read models/CQRS-lite](./0007-read-models-cqrs.md) · [ADR-0047 DCASP via read models](./0047-dcasp-via-read-models.md) · [ADR-0049](./0049-submissao-siconfi-passo-assistido.md) · [ADR-0050](./0050-informacoes-complementares-msc-dimensoes-lancamento.md) · [ADR-0051](./0051-sim-tce-ce-adaptador-remessa.md) · [Spec docs/16](../../16-prestacao-de-contas.md)

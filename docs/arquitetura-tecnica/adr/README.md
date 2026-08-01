@@ -52,8 +52,12 @@
 | [0045](./0045-encerramento-append-only-transicao-condicional.md) | Encerramento de período/exercício por lançamentos de encerramento (append-only, nunca `UPDATE`) + transição `aberto→encerrado` condicional (mesmo padrão anti-corrida do gate de aprovação de pagamento) | Aceita |
 | [0046](./0046-segregacao-encerramento-acao-dedicada.md) | Segregação do encerramento: `Acao.ENCERRAR` dedicada (RBAC+MFA) por papel, sem checagem de autor individual (diferente do gate de aprovação de pagamento) | Aceita |
 | [0047](./0047-dcasp-via-read-models.md) | Demonstrações DCASP geradas a partir de read models do razão, reusando `GerarBalancete`/`BalancetePort` (ADR-0007) | Aceita |
+| [0048](./0048-msc-contrato-unico-siconfi.md) | MSC é o contrato único de prestação de contas ao SICONFI (RREO/RGF/DCA derivam dela, não são gerados); MSC = read model do razão (ADR-0007/0047) | Aceita |
+| [0049](./0049-submissao-siconfi-passo-assistido.md) | Submissão ao SICONFI é passo assistido (empacota CSV Anexo II/XBRL GL zipado + upload web com e-CPF A3 ICP-Brasil; sem API M2M de escrita; conciliação via API de consulta read-only) | Aceita |
+| [0050](./0050-informacoes-complementares-msc-dimensoes-lancamento.md) | As 9 informações complementares da MSC (PO/FP/DC/FR/CO/NR/ND/FS/AI) são dimensões do lançamento capturadas na escrituração pela origem, não reconstruídas por heurística; MSC é projeção pura | Aceita |
+| [0051](./0051-sim-tce-ce-adaptador-remessa.md) | Remessa TCE-CE/SIM é adaptador de saída paralelo, parametrizável por leiaute, desacoplado da MSC (duas saídas independentes sobre o razão) | Aceita |
 
-> **Nota:** o número **0019 não foi utilizado** — reservado durante execução paralela de agentes e nunca materializado em arquivo (o **mesmo** padrão-raiz endereçado pelo [ADR-0037](./0037-isolamento-e-guarda-commits-concorrentes-agentes.md)). Não renumerar os ADRs existentes (a numeração é histórica/imutável, mesmo princípio do ADR); o próximo ADR novo continua a partir do 0047.
+> **Nota:** o número **0019 não foi utilizado** — reservado durante execução paralela de agentes e nunca materializado em arquivo (o **mesmo** padrão-raiz endereçado pelo [ADR-0037](./0037-isolamento-e-guarda-commits-concorrentes-agentes.md)). Não renumerar os ADRs existentes (a numeração é histórica/imutável, mesmo princípio do ADR); o próximo ADR novo continua a partir do 0051.
 
 ## Como adicionar/mudar uma decisão
 

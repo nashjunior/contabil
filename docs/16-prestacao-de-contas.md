@@ -102,12 +102,12 @@ uma MSC correta**; os demonstrativos fiscais derivam dela. O controle externo do
 6. **População do ente-piloto** (fixa a periodicidade RREO/RGF, art. 63).
 7. Versão do **Anexo II (leiaute MSC) 2026** (Anexo I verificado byte-a-byte; Anexo II citado, não aberto).
 
-## ADRs a registrar
+## ADRs registrados
 
-- **MSC como contrato único** (RREO/RGF/DCA derivam) — evita geradores redundantes.
-- **Submissão SICONFI como passo assistido** (sem API de escrita; e-CPF A3 ICP-Brasil).
-- **Modelagem das 9 informações complementares** no razão (PO/FP/DC/FR/CO/NR/ND/FS/AI).
-- **SIM/TCE-CE como adaptador de remessa** paralelo, parametrizável por leiaute.
+- [**ADR-0048**](./arquitetura-tecnica/adr/0048-msc-contrato-unico-siconfi.md) — **MSC como contrato único** (RREO/RGF/DCA derivam dela no SICONFI); MSC é read model do razão. Evita geradores redundantes.
+- [**ADR-0049**](./arquitetura-tecnica/adr/0049-submissao-siconfi-passo-assistido.md) — **submissão SICONFI como passo assistido** (empacota CSV Anexo II/XBRL GL zipado + upload web com e-CPF A3 ICP-Brasil; sem API de escrita; conciliação via API de consulta read-only).
+- [**ADR-0050**](./arquitetura-tecnica/adr/0050-informacoes-complementares-msc-dimensoes-lancamento.md) — **as 9 informações complementares** (PO/FP/DC/FR/CO/NR/ND/FS/AI) são dimensões do lançamento capturadas na escrituração pela origem, não reconstruídas por heurística; a MSC é projeção pura.
+- [**ADR-0051**](./arquitetura-tecnica/adr/0051-sim-tce-ce-adaptador-remessa.md) — **SIM/TCE-CE como adaptador de remessa** paralelo, parametrizável por leiaute, desacoplado da MSC.
 
 ## Fontes (primárias)
 
