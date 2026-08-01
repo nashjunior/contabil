@@ -44,9 +44,9 @@ import br.contabil.RazaoApplication;
  * através da borda HTTP real contra a **matriz RBAC de verdade** — {@code siafic.iam.enabled=true},
  * JWT gov.br RS256 assinado neste teste (sem substituir {@link
  * br.contabil.plataforma.domain.iam.ServicoIdentidade} por duplo permissivo, diferente de {@link
- * ExecucaoEscritaHttpIntegrationTest}), com três CPFs/papéis segregados (ADR-0052):
- * {@code ADMIN_PLATAFORMA} fixa a dotação, {@code LANCADOR} empenha e liquida, {@code PAGADOR}
- * aprova e paga.
+ * ExecucaoEscritaHttpIntegrationTest}), com quatro CPFs/papéis segregados (ADR-0052 + RAZ-222):
+ * {@code ADMIN_PLATAFORMA} fixa a dotação, {@code LANCADOR} empenha e liquida, {@code AUTORIZADOR}
+ * aprova (gate de 4 olhos, ADR-0023) e {@code PAGADOR} efetiva a baixa.
  *
  * <p>Fecha a lacuna descrita no RAZ-218: o teste HTTP existente falsificava {@code autorizar →
  * true} e semeava a dotação via SQL direto (nunca chamava o endpoint) — a matriz real de {@link
@@ -71,6 +71,7 @@ class ExecucaoEscritaRbacRealHttpIntegrationTest {
     private static final String ENTE = "99999999-9999-9999-9999-999999999999";
     private static final String CPF_PLANEJADOR = "33333333333";
     private static final String CPF_LANCADOR = "44444444444";
+    private static final String CPF_AUTORIZADOR = "66666666666";
     private static final String CPF_PAGADOR = "55555555555";
 
     private static KeyPair keyPair;
@@ -108,9 +109,13 @@ class ExecucaoEscritaRbacRealHttpIntegrationTest {
         registry.add("siafic.iam.concessoes[1].ente-id", () -> ENTE);
         registry.add("siafic.iam.concessoes[1].papeis[0]", () -> "LANCADOR");
 
-        registry.add("siafic.iam.concessoes[2].cpf", () -> CPF_PAGADOR);
+        registry.add("siafic.iam.concessoes[2].cpf", () -> CPF_AUTORIZADOR);
         registry.add("siafic.iam.concessoes[2].ente-id", () -> ENTE);
-        registry.add("siafic.iam.concessoes[2].papeis[0]", () -> "PAGADOR");
+        registry.add("siafic.iam.concessoes[2].papeis[0]", () -> "AUTORIZADOR");
+
+        registry.add("siafic.iam.concessoes[3].cpf", () -> CPF_PAGADOR);
+        registry.add("siafic.iam.concessoes[3].ente-id", () -> ENTE);
+        registry.add("siafic.iam.concessoes[3].papeis[0]", () -> "PAGADOR");
     }
 
     @BeforeAll
@@ -219,11 +224,11 @@ class ExecucaoEscritaRbacRealHttpIntegrationTest {
 
     @Test
     @Order(5)
-    void pagadorAprovaViaHttpReal() {
+    void autorizadorAprovaViaHttpReal() {
         Map<String, Object> corpo = Map.of("decisao", "aprovar");
 
         ResponseEntity<Map> resposta =
-                post("/execucao/liquidacoes/" + liquidacaoId + "/aprovacao", CPF_PAGADOR, corpo, Map.class);
+                post("/execucao/liquidacoes/" + liquidacaoId + "/aprovacao", CPF_AUTORIZADOR, corpo, Map.class);
 
         assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(resposta.getBody()).containsEntry("status", "aprovada");
