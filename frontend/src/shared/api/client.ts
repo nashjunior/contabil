@@ -135,6 +135,25 @@ async function get<TResponse>(
   return tratarResposta<TResponse>(response);
 }
 
+export type SessaoAtualResponse = components['schemas']['SessaoAtualResponse'];
+
+/**
+ * GET /sessao/atual (RAZ-203/RAZ-205) — fora do template `/api/v1/entes/{enteId}`, igual
+ * aos endpoints de assinatura: é justamente o dado que este endpoint descobre. Autenticação
+ * por cookie de sessão do BFF de login (`credentials: 'include'`) — usado por `AuthProvider`
+ * para hidratar a sessão no mount/depois do redirect do gov.br (`shared/auth/AuthContext.tsx`).
+ * 401 (`ApiError`) é o caso esperado de "sem sessão", não uma falha de rede — quem chama trata.
+ */
+export const sessaoClient = {
+  atual: (options?: RequestOptions) =>
+    fetch(`${API_ORIGIN}/sessao/atual`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      signal: options?.signal,
+    }).then((response) => tratarResposta<SessaoAtualResponse>(response)),
+};
+
 export type EmpenhoRequest = components['schemas']['EmpenhoRequest'];
 export type EmpenhoResponse = components['schemas']['EmpenhoResponse'];
 export type LiquidacaoRequest = components['schemas']['LiquidacaoRequest'];

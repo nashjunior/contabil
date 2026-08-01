@@ -22,7 +22,7 @@ export function BalancetePage() {
         <h1>Balancete</h1>
         {sessao && (
           <p>
-            {sessao.enteNome} · CPF {sessao.cpfMascarado}{' '}
+            {sessao.enteNome ?? sessao.enteId} · CPF {sessao.cpfMascarado}{' '}
             <button type="button" onClick={sair}>
               Sair
             </button>

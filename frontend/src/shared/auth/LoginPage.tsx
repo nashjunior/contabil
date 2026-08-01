@@ -7,13 +7,13 @@
  * real`); em `mock` (default deste ambiente) o endpoint não existe para o MSW interceptar,
  * então o link fica desabilitado com a explicação, em vez de quebrar silenciosamente.
  *
- * GAP QUE PERMANECE (não escondido — ver README "Gaps" e AuthContext.tsx): mesmo com o
- * `/iniciar` real wireado, o callback devolve só um cookie de sessão — não há hoje, no
- * backend, um endpoint "quem sou eu" que devolva `{cpf mascarado, ente, orgao}` para este
- * SPA hidratar `AuthContext` depois do redirect de volta. Sem ele, a claim/ente não tem
- * como ser aprendida pelo navegador, então o formulário de dev permanece o único caminho
- * para operar as telas autenticadas neste ambiente — follow-up de backend rastreado
- * separadamente (RAZ-199).
+ * (Fechado pela RAZ-203/RAZ-205 — não mais um gap): o callback do BFF continua devolvendo
+ * só um cookie de sessão, mas agora `GET /sessao/atual` existe no backend e `AuthProvider`
+ * já chama esse endpoint no mount para hidratar `{cpfMascarado, enteId, orgao,
+ * mfaConcluido}` a partir dele (ver comentário no topo de `AuthContext.tsx`). O formulário
+ * de dev abaixo continua existindo por outro motivo: em `VITE_API_MODE=mock` não há gov.br
+ * real pra gerar o cookie em primeiro lugar (o link fica desabilitado acima), então ele
+ * segue sendo o único caminho para operar as telas autenticadas *neste ambiente*.
  */
 import { useId, useState, type FormEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';

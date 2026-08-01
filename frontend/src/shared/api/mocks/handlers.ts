@@ -164,6 +164,14 @@ const MOVIMENTOS_POR_CONTA: Record<string, { saldoAnterior: string; movimentoDeb
 };
 
 export const handlers = [
+  // GET /sessao/atual (RAZ-203/RAZ-205) — fora do template /api/v1/entes/:enteId. Neste
+  // ambiente de mock nao ha cookie de sessao do BFF de login real (ADR-0035) pra simular, so
+  // o form de dev (que nunca chama este endpoint, so seta a sessao local) — 401 sempre,
+  // fiel ao caso real "sem cookie/bearer valido" que AuthProvider trata como "nao logado".
+  http.get('/sessao/atual', () => {
+    return erroContrato(401, 'nao_autenticado', 'Nenhuma sessão de login (cookie) válida.');
+  }),
+
   http.post(`${BASE}/empenhos`, async ({ request, params }) => {
     const erro = exigirBearer(request);
     if (erro) return erro;

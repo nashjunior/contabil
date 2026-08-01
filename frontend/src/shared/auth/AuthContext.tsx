@@ -5,34 +5,43 @@
  *
  * Contrato real (RAZ-101, `ServicoIdentidade`/`SessaoAutenticadaHttpResolver`): o backend
  * aceita `Authorization: Bearer <assercao gov.br>` OU, desde o BFF de login real (ADR-0035,
- * RAZ-128), um cookie de sessão — verificado A CADA request (stateless) — e devolve uma
- * `Sessao` com `titular` (CPF), `ente`, `orgao`, `mfaConcluido`, `expiraEm`.
+ * RAZ-128), um cookie de sessão — verificado A CADA request (stateless).
  *
- * GAP QUE PERMANECE (RAZ-199, não escondido): `LoginPage` já linka para o `/sessao/oauth/
- * iniciar` real, e `shared/api/client.ts` já sabe chamar a API por cookie+CSRF (ADR-0035
- * §3) quando não há bearer. O que falta é este `AuthProvider` conseguir HIDRATAR `sessao`
- * depois do redirect de volta do gov.br: o callback do BFF só estabelece um cookie
- * `HttpOnly` (a asserção nunca chega ao navegador, por desenho — ADR-0035), então o SPA
- * não tem hoje nenhum endpoint "quem sou eu" para aprender CPF/ente da sessão de cookie.
- * Até esse endpoint existir no backend (follow-up rastreado, RAZ-199), este `AuthProvider`
- * continua sendo um STAND-IN DE DESENVOLVIMENTO: sintetiza um bearer token opaco local
- * (nunca teria curso em produção) para permitir montar e testar a tela contra o contrato
- * real — ver `LoginPage` e README "Gaps".
+ * HIDRATAÇÃO (RAZ-203/RAZ-205, gap fechado): depois do redirect de volta do gov.br o
+ * callback do BFF só estabelece um cookie `HttpOnly` (a asserção nunca chega ao
+ * navegador, por desenho — ADR-0035) — este `AuthProvider` chama `GET /sessao/atual`
+ * (`sessaoClient.atual`) no mount para aprender `cpfMascarado`/`enteId`/`orgao`/
+ * `mfaConcluido` a partir desse cookie. 401 (`sem sessão`) é o resultado normal quando
+ * não há cookie/bearer válido — o form de dev (`LoginPage`) segue como único caminho
+ * para operar as telas em `VITE_API_MODE=mock` (o backend real ainda não tem entidade
+ * `Ente` com nome próprio — RAZ-17 — por isso `enteNome` só existe quando vem do form
+ * de dev; a sessão hidratada por cookie não tem nome, só `enteId`, ver `useAuth`
+ * consumidores). `expiraEm` NÃO existe no contrato de `SessaoAtualResponse` — a
+ * expiração é responsabilidade do cookie/sessão do servidor, o SPA não precisa dela.
  */
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { maskCpf } from '../lib/cpf';
+import { sessaoClient } from '../api/client';
 import type { GovbrContexto } from '../api/client';
 
 export type Sessao = {
-  cpfDigits: string;
   cpfMascarado: string;
   enteId: string;
-  enteNome: string;
-  bearerToken: string;
+  /** Só preenchido pelo form de dev (`LoginPage`) — o contrato real ainda não tem
+   * entidade `Ente` com nome própria (RAZ-17). Ausente quando a sessão vem hidratada
+   * de `GET /sessao/atual`. */
+  enteNome?: string;
+  orgao: string | null;
+  mfaConcluido: boolean;
+  /** Ausente quando a sessão veio do cookie do BFF de login (ADR-0035) — nesse caso
+   * `shared/api/client.ts` cai no caminho por cookie + CSRF em vez de `Authorization`. */
+  bearerToken?: string;
 };
 
 type AuthContextValue = {
   sessao: Sessao | null;
+  /** true enquanto a hidratação inicial (`GET /sessao/atual`) do mount está em voo. */
+  carregando: boolean;
   entrar: (dados: { cpfDigits: string; enteId: string; enteNome: string }) => void;
   sair: () => void;
 };
@@ -41,21 +50,46 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [sessao, setSessao] = useState<Sessao | null>(null);
+  const [carregando, setCarregando] = useState(true);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    sessaoClient
+      .atual({ signal: controller.signal })
+      .then((resposta) => {
+        setSessao({
+          cpfMascarado: resposta.cpfMascarado,
+          enteId: resposta.enteId,
+          orgao: resposta.orgao,
+          mfaConcluido: resposta.mfaConcluido,
+        });
+      })
+      .catch(() => {
+        // 401 nao_autenticado é o resultado normal sem cookie/bearer válido — sessao
+        // permanece null e LoginPage/RequireAuth tratam como "não logado".
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setCarregando(false);
+      });
+    return () => controller.abort();
+  }, []);
 
   const entrar = useCallback((dados: { cpfDigits: string; enteId: string; enteNome: string }) => {
     setSessao({
-      cpfDigits: dados.cpfDigits,
       cpfMascarado: maskCpf(dados.cpfDigits),
       enteId: dados.enteId,
       enteNome: dados.enteNome,
+      orgao: null,
+      mfaConcluido: false,
       // DEV ONLY — nao e uma assercao gov.br real (ver comentario do arquivo).
       bearerToken: `dev.${dados.cpfDigits}.${dados.enteId}`,
     });
+    setCarregando(false);
   }, []);
 
   const sair = useCallback(() => setSessao(null), []);
 
-  const value = useMemo(() => ({ sessao, entrar, sair }), [sessao, entrar, sair]);
+  const value = useMemo(() => ({ sessao, carregando, entrar, sair }), [sessao, carregando, entrar, sair]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

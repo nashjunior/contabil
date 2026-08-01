@@ -87,24 +87,28 @@ para a proveniência exata (arquivo por arquivo) de cada campo.
    endpoint sem consumidor) estão consumidos. A fila de aprovação (`GET
    /liquidacoes`, paginada/cursor) e a trilha (`GET /liquidacoes/{id}/trilha`)
    existem no controller real mas não estão em nenhuma tela — follow-up.
-4. **Login gov.br real — parcialmente fechado pela RAZ-199.** O backend já
-   tem um BFF de login real (`SessaoLoginGovBrOAuthController`/ADR-0035,
-   RAZ-128): `GET /sessao/oauth/iniciar` conduz o OIDC+PKCE contra o gov.br e
-   devolve um cookie de sessão `HttpOnly` (a asserção nunca chega ao
-   navegador); `SessaoAutenticadaHttpResolver` já aceita esse cookie como
-   fallback aditivo ao `Authorization: Bearer`. `LoginPage` já linka para o
-   `/iniciar` real (só em `VITE_API_MODE=real`, já que o endpoint não existe
-   para o MSW interceptar) e `shared/api/client.ts` já manda `credentials:
-   'include'` + o cabeçalho anti-CSRF (`X-Csrf-Token`) exigido em toda
-   chamada mutante autenticada por cookie. **O que falta:** o callback do BFF
-   não devolve nenhum corpo com `{cpf, ente, orgao}` — não há hoje um
-   endpoint "quem sou eu" para este SPA aprender a claim/ente depois do
-   redirect de volta, então `AuthContext` continua sem como hidratar a sessão
-   a partir do cookie. `LoginPage`/`AuthContext` seguem sintetizando um
-   bearer token opaco local (stand-in de desenvolvimento, não o mecanismo de
-   produção) como único caminho para operar as telas neste ambiente. Ver
-   comentário em `shared/auth/AuthContext.tsx`; endpoint "quem sou eu" é
-   follow-up de backend rastreado separadamente (RAZ-199).
+4. **Login gov.br real — fechado pela RAZ-203/RAZ-205.** O backend já tem um
+   BFF de login real (`SessaoLoginGovBrOAuthController`/ADR-0035, RAZ-128):
+   `GET /sessao/oauth/iniciar` conduz o OIDC+PKCE contra o gov.br e devolve
+   um cookie de sessão `HttpOnly` (a asserção nunca chega ao navegador);
+   `SessaoAutenticadaHttpResolver` já aceita esse cookie como fallback
+   aditivo ao `Authorization: Bearer`. `LoginPage` já linka para o `/iniciar`
+   real (só em `VITE_API_MODE=real`, já que o endpoint não existe para o MSW
+   interceptar) e `shared/api/client.ts` já manda `credentials: 'include'` +
+   o cabeçalho anti-CSRF (`X-Csrf-Token`) exigido em toda chamada mutante
+   autenticada por cookie. `GET /sessao/atual` (RAZ-203, "quem sou eu")
+   devolve `{cpfMascarado, enteId, orgao, mfaConcluido}` a partir desse
+   cookie — `AuthProvider` chama esse endpoint no mount/depois do redirect
+   para hidratar `AuthContext` (RAZ-205), com `RequireAuth` segurando a
+   decisão de rota (`carregando`) até a hidratação resolver, pra não
+   bater um acesso direto a rota protegida (ex.: pós-redirect do gov.br)
+   contra um `sessao` ainda `null`. `LoginPage`/o formulário de dev
+   continuam existindo — não por falta do endpoint, mas porque
+   `VITE_API_MODE=mock` não tem gov.br real pra gerar o cookie em primeiro
+   lugar. Resíduo, não gap: `enteId` sem nome (o domínio ainda não tem
+   entidade `Ente` própria — RAZ-17); `enteNome` só existe quando a sessão
+   vem do form de dev, as telas caem para o `enteId` cru quando ausente. Ver
+   comentário em `shared/auth/AuthContext.tsx`.
 5. **(Fechado majoritariamente pela RAZ-125.)** `packages/design-system/tokens/color.tokens.json` já
    era a nomenclatura semântica real (`bg.*`/`text.*`/`brand.*`/`state.*`/
    `pii.*`); agora todo valor hex também é real (lido via Figma REST API da

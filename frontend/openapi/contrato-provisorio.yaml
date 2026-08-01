@@ -420,6 +420,27 @@ paths:
           description: Redirect para o authorization endpoint gov.br com state/PKCE.
           headers:
             Location: { schema: { type: string, format: uri } }
+  /sessao/atual:
+    servers:
+      - url: /
+    get:
+      operationId: sessaoAtual
+      summary: >-
+        "Quem sou eu" (RAZ-203/ADR-0035) — reflete a Sessao já verificada pelo
+        SessaoAutenticadaHttpResolver (cookie do BFF de login OU Authorization: Bearer,
+        igual às consultas), sem enteId no path porque é justamente o dado que este
+        endpoint descobre. Usado pelo SPA para hidratar AuthContext após o redirect de
+        volta do gov.br. # java: sessao.SessaoAtualController.atual
+      security:
+        - govbrBearer: []
+        - sessaoLogin: []
+      responses:
+        '200':
+          description: Sessão autenticada atual.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessaoAtualResponse' }
+        '401': { $ref: '#/components/responses/ErroContrato' }
   /assinatura/oauth/callback:
     servers:
       - url: /
@@ -473,6 +494,19 @@ components:
         HttpSession/cookie (RepositorioSessaoAssinaturaGovBr guarda state/PKCE/token na sessão),
         NÃO Authorization: Bearer. Única exceção documentada ao security scheme padrão deste
         contrato (§6.1) — ADR-0017, decisão 5 do ADR-0039.
+    sessaoLogin:
+      type: apiKey
+      in: cookie
+      name: JSESSIONID
+      description: >
+        java: sessao.SessaoLoginGovBrOAuthController / consulta.SessaoAutenticadaHttpResolver —
+        cookie de sessão do BFF de LOGIN geral (ADR-0035), reverificado a cada request via
+        ServicoIdentidade.autenticar (RepositorioAssercaoSessaoLoginGovBr guarda a asserção
+        gov.br server-side). Mesmo nome de cookie (JSESSIONID) que assinaturaSessao — a
+        HttpSession do container é uma só — mas escopo/propósito distintos: aquele guarda
+        state/PKCE da assinatura eletrônica interativa (ADR-0017), este guarda a asserção
+        da sessão de login geral, aceita como fallback aditivo ao Authorization: Bearer por
+        qualquer consulta/endpoint autenticado (RAZ-128), não só o fluxo de assinatura.
   responses:
     ErroContrato:
       description: Envelope único de erro (RAZ-79 §6.1 / ADR-0030 §3). # java: consulta.ErroContratoExceptionHandler
@@ -493,6 +527,21 @@ components:
         codigo: { type: string, example: nao_autenticado }
         mensagem: { type: string }
         detalhes: { type: object, additionalProperties: { type: string } }
+    SessaoAtualResponse:
+      type: object
+      # java: sessao.SessaoAtualController.SessaoAtualResponse — RAZ-203.
+      required: [cpfMascarado, enteId, orgao, mfaConcluido]
+      properties:
+        cpfMascarado:
+          type: string
+          example: '***.456.***-**'
+          description: 'CPF já mascarado no boundary (R4) — nunca em claro (Sessao.titular().mascarado()).'
+        enteId: { type: string, format: uuid }
+        orgao:
+          type: string
+          nullable: true
+          description: 'Ausente quando a asserção gov.br não carrega órgão.'
+        mfaConcluido: { type: boolean }
     EmpenhoRequest:
       type: object
       required: [dotacaoId, tipo, credorId, unidadeGestoraId, valor, dataFato, exercicio, classificacaoOrcamentaria, fonteRecurso, historico]
