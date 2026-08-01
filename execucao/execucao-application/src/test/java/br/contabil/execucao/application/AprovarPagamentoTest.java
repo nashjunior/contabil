@@ -33,6 +33,7 @@ import br.contabil.execucao.domain.EmpenhoId;
 import br.contabil.execucao.domain.ExecucaoInvalidaException;
 import br.contabil.execucao.domain.Liquidacao;
 import br.contabil.execucao.domain.LiquidacaoId;
+import br.contabil.execucao.domain.LiquidacaoJaDecididaException;
 import br.contabil.execucao.domain.ReferenciaFatoContabil;
 import br.contabil.execucao.domain.StatusAprovacao;
 import br.contabil.execucao.domain.TipoEmpenho;
@@ -128,6 +129,7 @@ class AprovarPagamentoTest {
         when(servicoIdentidade.autorizar(sessao, RECURSO, Acao.APROVAR)).thenReturn(true);
         when(liquidacaoRepositorio.buscarPorId(enteId, liquidacaoId)).thenReturn(Optional.of(liquidacaoPendente()));
         when(empenhoRepositorio.buscarPorId(enteId, empenhoId)).thenReturn(Optional.of(empenho()));
+        when(liquidacaoRepositorio.atualizarDecisaoAprovacao(any())).thenReturn(true);
 
         Liquidacao decidida = useCase.executar(sessao, enteId, liquidacaoId, DecisaoAprovacao.APROVAR, Optional.empty());
 
@@ -147,6 +149,7 @@ class AprovarPagamentoTest {
         when(servicoIdentidade.autorizar(sessao, RECURSO, Acao.APROVAR)).thenReturn(true);
         when(liquidacaoRepositorio.buscarPorId(enteId, liquidacaoId)).thenReturn(Optional.of(liquidacaoPendente()));
         when(empenhoRepositorio.buscarPorId(enteId, empenhoId)).thenReturn(Optional.of(empenho()));
+        when(liquidacaoRepositorio.atualizarDecisaoAprovacao(any())).thenReturn(true);
 
         Liquidacao decidida = useCase.executar(
                 sessao, enteId, liquidacaoId, DecisaoAprovacao.DEVOLVER, Optional.of("documento fiscal divergente"));
@@ -255,5 +258,25 @@ class AprovarPagamentoTest {
 
         verify(servicoIdentidade, never()).autorizar(any(), any(), any());
         verifyNoInteractions(liquidacaoRepositorio, empenhoRepositorio, auditoria);
+    }
+
+    @Test
+    @DisplayName("ADR-0029 §4: corrida — outra decisão sai de PENDENTE antes do UPDATE condicional -> 409 sem sobrescrever")
+    void rejeitaCorridaQuandoTransicaoConcorrentePerde() {
+        Sessao sessao = sessao(aprovador, true);
+        when(servicoIdentidade.autorizar(sessao, RECURSO, Acao.APROVAR)).thenReturn(true);
+        // 1ª leitura vê PENDENTE (decisão em memória passa); a re-leitura da guarda já vê a decisão vencedora.
+        Liquidacao jaAprovada = liquidacaoPendente().aprovar(aprovador, autorEmpenho);
+        when(liquidacaoRepositorio.buscarPorId(enteId, liquidacaoId))
+                .thenReturn(Optional.of(liquidacaoPendente()), Optional.of(jaAprovada));
+        when(empenhoRepositorio.buscarPorId(enteId, empenhoId)).thenReturn(Optional.of(empenho()));
+        // UPDATE condicional não acha linha PENDENTE (outra decisão ganhou a corrida): 0 linhas afetadas.
+        when(liquidacaoRepositorio.atualizarDecisaoAprovacao(any())).thenReturn(false);
+
+        assertThatThrownBy(() -> useCase.executar(sessao, enteId, liquidacaoId, DecisaoAprovacao.APROVAR, Optional.empty()))
+                .isInstanceOf(LiquidacaoJaDecididaException.class)
+                .hasMessageContaining("já foi decidida");
+
+        verify(auditoria, never()).append(any());
     }
 }

@@ -51,7 +51,7 @@ public class PostgresLiquidacaoRepository implements LiquidacaoRepository {
             """
             update liquidacao
                set status_aprovacao = ?, aprovador_cpf = ?, motivo_devolucao = ?
-             where ente_id = ? and id = ?
+             where ente_id = ? and id = ? and status_aprovacao = 'pendente'
             """;
 
     private final JdbcTemplate jdbcTemplate;
@@ -93,14 +93,15 @@ public class PostgresLiquidacaoRepository implements LiquidacaoRepository {
     }
 
     @Override
-    public void atualizarDecisaoAprovacao(Liquidacao liquidacao) {
-        jdbcTemplate.update(
+    public boolean atualizarDecisaoAprovacao(Liquidacao liquidacao) {
+        int atualizadas = jdbcTemplate.update(
                 SQL_ATUALIZAR_DECISAO_APROVACAO,
                 codigoStatus(liquidacao.statusAprovacao()),
                 liquidacao.aprovador().map(Cpf::numero).orElse(null),
                 liquidacao.motivoDevolucao().orElse(null),
                 liquidacao.enteId().valor(),
                 liquidacao.id().valor());
+        return atualizadas > 0;
     }
 
     private Liquidacao mapear(TenantId enteId, ResultSet rs) throws SQLException {

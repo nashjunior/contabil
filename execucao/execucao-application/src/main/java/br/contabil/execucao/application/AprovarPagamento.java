@@ -11,6 +11,8 @@ import br.contabil.execucao.domain.Empenho;
 import br.contabil.execucao.domain.ExecucaoInvalidaException;
 import br.contabil.execucao.domain.Liquidacao;
 import br.contabil.execucao.domain.LiquidacaoId;
+import br.contabil.execucao.domain.LiquidacaoJaDecididaException;
+import br.contabil.execucao.domain.StatusAprovacao;
 import br.contabil.execucao.domain.repository.EmpenhoRepository;
 import br.contabil.execucao.domain.repository.LiquidacaoRepository;
 import br.contabil.plataforma.domain.TenantId;
@@ -80,7 +82,22 @@ public class AprovarPagamento {
                     case DEVOLVER -> liquidacao.devolver(aprovador, empenho.autor(), motivo.orElse(null));
                 };
 
-        liquidacaoRepositorio.atualizarDecisaoAprovacao(decidida);
+        // Transição condicional (mecânica do ADR-0027 R3, aplicada aqui à liquidação): o UPDATE só
+        // vinga se a linha ainda está PENDENTE. Antes era incondicional (last-write-wins silencioso),
+        // furando o gate 4-eyes (ADR-0023).
+        boolean transicionou = liquidacaoRepositorio.atualizarDecisaoAprovacao(decidida);
+        if (!transicionou) {
+            // Corrida real: o snapshot lido estava PENDENTE, mas outra decisão concorrente saiu de
+            // PENDENTE antes deste UPDATE — mapeia para liquidacao_ja_decidida (409, ADR-0029 §4).
+            // A releitura serve só para reportar o status atual na mensagem e conta com o isolamento
+            // padrão (READ COMMITTED) enxergar o dado já commitado pelo vencedor; se o isolamento for
+            // elevado globalmente, o .orElse abaixo mantém a mensagem plausível (não altera o 409).
+            StatusAprovacao statusAtual = liquidacaoRepositorio
+                    .buscarPorId(enteId, liquidacaoId)
+                    .map(Liquidacao::statusAprovacao)
+                    .orElse(decidida.statusAprovacao());
+            throw new LiquidacaoJaDecididaException(liquidacaoId, statusAtual);
+        }
 
         auditoria.append(new EventoAuditoria(
                 enteId,
