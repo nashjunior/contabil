@@ -140,7 +140,7 @@ public class RegistrarPagamento {
                 beneficiario,
                 ordemBancaria,
                 historico,
-                fatoContabilId.valor());
+                fatoContabilId);
         repositorio.inserir(pagamento);
         publicacaoTransparencia.publicar(pagamento, usuarioAutenticado);
         auditoria.append(new EventoAuditoria(

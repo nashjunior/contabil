@@ -1,0 +1,12 @@
+{
+  "shadow": {
+    "overlay": {
+      "$type": "shadow",
+      "$value": [
+        { "color": "rgba(0, 0, 0, 0.12)", "offsetX": "0px", "offsetY": "4px", "blur": "8px", "spread": "-2px" },
+        { "color": "rgba(0, 0, 0, 0.06)", "offsetX": "0px", "offsetY": "2px", "blur": "4px", "spread": "-1px" }
+      ],
+      "$description": "Effect style \"Elevation/Overlay\" do Figma (design-system-tokens-componentes.md §1.5) — dropdown do Seletor de Ente/painel do Select (RAZ-122/145). Lido do effect resolvido via Figma MCP (get_design_context, nó 96:1365), não inventado. Fechado o débito sinalizado em Select.tsx (RAZ-199)."
+    }
+  }
+}

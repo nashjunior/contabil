@@ -3,7 +3,7 @@
 - **Status:** Aceita
 - **Data:** 2026-07-26
 - **Contexto:** RAZ-119 pede avaliar MFE vs monólito modular de front pelas fronteiras reais: escrita da execução (empenho/liquidação/pagamento/aprovação — `EmpenhoController`/`LiquidacaoController`/`PagamentoController`), consultas (saldo/balancete/execução orçamentária/catálogo PCASP/fila de aprovação/trilha — `RazaoConsultaController`/`ExecucaoConsultaController`/`CatalogoContasController`) e admin (fora do escopo do F1 hoje — sem controller). Mesmo raciocínio do [ADR-0002](./0002-monolito-modular.md) (backend): microserviços/MFE só valem quando o custo de coordenação distribuída é menor que o ganho de desacoplamento — não é o caso agora.
-- **Decisão:** **Monólito modular de frontend** — um único deployable (SPA), organizado em `features/` com fronteiras de import impostas por lint (`import/no-restricted-paths`), não por deploy separado.
+- **Decisão:** **Monólito modular de frontend** — um único deployable (SPA), organizado em `features/` com fronteiras de import impostas por lint, não por deploy separado.
 
   ```
   frontend/src/
@@ -24,8 +24,9 @@
   **Por que não MFE agora:** (1) um único engenheiro de front (Bruno) hoje — sem paralelismo de time a desacoplar; (2) backend é monólito único (ADR-0002) — cadências de deploy divergentes por fronteira de front não têm contrapartida no backend; (3) module federation custa complexidade de build/CI/depuração paga **antecipadamente**, com retorno só quando times/deploys realmente divergirem.
 
   **Costura para MFE futuro:** a fronteira `features/<nome>/index.ts` (API pública) já isolada é o ponto de corte se a necessidade aparecer — reavaliado em ADR própria quando o gatilho existir (time dedicado com deploy próprio, ou embutir uma fronteira como widget externo).
+- **Atualização (RAZ-199):** a fronteira nasceu (README gap 7) sem gate real — o mecanismo original citado acima (`import/no-restricted-paths`, ESLint) presumia ESLint, mas o linter real deste repo é `oxlint`, que não expõe um rule set equivalente (mesma lacuna já resolvida para a fronteira `application/` sem React pelo [ADR-0041](./0041-frontend-requests-abortaveis-e-camada-de-caso-de-uso.md) §4/§5). O gate é um guardrail `vitest` tool-agnóstico (`src/architecture/fronteira-import-entre-features.test.ts`), mesmo mecanismo do irmão de `application/`: varre `features/**`+`shared/**`, resolve cada import relativo e falha se uma feature alcançar dentro de outra fora do `index.ts` público, ou se `shared/` importar de `features/`. Nasceu junto da 2ª feature (`razao`), como a Decisão previa — ambas já cumprem a regra hoje (guardrail parte verde).
 - **Consequências:**
-  - **+** Um único build/deploy; fronteiras de feature verificáveis em lint (CI), não só convenção.
+  - **+** Um único build/deploy; fronteiras de feature verificáveis em CI (guardrail `vitest`), não só convenção.
   - **+** Caminho evolutivo para MFE fica pronto sem ser pago agora.
   - **−** Se o time crescer e precisar de paralelismo real por fronteira, extrair é trabalho + nova ADR — aceito, mesmo trade-off do ADR-0002.
   - **−** Exige disciplina de lint para a fronteira não virar só uma pasta sem imposição real.

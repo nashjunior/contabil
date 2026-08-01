@@ -1,10 +1,16 @@
 # Design tokens (ADR-0031)
 
-Estes 4 arquivos (`color`, `spacing`, `typography`, `radius`) espelham o design system
-Figma `ObQu8oMQ0cEGbONMXgpuLU` (RAZ-100, ver
+Estes 5 arquivos (`color`, `spacing`, `typography`, `radius`, `elevation`) espelham o design
+system Figma `ObQu8oMQ0cEGbONMXgpuLU` (RAZ-100, ver
 `docs/arquitetura-tecnica/design-system-tokens-componentes.md`). A nomenclatura semântica
 (`bg.*`, `text.*`, `border.*`, `brand.*`, `state.*`, `pii.*`) e a escala de spacing/radius
 (`2xs..3xl`, `none..full`) são reais, extraídas dessa doc.
+
+**Elevação (RAZ-199):** `elevation.tokens.json` traz `shadow.overlay` — o effect style
+"Elevation/Overlay" do Figma (§1.5, dropdown do Seletor de Ente/painel do `Select`), antes
+hardcoded em `Select.tsx` (débito sinalizado no RAZ-120/scaffold). Style Dictionary resolve
+`$type: shadow` para `box-shadow` via a transform `shadow/css/shorthand` do `transformGroup:
+'css'` nativamente — sem hook custom.
 
 **Cor (RAZ-125, atualizado):** todo valor hex atualmente presente em `color.tokens.json`
 é **REAL**, exceto `neutral.200` — confirmado lendo, via Figma REST API

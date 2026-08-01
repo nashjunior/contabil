@@ -129,7 +129,7 @@ class PublicadorTransparenciaExecucaoTest {
                 Dinheiro.de("300.00"),
                 List.of(DocumentoSuporte.de("NF", "NF-10", LocalDate.of(2026, 7, 19))),
                 "liquidacao de material",
-                UUID.randomUUID(),
+                new ReferenciaFatoContabil(UUID.randomUUID()),
                 new Cpf("11111111111"));
 
         publicador.publicar(liquidacao, sessao);
@@ -170,7 +170,7 @@ class PublicadorTransparenciaExecucaoTest {
                 Optional.of(new Beneficiario("Fornecedor Individual", "11122233344")),
                 Optional.of("OB-10"),
                 "pagamento de servico",
-                UUID.randomUUID());
+                new ReferenciaFatoContabil(UUID.randomUUID()));
 
         publicador.publicar(pagamento, sessao);
 

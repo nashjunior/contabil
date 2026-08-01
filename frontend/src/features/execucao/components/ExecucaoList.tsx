@@ -1,5 +1,5 @@
 import { formatMoneyBRL } from '../../../shared/lib/dinheiro';
-import type { EmpenhoResponse } from '../../../shared/api/client';
+import type { EmpenhoRegistradoResponse } from '../../../shared/api/client';
 
 const TIPO_LABEL: Record<string, string> = {
   ordinario: 'Ordinário',
@@ -7,14 +7,14 @@ const TIPO_LABEL: Record<string, string> = {
   global: 'Global',
 };
 
-export function ExecucaoList({ itens }: { itens: EmpenhoResponse[] }) {
+export function ExecucaoList({ itens }: { itens: EmpenhoRegistradoResponse[] }) {
   if (itens.length === 0) {
-    return <p>Nenhum empenho registrado nesta sessão ainda.</p>;
+    return <p>Nenhum empenho registrado neste exercício ainda.</p>;
   }
 
   return (
     <table>
-      <caption className="sr-only">Empenhos registrados nesta sessão</caption>
+      <caption className="sr-only">Empenhos registrados</caption>
       <thead>
         <tr>
           <th scope="col">Nº sequencial</th>

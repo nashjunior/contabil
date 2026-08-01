@@ -28,7 +28,19 @@ const MSG_UUID_INVALIDO = 'Informe um UUID válido.';
 // UuidVO<...>`) e, sem a anotação, o zod infere o refine como narrowing e vaza o VO
 // (branded type) para `CamposEmpenho` — que deve continuar puro string (shape de <input>).
 export const empenhoSchema = z.object({
-  dotacaoId: z.string().refine((v): boolean => DotacaoId.isValid(v), MSG_UUID_INVALIDO),
+  // dotacaoId vem do `DotacaoPicker` (RAZ-199) — nunca digitado — então vazio é "não
+  // escolheu ainda" (mensagem própria), distinto de um UUID malformado (defesa em
+  // profundidade; o picker só oferece dotações reais, mas o domínio continua sendo quem
+  // define o que é um DotacaoId válido).
+  dotacaoId: z.string().superRefine((v, ctx) => {
+    if (v.trim() === '') {
+      ctx.addIssue({ code: 'custom', message: 'Selecione uma dotação.' });
+      return;
+    }
+    if (!DotacaoId.isValid(v)) {
+      ctx.addIssue({ code: 'custom', message: MSG_UUID_INVALIDO });
+    }
+  }),
   tipo: z.enum(TIPOS_EMPENHO, { message: 'Selecione o tipo.' }),
   credorId: z.string().refine((v): boolean => CredorId.isValid(v), MSG_UUID_INVALIDO),
   unidadeGestoraId: z.string().refine((v): boolean => UnidadeGestoraId.isValid(v), MSG_UUID_INVALIDO),

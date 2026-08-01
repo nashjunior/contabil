@@ -6,6 +6,7 @@
  * via `Authorization: Bearer` (`consulta.SessaoAutenticadaHttpResolver`).
  */
 import { http, HttpResponse, type PathParams } from 'msw';
+import { somarMoney, subtrairMoney } from '../../lib/dinheiro';
 
 const randomUUID = () => crypto.randomUUID();
 
@@ -24,9 +25,22 @@ function exigirBearer(request: Request) {
   return null;
 }
 
-// Estado em memoria do mock (sessao do processo do dev-server/teste) — soma real dos empenhos
-// registrados, para o GET /orcamentaria refletir os POSTs feitos nesta sessao.
-const empenhosPorEnte = new Map<string, Array<{ valor: string; exercicio: number }>>();
+// Estado em memoria do mock (sessao do processo do dev-server/teste) — registro real dos
+// empenhos feitos via POST, para os GETs /orcamentaria e /empenhos (RAZ-121/RAZ-199)
+// refletirem os POSTs desta sessao. Mesmo shape de EmpenhoRegistradoResponse.
+type EmpenhoRegistradoMock = {
+  id: string;
+  numeroSequencial: number;
+  exercicio: number;
+  tipo: string;
+  credorId: string;
+  valor: string;
+  dataFato: string;
+  historico: string;
+  status: string;
+};
+
+const empenhosPorEnte = new Map<string, EmpenhoRegistradoMock[]>();
 
 function empenhosDoEnte(enteId: string) {
   const lista = empenhosPorEnte.get(enteId) ?? [];
@@ -35,6 +49,36 @@ function empenhosDoEnte(enteId: string) {
 }
 
 let numeroSequencial = 0;
+
+// Dotacoes fixas do mock (execucao/ExecucaoConsultaController.dotacoes, RAZ-148/ADR-0038) —
+// o exercicio do item de resposta reflete o `exercicio` pedido na query (a dotacao real e
+// escopada por exercicio no backend); saldoDisponivel e sempre derivado (nunca hardcoded).
+const DOTACOES_BASE = [
+  {
+    id: '33333333-3333-4333-8333-000000000001',
+    classificacaoOrcamentaria: '04.122.0001.2001.3.3.90.30',
+    fonteRecurso: '0100',
+    unidadeGestoraId: '11111111-1111-4111-8111-111111111111',
+    valorAutorizado: '500000.00',
+    valorComprometido: '120000.00',
+  },
+  {
+    id: '33333333-3333-4333-8333-000000000002',
+    classificacaoOrcamentaria: '04.122.0001.2002.3.3.90.39',
+    fonteRecurso: '0100',
+    unidadeGestoraId: '11111111-1111-4111-8111-111111111111',
+    valorAutorizado: '250000.00',
+    valorComprometido: '250000.00',
+  },
+  {
+    id: '33333333-3333-4333-8333-000000000003',
+    classificacaoOrcamentaria: '10.301.0002.2010.3.3.90.30',
+    fonteRecurso: '0102',
+    unidadeGestoraId: '22222222-2222-4222-8222-222222222222',
+    valorAutorizado: '800000.00',
+    valorComprometido: '0.00',
+  },
+];
 
 // Catalogo PCASP fixo do mock (razao/CatalogoContasController, RAZ-142/ADR-0030 §6) — lista
 // PLANA ordenada por codigo, hierarquia derivada client-side pelo nº de segmentos do codigo.
@@ -131,11 +175,22 @@ export const handlers = [
     }
 
     numeroSequencial += 1;
-    empenhosDoEnte(String(enteId)).push({ valor: String(body.valor), exercicio: Number(body.exercicio) });
+    const empenhoId = randomUUID();
+    empenhosDoEnte(String(enteId)).unshift({
+      id: empenhoId,
+      numeroSequencial,
+      exercicio: Number(body.exercicio),
+      tipo: String(body.tipo),
+      credorId: String(body.credorId),
+      valor: String(body.valor),
+      dataFato: String(body.dataFato),
+      historico: String(body.historico),
+      status: 'registrado',
+    });
 
     return HttpResponse.json(
       {
-        id: randomUUID(),
+        id: empenhoId,
         numeroSequencial,
         exercicio: body.exercicio,
         tipo: body.tipo,
@@ -152,6 +207,26 @@ export const handlers = [
       },
       { status: 201 },
     );
+  }),
+
+  http.get(`${BASE}/empenhos`, ({ request, params }) => {
+    const erro = exigirBearer(request);
+    if (erro) return erro;
+    const { enteId } = params as PathParams;
+    const url = new URL(request.url);
+    const exercicioParam = url.searchParams.get('exercicio');
+    const cursor = url.searchParams.get('cursor');
+    const limit = Math.min(Number(url.searchParams.get('limit')) || 20, 100);
+
+    const todos = empenhosDoEnte(String(enteId));
+    const filtrados = exercicioParam ? todos.filter((e) => e.exercicio === Number(exercicioParam)) : todos;
+
+    const offset = cursor ? Number(cursor) : 0;
+    const pagina = filtrados.slice(offset, offset + limit);
+    const proximoOffset = offset + pagina.length;
+    const proximoCursor = proximoOffset < filtrados.length ? String(proximoOffset) : null;
+
+    return HttpResponse.json({ itens: pagina, proximoCursor });
   }),
 
   http.post(`${BASE}/liquidacoes`, async ({ request }) => {
@@ -201,19 +276,55 @@ export const handlers = [
     const exercicio = Number(url.searchParams.get('exercicio'));
     const mes = Number(url.searchParams.get('mes'));
 
-    const totalEmpenhado = empenhosDoEnte(String(enteId))
-      .filter((e) => e.exercicio === exercicio)
-      .reduce((soma, e) => soma + Number(e.valor), 0);
+    const totalEmpenhado = somarMoney(
+      ...empenhosDoEnte(String(enteId))
+        .filter((e) => e.exercicio === exercicio)
+        .map((e) => e.valor),
+    );
 
     return HttpResponse.json({
       exercicio,
       mes,
-      totalEmpenhado: totalEmpenhado.toFixed(2),
+      totalEmpenhado,
       totalLiquidado: '0.00',
       totalPago: '0.00',
-      saldoALiquidar: totalEmpenhado.toFixed(2),
+      saldoALiquidar: totalEmpenhado,
       saldoAPagar: '0.00',
     });
+  }),
+
+  http.get(`${BASE}/dotacoes`, ({ request }) => {
+    const erro = exigirBearer(request);
+    if (erro) return erro;
+    const url = new URL(request.url);
+    const exercicio = Number(url.searchParams.get('exercicio'));
+    if (!exercicio) {
+      return erroContrato(400, 'requisicao_invalida', "parâmetro 'exercicio' obrigatório");
+    }
+    const busca = (url.searchParams.get('busca') ?? '').trim().toLowerCase();
+    const cursor = url.searchParams.get('cursor');
+    const limit = Math.min(Number(url.searchParams.get('limit')) || 20, 100);
+
+    const itensDoExercicio = DOTACOES_BASE.map((dotacao) => ({
+      ...dotacao,
+      exercicio,
+      saldoDisponivel: subtrairMoney(dotacao.valorAutorizado, dotacao.valorComprometido),
+    }));
+
+    const filtradas = busca
+      ? itensDoExercicio.filter(
+          (d) =>
+            d.classificacaoOrcamentaria.toLowerCase().includes(busca) ||
+            d.fonteRecurso.toLowerCase().includes(busca),
+        )
+      : itensDoExercicio;
+
+    const offset = cursor ? Number(cursor) : 0;
+    const pagina = filtradas.slice(offset, offset + limit);
+    const proximoOffset = offset + pagina.length;
+    const proximoCursor = proximoOffset < filtradas.length ? String(proximoOffset) : null;
+
+    return HttpResponse.json({ itens: pagina, proximoCursor });
   }),
 
   http.get(`${BASE_RAZAO}/saldo`, ({ request }) => {
@@ -247,8 +358,8 @@ export const handlers = [
       };
       const saldoAtual =
         conta.naturezaSaldo === 'D'
-          ? (Number(saldoAnterior) + Number(movimentoDebito) - Number(movimentoCredito)).toFixed(2)
-          : (Number(saldoAnterior) + Number(movimentoCredito) - Number(movimentoDebito)).toFixed(2);
+          ? subtrairMoney(somarMoney(saldoAnterior, movimentoDebito), movimentoCredito)
+          : subtrairMoney(somarMoney(saldoAnterior, movimentoCredito), movimentoDebito);
       return {
         contaId: conta.id,
         codigo: conta.codigo,
@@ -261,12 +372,8 @@ export const handlers = [
       };
     });
 
-    const totalMovimentoDebito = linhas
-      .reduce((soma, l) => soma + Number(l.movimentoDebito), 0)
-      .toFixed(2);
-    const totalMovimentoCredito = linhas
-      .reduce((soma, l) => soma + Number(l.movimentoCredito), 0)
-      .toFixed(2);
+    const totalMovimentoDebito = somarMoney(...linhas.map((l) => l.movimentoDebito));
+    const totalMovimentoCredito = somarMoney(...linhas.map((l) => l.movimentoCredito));
 
     return HttpResponse.json({
       exercicio,

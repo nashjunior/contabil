@@ -20,9 +20,10 @@
 # GAP DE COBERTURA (RAZ-188): fila de aprovacao (GET /liquidacoes) e trilha
 # (GET /liquidacoes/{id}/trilha) foram adicionadas ao contrato — client.ts (RAZ-14x) ja as
 # consumia sem o contrato estar atualizado, quebrando `npm run build` (tipos fantasma).
+# GET /execucao/dotacoes foi adicionado (RAZ-199) para o combo de dotacao do EmpenhoForm.
 # Ainda EXISTEM no controller real mas NAO estao neste contrato: aprovacao de liquidacao
 # (POST /liquidacoes/{id}/aprovacao), lote de pagamento (POST /pagamentos:lote), consultas de
-# empenhos/liquidacoes/pagamentos "registrados" e dotacoes (GET /execucao/dotacoes) — follow-up.
+# empenhos/liquidacoes/pagamentos "registrados" — follow-up.
 #
 # FLUXO DE ASSINATURA GOVBR (RAZ-141/ADR-0039 decisao 5): os 3 endpoints de
 # POST .../assinatura + GET .../oauth/iniciar + GET .../oauth/callback usam
@@ -67,6 +68,40 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/EmpenhoResponse' }
         '400': { $ref: '#/components/responses/ErroContrato' }
+        '401': { $ref: '#/components/responses/ErroContrato' }
+        '403': { $ref: '#/components/responses/ErroContrato' }
+    get:
+      operationId: consultarEmpenhosRegistrados
+      summary: >-
+        Empenhos registrados por ente/período, mais recentes primeiro, cursor opaco
+        (RAZ-121). # java: consulta.ExecucaoConsultaController.empenhos
+      parameters:
+        - name: exercicio
+          in: query
+          required: false
+          schema: { type: integer }
+        - name: dataInicio
+          in: query
+          required: false
+          schema: { type: string, format: date }
+        - name: dataFim
+          in: query
+          required: false
+          schema: { type: string, format: date }
+        - name: cursor
+          in: query
+          required: false
+          schema: { type: string }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Página de empenhos registrados.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmpenhosRegistradosResponse' }
         '401': { $ref: '#/components/responses/ErroContrato' }
         '403': { $ref: '#/components/responses/ErroContrato' }
   /execucao/empenhos/{id}:
@@ -219,6 +254,38 @@ paths:
         '400': { $ref: '#/components/responses/ErroContrato' }
         '401': { $ref: '#/components/responses/ErroContrato' }
         '409': { $ref: '#/components/responses/ErroContrato' }
+  /execucao/dotacoes:
+    get:
+      operationId: consultarDotacoes
+      summary: >-
+        Dotações do ente/exercício com saldo inline (valorAutorizado -
+        valorComprometido), cursor opaco (ADR-0038). Alimenta o combo de dotação
+        do EmpenhoForm. # java: consulta.ExecucaoConsultaController.dotacoes
+      parameters:
+        - name: exercicio
+          in: query
+          required: true
+          schema: { type: integer }
+        - name: busca
+          in: query
+          required: false
+          schema: { type: string }
+        - name: cursor
+          in: query
+          required: false
+          schema: { type: string }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Página de dotações com saldo.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DotacoesResponse' }
+        '401': { $ref: '#/components/responses/ErroContrato' }
+        '403': { $ref: '#/components/responses/ErroContrato' }
   /execucao/orcamentaria:
     get:
       operationId: consultarExecucaoOrcamentaria
@@ -502,6 +569,54 @@ components:
           type: string
           description: 'CPF do signatário, mascarado no boundary (R4, ADR-0039) — nunca em claro.'
         assinadoEm: { type: string, format: date-time }
+    EmpenhoRegistradoResponse:
+      type: object
+      # java: consulta.ExecucaoConsultaController.EmpenhoRegistradoResponse — RAZ-121.
+      required: [id, numeroSequencial, exercicio, tipo, credorId, valor, dataFato, historico, status]
+      properties:
+        id: { type: string, format: uuid }
+        numeroSequencial: { type: integer, format: int64 }
+        exercicio: { type: integer }
+        tipo: { type: string, enum: [ordinario, estimativo, global] }
+        credorId: { type: string, format: uuid }
+        valor: { $ref: '#/components/schemas/Dinheiro' }
+        dataFato: { type: string, format: date }
+        historico: { type: string }
+        status: { type: string, enum: [registrado, pendente_assinatura, assinado, assinatura_rejeitada] }
+    EmpenhosRegistradosResponse:
+      type: object
+      # java: consulta.ExecucaoConsultaController.EmpenhosRegistradosResponse
+      required: [itens, proximoCursor]
+      properties:
+        itens:
+          type: array
+          items: { $ref: '#/components/schemas/EmpenhoRegistradoResponse' }
+        proximoCursor: { type: string, nullable: true }
+    DotacaoResponse:
+      type: object
+      # java: consulta.ExecucaoConsultaController.DotacaoResponse — RAZ-148/ADR-0038.
+      required:
+        [id, exercicio, classificacaoOrcamentaria, fonteRecurso, unidadeGestoraId, valorAutorizado, valorComprometido, saldoDisponivel]
+      properties:
+        id: { type: string, format: uuid }
+        exercicio: { type: integer }
+        classificacaoOrcamentaria: { type: string }
+        fonteRecurso: { type: string }
+        unidadeGestoraId: { type: string, format: uuid }
+        valorAutorizado: { $ref: '#/components/schemas/Dinheiro' }
+        valorComprometido: { $ref: '#/components/schemas/Dinheiro' }
+        saldoDisponivel:
+          allOf: [{ $ref: '#/components/schemas/Dinheiro' }]
+          description: 'valorAutorizado - valorComprometido. Sem campo "bloqueado" — reserva/pré-empenho ainda não existe no domínio.'
+    DotacoesResponse:
+      type: object
+      # java: consulta.ExecucaoConsultaController.DotacoesResponse
+      required: [itens, proximoCursor]
+      properties:
+        itens:
+          type: array
+          items: { $ref: '#/components/schemas/DotacaoResponse' }
+        proximoCursor: { type: string, nullable: true }
     LiquidacaoRequest:
       type: object
       required: [empenhoId, dataCompetencia, valor, documentosSuporte, historico]

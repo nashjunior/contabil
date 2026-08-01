@@ -120,6 +120,10 @@ class EstornarFatoContabilTest {
         ArgumentCaptor<EventoAuditoria> evento = ArgumentCaptor.forClass(EventoAuditoria.class);
         verify(auditoria).append(evento.capture());
         assertThat(evento.getValue().tipo()).isEqualTo("razao_fato_contabil_estornado");
+        assertThat(evento.getValue().detalhes())
+                .containsEntry("fatoOriginalId", original.id().valor().toString())
+                .containsEntry("origem", "origem")
+                .containsEntry("dataCompetencia", "2026-07-19");
     }
 
     @Test

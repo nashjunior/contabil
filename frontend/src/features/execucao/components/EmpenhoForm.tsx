@@ -9,18 +9,24 @@
  * direto — só com `useCriarEmpenho`, que por sua vez chama o caso de uso.
  *
  * Campos == EmpenhoRequest REAL (escrita.EmpenhoController) — dotacaoId/credorId/
- * unidadeGestoraId/contratoId são UUID de cadastros que, numa tela completa, viriam de
- * autocomplete (fora do escopo de "1 tela mínima" — ver README "Gaps"; o wrapper para
- * esse cenário já existe em `shared/forms/campoSelectRHF.tsx`, sem consumidor ainda).
- * Aqui são texto livre (colar UUID), rotulado como tal.
+ * unidadeGestoraId/contratoId são UUID de cadastros. `dotacaoId` já tem consulta própria
+ * (`GET /execucao/dotacoes`, RAZ-148/ADR-0038) e usa o combo `DotacaoPicker` (RAZ-199),
+ * ligado ao RHF via `Controller` (mesmo padrão de `shared/forms/campoSelectRHF.tsx`,
+ * ADR-0043 §5 — `DotacaoPicker` é controlado por `value`/`onChange`, então `Controller`
+ * conecta sem precisar do bridge de `FormSection` inteiro). credorId/unidadeGestoraId/
+ * contratoId ainda não têm endpoint de consulta no backend (só `ConsultarDotacoes` existe
+ * hoje) — permanecem texto livre (colar UUID), fora do escopo de "1 tela mínima",
+ * rotulados como tal — ver README "Gaps".
  */
 import { FormSection } from '@siafic/design-system';
+import { Controller } from 'react-hook-form';
 import type { EmpenhoRequest, EmpenhoResponse } from '../../../shared/api/client';
 import { useFormSectionRHF } from '../../../shared/forms/formSectionAdapterRHF';
 import { useFormDeAgregado } from '../../../shared/forms/useFormDeAgregado';
 import { paraEmpenhoRequest } from '../application/registrarEmpenho';
 import { CAMPOS_EMPENHO_VAZIOS, empenhoSchema, type CamposEmpenho } from '../domain/empenhoSchema';
 import { useCriarEmpenho } from '../api/useCriarEmpenho';
+import { DotacaoPicker } from './DotacaoPicker';
 
 const OPCOES_TIPO = [
   { value: 'ordinario', label: 'Ordinário' },
@@ -39,11 +45,29 @@ export function EmpenhoForm() {
   const formSectionProps = useFormSectionRHF(form);
   const { isSubmitting, isSubmitSuccessful, errors } = form.formState;
   const erroDeEnvio = errors.root?.envio?.message;
+  const exercicio = formSectionProps.values.exercicio;
 
   return (
     <form onSubmit={aoSubmeter} noValidate aria-label="Registrar empenho">
       <FormSection legend="Empenho" {...formSectionProps}>
-        <FormSection.Field name="dotacaoId" label="ID da dotação (UUID)" required />
+        <FormSection.CustomField name="dotacaoId" label="Dotação" required>
+          {(inputId) => (
+            <Controller
+              name="dotacaoId"
+              control={form.control}
+              render={({ field }) => (
+                <DotacaoPicker
+                  key={exercicio}
+                  id={inputId}
+                  exercicio={Number(exercicio) || new Date().getFullYear()}
+                  value={field.value || null}
+                  onChange={(value) => field.onChange(value ?? '')}
+                  ariaLabel="Dotação"
+                />
+              )}
+            />
+          )}
+        </FormSection.CustomField>
         <FormSection.Error name="dotacaoId" />
 
         <FormSection.Select name="tipo" label="Tipo" required options={OPCOES_TIPO} />

@@ -112,7 +112,7 @@ final class LiquidacaoController {
                     liquidacao.valor().valor().toPlainString(),
                     liquidacao.documentosSuporte().stream().map(DocumentoSuporteResponse::de).toList(),
                     liquidacao.historico(),
-                    liquidacao.fatoContabilId(),
+                    liquidacao.fatoContabilId().valor(),
                     liquidacao.statusAprovacao().name().toLowerCase());
         }
     }

@@ -1,7 +1,7 @@
 /**
  * Consulta REAL (RAZ-101/ADR-0029): GET /execucao/orcamentaria — agregado do período,
  * não um endpoint inventado. Prova fim-a-fim contra um GET real, não só cache local
- * de POST (complementa `useExecucoesRegistradas`).
+ * de POST (complementa `useEmpenhosRegistrados`).
  *
  * Hook fino (ADR-0041): adapta o caso de uso `consultarExecucaoOrcamentaria`
  * ao React Query e repassa o `signal` que o próprio React Query fornece ao

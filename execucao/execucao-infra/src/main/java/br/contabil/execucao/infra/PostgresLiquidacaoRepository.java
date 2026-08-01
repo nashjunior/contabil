@@ -7,18 +7,20 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import br.contabil.execucao.domain.DocumentoSuporte;
 import br.contabil.execucao.domain.EmpenhoId;
 import br.contabil.execucao.domain.ExecucaoInvalidaException;
 import br.contabil.execucao.domain.Liquidacao;
 import br.contabil.execucao.domain.LiquidacaoId;
+import br.contabil.execucao.domain.ReferenciaFatoContabil;
 import br.contabil.execucao.domain.StatusAprovacao;
 import br.contabil.execucao.domain.repository.LiquidacaoRepository;
 import br.contabil.plataforma.domain.Dinheiro;
@@ -78,7 +80,7 @@ public class PostgresLiquidacaoRepository implements LiquidacaoRepository {
                 liquidacao.valor().valor(),
                 escreverDocumentos(liquidacao.documentosSuporte()),
                 liquidacao.historico(),
-                liquidacao.fatoContabilId(),
+                liquidacao.fatoContabilId().valor(),
                 liquidacao.autor().numero(),
                 codigoStatus(liquidacao.statusAprovacao()),
                 liquidacao.aprovador().map(Cpf::numero).orElse(null),
@@ -114,7 +116,7 @@ public class PostgresLiquidacaoRepository implements LiquidacaoRepository {
                 new Dinheiro(rs.getBigDecimal("valor")),
                 lerDocumentos(rs.getString("documentos_suporte")),
                 rs.getString("historico"),
-                rs.getObject("fato_contabil_id", UUID.class),
+                new ReferenciaFatoContabil(rs.getObject("fato_contabil_id", UUID.class)),
                 new Cpf(rs.getString("autor_cpf")),
                 StatusAprovacao.valueOf(rs.getString("status_aprovacao").toUpperCase()),
                 Optional.ofNullable(aprovadorCpf).map(Cpf::new),

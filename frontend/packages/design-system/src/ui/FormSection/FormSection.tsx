@@ -169,6 +169,32 @@ FormSection.Select = function Select({ name, label, options, required }: SelectP
   );
 };
 
+type CustomFieldProps = {
+  name: string;
+  label: string;
+  required?: boolean;
+  /** Render prop (mesmo padrão de `Select.Options`): expõe o `inputId` calculado para o
+   * consumidor associar via `htmlFor`/`id` sem reimplementar o cálculo de id nem alcançar
+   * o Context interno — composição, não prop drilling (ADR-0032/ADR-0033). Use para campos
+   * cujo controle não é `<input>`/`<select>` simples (ex.: um `Select` assíncrono do DS). */
+  children: (inputId: string) => ReactNode;
+};
+
+FormSection.CustomField = function CustomField({ name, label, required, children }: CustomFieldProps) {
+  const { sectionId } = useFormSectionContext();
+  const inputId = `${sectionId}-${name}`;
+
+  return (
+    <div style={{ marginBottom: 'var(--spacing-md)' }}>
+      <label htmlFor={inputId} style={fieldLabelStyle}>
+        {label}
+        {required && <span aria-hidden="true"> *</span>}
+      </label>
+      {children(inputId)}
+    </div>
+  );
+};
+
 FormSection.Error = function Error({ name }: { name: string }) {
   const { sectionId, errors } = useFormSectionContext();
   if (!errors[name]) return null;

@@ -74,7 +74,7 @@ final class PagamentoController {
             try {
                 Pagamento pagamento = executar(
                         enteId, item.paraPagamentoRequest(), sessao, chaveIdempotencia("lote", item.chaveCliente()));
-                processados.add(new ItemProcessado(item.chaveCliente(), pagamento.id().valor(), pagamento.fatoContabilId()));
+                processados.add(new ItemProcessado(item.chaveCliente(), pagamento.id().valor(), pagamento.fatoContabilId().valor()));
             } catch (RuntimeException erro) {
                 // Fail-soft (ADR-0013): item malformado (ex.: natureza/valor/UUID inválido, não só
                 // ExecucaoInvalidaException) vira errors[], nunca aborta o restante do lote.
@@ -161,7 +161,7 @@ final class PagamentoController {
                     pagamento.beneficiario().map(BeneficiarioResponse::de).orElse(null),
                     pagamento.ordemBancaria().orElse(null),
                     pagamento.historico(),
-                    pagamento.fatoContabilId());
+                    pagamento.fatoContabilId().valor());
         }
     }
 

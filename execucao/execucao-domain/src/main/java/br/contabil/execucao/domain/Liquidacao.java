@@ -4,7 +4,6 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.UUID;
 
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
@@ -29,7 +28,7 @@ public final class Liquidacao {
     private final Dinheiro valor;
     private final List<DocumentoSuporte> documentosSuporte;
     private final String historico;
-    private final UUID fatoContabilId;
+    private final ReferenciaFatoContabil fatoContabilId;
     private final Cpf autor;
     private final StatusAprovacao statusAprovacao;
     private final Optional<Cpf> aprovador;
@@ -43,7 +42,7 @@ public final class Liquidacao {
             Dinheiro valor,
             List<DocumentoSuporte> documentosSuporte,
             String historico,
-            UUID fatoContabilId,
+            ReferenciaFatoContabil fatoContabilId,
             Cpf autor,
             StatusAprovacao statusAprovacao,
             Optional<Cpf> aprovador,
@@ -70,7 +69,7 @@ public final class Liquidacao {
             Dinheiro valor,
             List<DocumentoSuporte> documentosSuporte,
             String historico,
-            UUID fatoContabilId,
+            ReferenciaFatoContabil fatoContabilId,
             Cpf autor) {
         validarEntrada(valor, documentosSuporte, historico);
         return new Liquidacao(
@@ -103,7 +102,7 @@ public final class Liquidacao {
             Dinheiro valor,
             List<DocumentoSuporte> documentosSuporte,
             String historico,
-            UUID fatoContabilId,
+            ReferenciaFatoContabil fatoContabilId,
             Cpf autor,
             StatusAprovacao statusAprovacao,
             Optional<Cpf> aprovador,
@@ -225,7 +224,7 @@ public final class Liquidacao {
         return historico;
     }
 
-    public UUID fatoContabilId() {
+    public ReferenciaFatoContabil fatoContabilId() {
         return fatoContabilId;
     }
 
