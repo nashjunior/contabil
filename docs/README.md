@@ -26,6 +26,8 @@ Organizada por tema (o número no arquivo é só o prefixo; a leitura segue os g
 - [04 · Fluxos do sistema](./04-fluxos.md) — os 10 fluxos (diagramas Mermaid)
 - [05 · Regras de negócio](./05-regras-de-negocio.md) — regras invioláveis impostas pelo sistema
 - [10 · Modelo de dados (anexo)](./10-modelo-dados.md) — ciclo da despesa: entidades, cardinalidades, tipos de empenho
+- [15 · Fechamento contábil](./15-fechamento-contabil.md) — encerramento de período/exercício, apuração de resultado append-only, demonstrações DCASP
+- [16 · Prestação de contas (MSC/SICONFI + TCE-CE)](./16-prestacao-de-contas.md) — MSC como contrato único; submissão assistida ao SICONFI; remessa ao TCE-CE (SIM)
 
 ### Implementação e operação
 
