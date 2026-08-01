@@ -34,3 +34,34 @@ export function formatMoneyBRL(value: Money | string): string {
   }
   return BRL_FORMATTER.format(Number(value));
 }
+
+function centavos(value: string): bigint {
+  const money = toMoney(value);
+  const negativo = money.startsWith('-');
+  const semSinal = negativo ? money.slice(1) : money;
+  const [intPart, fracPart] = semSinal.split('.');
+  const total = BigInt(intPart) * 100n + BigInt(fracPart);
+  return negativo ? -total : total;
+}
+
+function centavosParaMoney(valor: bigint): Money {
+  const negativo = valor < 0n;
+  const absoluto = negativo ? -valor : valor;
+  const intPart = absoluto / 100n;
+  const fracPart = absoluto % 100n;
+  return `${negativo ? '-' : ''}${intPart}.${fracPart.toString().padStart(2, '0')}` as Money;
+}
+
+/**
+ * Soma decimal exata (escala 2) via centavos em `BigInt` — nunca passa por `number`
+ * (mesma invariante do arquivo). Usada onde antes se somava dinheiro com `Number()`
+ * (ex.: agregacao no mock MSW), que arriscaria erro de ponto flutuante.
+ */
+export function somarMoney(...values: Array<Money | string>): Money {
+  return centavosParaMoney(values.reduce((soma, value) => soma + centavos(value), 0n));
+}
+
+/** Subtracao decimal exata (escala 2) — ver `somarMoney`. */
+export function subtrairMoney(a: Money | string, b: Money | string): Money {
+  return centavosParaMoney(centavos(a) - centavos(b));
+}

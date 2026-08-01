@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { EmpenhoRequest } from '../../../shared/api/client';
 import { useGovbrContexto } from '../../../shared/auth/AuthContext';
 import { registrarEmpenho } from '../application/registrarEmpenho';
-import { useAdicionarExecucaoRegistrada } from './useExecucoesRegistradas';
+import { empenhosRegistradosKey } from './useEmpenhosRegistrados';
 import { execucaoOrcamentariaKey } from './useExecucaoOrcamentaria';
 
 /**
@@ -14,15 +14,16 @@ import { execucaoOrcamentariaKey } from './useExecucaoOrcamentaria';
 export function useCriarEmpenho() {
   const contexto = useGovbrContexto();
   const queryClient = useQueryClient();
-  const adicionarNaLista = useAdicionarExecucaoRegistrada(contexto.enteId);
 
   return useMutation({
     mutationFn: (body: EmpenhoRequest) => registrarEmpenho(body, contexto),
     onSuccess: (registro) => {
-      adicionarNaLista(registro);
-      // Invalida o agregado real (ADR-0033 item 3: invalidação por evento de domínio) —
-      // o próximo `useExecucaoOrcamentaria` refaz o GET e reflete o empenho recém-criado.
+      // Invalida o agregado e a lista reais (ADR-0033 item 3: invalidação por evento de
+      // domínio) — os próximos `useExecucaoOrcamentaria`/`useEmpenhosRegistrados` refazem
+      // o GET e refletem o empenho recém-criado (RAZ-121/RAZ-199: lista real, não cache
+      // de sessão).
       queryClient.invalidateQueries({ queryKey: execucaoOrcamentariaKey(contexto.enteId, registro.exercicio) });
+      queryClient.invalidateQueries({ queryKey: empenhosRegistradosKey(contexto.enteId, registro.exercicio) });
     },
   });
 }

@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
-import { DevLoginPage } from '../shared/auth/DevLoginPage';
+import { LoginPage } from '../shared/auth/LoginPage';
 import { RequireAuth } from '../shared/auth/RequireAuth';
 import { ExecucaoPage } from '../features/execucao';
 import { BalancetePage, CatalogoContasPage, SaldoContaPage } from '../features/razao';
@@ -7,7 +7,7 @@ import { BalancetePage, CatalogoContasPage, SaldoContaPage } from '../features/r
 export function AppRoutes() {
   return (
     <Routes>
-      <Route path="/entrar" element={<DevLoginPage />} />
+      <Route path="/entrar" element={<LoginPage />} />
       <Route
         path="/execucao"
         element={

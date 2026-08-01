@@ -32,7 +32,6 @@ function renderApp() {
   );
 }
 
-const UUID_DOTACAO = '11111111-1111-4111-8111-000000000001';
 const UUID_CREDOR = '11111111-1111-4111-8111-000000000002';
 const UUID_UG = '11111111-1111-4111-8111-000000000003';
 
@@ -52,14 +51,16 @@ describe('fluxo execução — login + registrar empenho + consultar agregado re
     // Agregado real (GET /execucao/orcamentaria) começa zerado.
     expect(await screen.findAllByText('R$ 0,00')).toHaveLength(5);
 
-    await user.type(screen.getByLabelText(/id da dotação/i), UUID_DOTACAO);
+    // Combo assíncrono (DotacaoPicker, RAZ-199): abre o Select, aguarda o GET real de
+    // /execucao/dotacoes carregar e escolhe a opção pelo rótulo (classificação + fonte).
+    await user.click(screen.getByLabelText(/dotação/i));
+    await user.click(await screen.findByRole('option', { name: /04\.122\.0001\.2001\.3\.3\.90\.30/ }));
+
     await user.selectOptions(screen.getByLabelText(/^tipo/i), 'ordinario');
     await user.type(screen.getByLabelText(/id do credor/i), UUID_CREDOR);
     await user.type(screen.getByLabelText(/id da unidade gestora/i), UUID_UG);
     await user.type(screen.getByLabelText(/^valor/i), '1000.50');
     await user.type(screen.getByLabelText(/data do fato/i), '2026-01-15');
-    await user.clear(screen.getByLabelText(/exercício/i));
-    await user.type(screen.getByLabelText(/exercício/i), String(new Date().getFullYear()));
     await user.type(screen.getByLabelText(/classificação orçamentária/i), '3.3.90.30');
     await user.type(screen.getByLabelText(/fonte de recurso/i), '0100');
     await user.type(screen.getByLabelText(/histórico/i), 'Compra de material de expediente');

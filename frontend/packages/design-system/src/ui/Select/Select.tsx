@@ -165,15 +165,6 @@ function AlertCircleIcon() {
   );
 }
 
-/**
- * Espelha o effect style "Elevation/Overlay" do Figma (design-system-tokens-componentes.md §1.5:
- * dropdown do Seletor de Ente/painel do Select) — ainda sem token CSS exportado (o pipeline em
- * tokens/*.tokens.json só cobre color/radius/spacing/typography; ver ADR-0031/ADR-0033). Valor
- * lido diretamente do effect resolvido via Figma MCP (get_design_context, nó 96:1365), não
- * inventado — sinalizar para a Paula/Rafael formalizarem um token de elevação no pipeline.
- */
-const ELEVATION_OVERLAY_SHADOW = '0 4px 8px -2px rgba(0, 0, 0, 0.12), 0 2px 4px -1px rgba(0, 0, 0, 0.06)';
-
 const asyncStatusPanelStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
@@ -578,7 +569,7 @@ Select.Options = function Options({ children }: SelectOptionsProps) {
         background: 'var(--color-bg-surface)',
         border: '1px solid var(--color-border-default)',
         borderRadius: 'var(--radius-md)',
-        boxShadow: ELEVATION_OVERLAY_SHADOW,
+        boxShadow: 'var(--shadow-overlay)',
       }}
     >
       {status === 'loading' && visibleOptions.length === 0 && (

@@ -3,18 +3,41 @@
  * Features importam DAQUI, nunca de `shared/api/generated/` diretamente.
  *
  * Contrato REAL (nao mais o consolidado divergente de uma copia de workspace desconectada):
- * enteId no PATH (`/api/v1/entes/{enteId}/...`, ADR-0015) + um unico header
- * `Authorization: Bearer <assercao gov.br>`, verificado a cada request (stateless) por
- * `ServicoIdentidade` — ver java: bootstrap/.../consulta/SessaoAutenticadaHttpResolver.java.
+ * enteId no PATH (`/api/v1/entes/{enteId}/...`, ADR-0015) + `Authorization: Bearer
+ * <assercao gov.br>`, verificado a cada request (stateless) por `ServicoIdentidade` — ver
+ * java: bootstrap/.../consulta/SessaoAutenticadaHttpResolver.java.
+ *
+ * Caminho por cookie (ADR-0035, RAZ-199): quando a sessao vem do BFF de login real
+ * (`/sessao/oauth/*`), o navegador nunca tem a assercao (`bearerToken` ausente) — o
+ * `SessaoAutenticadaHttpResolver` cai no fallback por cookie de sessao. `credentials:
+ * 'include'` garante que o cookie de sessao viaje na chamada; toda chamada mutante nesse
+ * modo ecoa o cookie anti-CSRF (`sessao-csrf`) no cabecalho `X-Csrf-Token`
+ * (`CsrfCookieProtecaoFilter`, falha fechado sem ele).
  */
 import { parseJsonPreservingMoney, stringifyBodyWithRawMoney } from '../lib/moneyJson';
 import type { components } from './generated/schema';
 
 export type GovbrContexto = {
-  /** Assercao gov.br (bearer token) — opaca para o cliente, nunca decodificada aqui. */
-  bearerToken: string;
+  /**
+   * Assercao gov.br (bearer token) — opaca para o cliente, nunca decodificada aqui.
+   * Ausente quando a sessao ativa veio do cookie do BFF de login real (ADR-0035): nesse
+   * caso a API le a assercao guardada server-side, e a chamada precisa ir por cookie +
+   * CSRF em vez de `Authorization`.
+   */
+  bearerToken?: string;
   enteId: string;
 };
+
+const CSRF_COOKIE_NAME = 'sessao-csrf';
+const CSRF_HEADER = 'X-Csrf-Token';
+const METODOS_MUTANTES = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+/** java: sessao.CsrfCookieSessaoLogin — cookie legivel por JS (nao HttpOnly), so um nonce. */
+function csrfTokenDoCookie(): string | undefined {
+  if (typeof document === 'undefined') return undefined;
+  const match = document.cookie.match(new RegExp(`(?:^|; )${CSRF_COOKIE_NAME}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : undefined;
+}
 
 /** Toda chamada aceita `signal` e repassa ao `fetch` (ADR-0041/RAZ-137): hook de
  * query encaminha o signal do React Query, caso de uso/busca imperativa gerencia
@@ -39,15 +62,26 @@ export class ApiError extends Error {
 
 const API_ORIGIN = import.meta.env.VITE_API_BASE_URL ?? '';
 
+/** Origem da API (`VITE_API_BASE_URL`) — exportado para montar links fora do client de
+ * dados (ex.: o `<a href>` de `/sessao/oauth/iniciar`, uma navegação de página inteira,
+ * não uma chamada `fetch`, ver `shared/auth/LoginPage.tsx`). */
+export const apiOrigin = API_ORIGIN;
+
 function baseUrl(enteId: string): string {
   return `${API_ORIGIN}/api/v1/entes/${enteId}`;
 }
 
-function headersFor(contexto: GovbrContexto): HeadersInit {
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${contexto.bearerToken}`,
-  };
+function headersFor(contexto: GovbrContexto, method: string): HeadersInit {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (contexto.bearerToken) {
+    headers.Authorization = `Bearer ${contexto.bearerToken}`;
+    return headers;
+  }
+  if (METODOS_MUTANTES.has(method)) {
+    const csrf = csrfTokenDoCookie();
+    if (csrf) headers[CSRF_HEADER] = csrf;
+  }
+  return headers;
 }
 
 async function tratarResposta<TResponse>(response: Response): Promise<TResponse> {
@@ -75,8 +109,9 @@ async function post<TResponse>(
 ): Promise<TResponse> {
   const response = await fetch(`${baseUrl(contexto.enteId)}${path}`, {
     method: 'POST',
-    headers: headersFor(contexto),
+    headers: headersFor(contexto, 'POST'),
     body: stringifyBodyWithRawMoney(body),
+    credentials: 'include',
     signal: options?.signal,
   });
   return tratarResposta<TResponse>(response);
@@ -93,7 +128,8 @@ async function get<TResponse>(
   ).toString();
   const response = await fetch(`${baseUrl(contexto.enteId)}${path}?${queryString}`, {
     method: 'GET',
-    headers: headersFor(contexto),
+    headers: headersFor(contexto, 'GET'),
+    credentials: 'include',
     signal: options?.signal,
   });
   return tratarResposta<TResponse>(response);
@@ -106,16 +142,44 @@ export type LiquidacaoResponse = components['schemas']['LiquidacaoResponse'];
 export type PagamentoRequest = components['schemas']['PagamentoRequest'];
 export type PagamentoResponse = components['schemas']['PagamentoResponse'];
 export type ExecucaoOrcamentariaResponse = components['schemas']['ExecucaoOrcamentariaResponse'];
+export type DotacaoResponse = components['schemas']['DotacaoResponse'];
+export type DotacoesResponse = components['schemas']['DotacoesResponse'];
+export type EmpenhoRegistradoResponse = components['schemas']['EmpenhoRegistradoResponse'];
+export type EmpenhosRegistradosResponse = components['schemas']['EmpenhosRegistradosResponse'];
 
 export const execucaoClient = {
   registrarEmpenho: (body: EmpenhoRequest, contexto: GovbrContexto, options?: RequestOptions) =>
     post<EmpenhoResponse>('/execucao/empenhos', body, contexto, options),
+  consultarEmpenhosRegistrados: (
+    params: { exercicio?: number; dataInicio?: string; dataFim?: string; cursor?: string; limit?: number },
+    contexto: GovbrContexto,
+    options?: RequestOptions,
+  ) => {
+    const query: Record<string, string | number> = {};
+    if (params.exercicio != null) query['exercicio'] = params.exercicio;
+    if (params.dataInicio) query['dataInicio'] = params.dataInicio;
+    if (params.dataFim) query['dataFim'] = params.dataFim;
+    if (params.cursor) query['cursor'] = params.cursor;
+    if (params.limit != null) query['limit'] = params.limit;
+    return get<EmpenhosRegistradosResponse>('/execucao/empenhos', query, contexto, options);
+  },
   registrarLiquidacao: (body: LiquidacaoRequest, contexto: GovbrContexto, options?: RequestOptions) =>
     post<LiquidacaoResponse>('/execucao/liquidacoes', body, contexto, options),
   registrarPagamento: (body: PagamentoRequest, contexto: GovbrContexto, options?: RequestOptions) =>
     post<PagamentoResponse>('/execucao/pagamentos', body, contexto, options),
   consultarExecucaoOrcamentaria: (exercicio: number, mes: number, contexto: GovbrContexto, options?: RequestOptions) =>
     get<ExecucaoOrcamentariaResponse>('/execucao/orcamentaria', { exercicio, mes }, contexto, options),
+  consultarDotacoes: (
+    params: { exercicio: number; busca?: string; cursor?: string; limit?: number },
+    contexto: GovbrContexto,
+    options?: RequestOptions,
+  ) => {
+    const query: Record<string, string | number> = { exercicio: params.exercicio };
+    if (params.busca) query['busca'] = params.busca;
+    if (params.cursor) query['cursor'] = params.cursor;
+    if (params.limit != null) query['limit'] = params.limit;
+    return get<DotacoesResponse>('/execucao/dotacoes', query, contexto, options);
+  },
   consultarFilaAprovacao: (
     params: {
       statusAprovacao?: 'pendente' | 'aprovada' | 'devolvida';

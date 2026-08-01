@@ -4,17 +4,20 @@
  * tenant/ente ativo, multi-ente ADR-0030).
  *
  * Contrato real (RAZ-101, `ServicoIdentidade`/`SessaoAutenticadaHttpResolver`): o backend
- * espera `Authorization: Bearer <assercao gov.br>`, verificada A CADA request (stateless) —
- * `ServicoIdentidade.autenticar(new CredencialGovBr(assercao))` devolve uma `Sessao` com
- * `titular` (CPF), `ente`, `orgao`, `mfaConcluido`, `expiraEm`.
+ * aceita `Authorization: Bearer <assercao gov.br>` OU, desde o BFF de login real (ADR-0035,
+ * RAZ-128), um cookie de sessão — verificado A CADA request (stateless) — e devolve uma
+ * `Sessao` com `titular` (CPF), `ente`, `orgao`, `mfaConcluido`, `expiraEm`.
  *
- * GAP (RAZ-120, não escondido): não há, neste ambiente, um jeito de OBTER uma asserção
- * gov.br real (isso depende de registro de cliente OAuth2/OIDC junto ao gov.br — processo
- * externo, com credenciais de governo, análogo ao runbook RAZ-39 mas para login geral, não
- * só assinatura). Este `AuthProvider` é um STAND-IN DE DESENVOLVIMENTO: sintetiza um bearer
- * token opaco local (nunca teria curso em produção) para permitir montar e testar a tela
- * contra o contrato real. Trocar por um fluxo OIDC real é follow-up (dono: backend/Aurélio +
- * segurança/Solange) — ver DevLoginPage e README "Gaps".
+ * GAP QUE PERMANECE (RAZ-199, não escondido): `LoginPage` já linka para o `/sessao/oauth/
+ * iniciar` real, e `shared/api/client.ts` já sabe chamar a API por cookie+CSRF (ADR-0035
+ * §3) quando não há bearer. O que falta é este `AuthProvider` conseguir HIDRATAR `sessao`
+ * depois do redirect de volta do gov.br: o callback do BFF só estabelece um cookie
+ * `HttpOnly` (a asserção nunca chega ao navegador, por desenho — ADR-0035), então o SPA
+ * não tem hoje nenhum endpoint "quem sou eu" para aprender CPF/ente da sessão de cookie.
+ * Até esse endpoint existir no backend (follow-up rastreado, RAZ-199), este `AuthProvider`
+ * continua sendo um STAND-IN DE DESENVOLVIMENTO: sintetiza um bearer token opaco local
+ * (nunca teria curso em produção) para permitir montar e testar a tela contra o contrato
+ * real — ver `LoginPage` e README "Gaps".
  */
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { maskCpf } from '../lib/cpf';

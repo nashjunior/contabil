@@ -3,14 +3,17 @@
  * components/ menores; aqui a pagina de feature e o container (ADR-0032).
  *
  * Campos == EmpenhoRequest REAL (escrita.EmpenhoController) — dotacaoId/credorId/
- * unidadeGestoraId/contratoId são UUID de cadastros que, numa tela completa, viriam de
- * autocomplete (fora do escopo de "1 tela mínima" — ver README "Gaps"). Aqui são texto
- * livre (colar UUID), rotulado como tal.
+ * unidadeGestoraId/contratoId são UUID de cadastros. `dotacaoId` já tem consulta própria
+ * (`GET /execucao/dotacoes`, RAZ-148/ADR-0038) e usa o combo `DotacaoPicker` (RAZ-199).
+ * credorId/unidadeGestoraId/contratoId ainda não têm endpoint de consulta no backend (só
+ * `ConsultarDotacoes` existe hoje) — permanecem texto livre (colar UUID), fora do escopo
+ * de "1 tela mínima", rotulados como tal — ver README "Gaps".
  */
 import { useState, type FormEvent } from 'react';
 import { FormSection } from '@siafic/design-system';
 import { toMoney, isValidMoney } from '../../../shared/lib/dinheiro';
 import { useCriarEmpenho } from '../api/useCriarEmpenho';
+import { DotacaoPicker } from './DotacaoPicker';
 
 type Campos = {
   dotacaoId: string;
@@ -55,7 +58,7 @@ export function EmpenhoForm() {
 
   function validar(): boolean {
     const e: Record<string, string | undefined> = {};
-    if (!UUID_PATTERN.test(values.dotacaoId)) e.dotacaoId = 'Informe um UUID válido.';
+    if (!values.dotacaoId) e.dotacaoId = 'Selecione uma dotação.';
     if (!values.tipo) e.tipo = 'Selecione o tipo.';
     if (!UUID_PATTERN.test(values.credorId)) e.credorId = 'Informe um UUID válido.';
     if (!UUID_PATTERN.test(values.unidadeGestoraId)) e.unidadeGestoraId = 'Informe um UUID válido.';
@@ -95,7 +98,18 @@ export function EmpenhoForm() {
   return (
     <form onSubmit={handleSubmit} noValidate aria-label="Registrar empenho">
       <FormSection legend="Empenho" values={values} errors={errors} onChange={onChange}>
-        <FormSection.Field name="dotacaoId" label="ID da dotação (UUID)" required />
+        <FormSection.CustomField name="dotacaoId" label="Dotação" required>
+          {(inputId) => (
+            <DotacaoPicker
+              key={values.exercicio}
+              id={inputId}
+              exercicio={Number(values.exercicio) || Number(ANO_ATUAL)}
+              value={values.dotacaoId || null}
+              onChange={(value) => onChange('dotacaoId', value ?? '')}
+              ariaLabel="Dotação"
+            />
+          )}
+        </FormSection.CustomField>
         <FormSection.Error name="dotacaoId" />
 
         <FormSection.Select

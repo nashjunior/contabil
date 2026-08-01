@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatMoneyBRL, isValidMoney, toMoney } from '../dinheiro';
+import { formatMoneyBRL, isValidMoney, somarMoney, subtrairMoney, toMoney } from '../dinheiro';
 
 describe('dinheiro', () => {
   it('valida decimais com ate 2 casas', () => {
@@ -18,6 +18,18 @@ describe('dinheiro', () => {
 
   it('rejeita valor invalido', () => {
     expect(() => toMoney('abc')).toThrow();
+  });
+
+  it('soma decimais sem erro de ponto flutuante', () => {
+    // 0.1 + 0.2 em float da 0.30000000000000004 — a soma decimal exata deve dar exato.
+    expect(somarMoney('0.10', '0.20')).toBe('0.30');
+    expect(somarMoney('1000.55', '2000.45', '0.01')).toBe('3001.01');
+    expect(somarMoney()).toBe('0.00');
+  });
+
+  it('subtrai decimais exatamente, inclusive resultado negativo', () => {
+    expect(subtrairMoney('100.00', '30.25')).toBe('69.75');
+    expect(subtrairMoney('10.00', '25.50')).toBe('-15.50');
   });
 
   it('formata em R$ pt-BR', () => {

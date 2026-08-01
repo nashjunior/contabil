@@ -70,24 +70,41 @@ para a proveniência exata (arquivo por arquivo) de cada campo.
 
 1. **Escopo de campos do Empenho.** O `EmpenhoRequest` real tem `dotacaoId`/
    `credorId`/`unidadeGestoraId`/`contratoId` (UUIDs de cadastros próprios).
-   A tela mínima aceita esses IDs como texto livre (colar UUID) — uma tela
-   completa teria autocomplete/picker por cadastro, fora do escopo de
-   "1 tela mínima". Nomes e tipos de campo são reais, não inventados.
+   `dotacaoId` **fechado pela RAZ-199**: `GET /execucao/dotacoes`
+   (RAZ-148/ADR-0038) já existia no controller sem client/tela — agora vira o
+   combo `DotacaoPicker` (`Select` + `useAsyncOptions`, mesmo padrão do
+   `ContaPicker` do razão). `credorId`/`unidadeGestoraId`/`contratoId`
+   continuam texto livre (colar UUID) — o backend ainda não expõe consulta de
+   credor/unidade gestora (só `ConsultarDotacoes` existe hoje), fora do
+   escopo de "1 tela mínima". Nomes e tipos de campo são reais, não
+   inventados.
 2. **Só empenho tem tela.** Liquidação (com gate de aprovação 4-eyes) e
    pagamento (individual + lote fail-soft) existem no client (`shared/api/client.ts`
    expõe os 3) mas não têm tela própria ainda — próximas issues.
-3. **Consulta parcial.** Só `GET /execucao/orcamentaria` (agregado do
-   período) está consumido. A fila de aprovação (`GET /liquidacoes`,
-   paginada/cursor) e a trilha (`GET /liquidacoes/{id}/trilha`) existem no
-   controller real mas não estão nesta tela — follow-up.
-4. **Sem login gov.br real.** O backend verifica a *forma* de um bearer
-   token (`Authorization: Bearer <asserção>`) a cada request
-   (`SessaoAutenticadaHttpResolver`/`ServicoIdentidade.autenticar`), mas
-   obter uma asserção gov.br real exige registro de cliente OAuth2/OIDC junto
-   ao gov.br (processo externo, credenciais de governo — análogo ao runbook
-   de assinatura, mas para login geral). `DevLoginPage`/`AuthContext`
-   sintetizam um bearer token opaco local — stand-in de desenvolvimento, não
-   o mecanismo de produção. Ver comentário em `shared/auth/AuthContext.tsx`.
+3. **Consulta parcial.** `GET /execucao/orcamentaria` (agregado do período),
+   `GET /execucao/dotacoes` (combo do formulário) e `GET /execucao/empenhos`
+   (lista da tela, **fechado pela RAZ-199** — RAZ-121 tinha entregue o
+   endpoint sem consumidor) estão consumidos. A fila de aprovação (`GET
+   /liquidacoes`, paginada/cursor) e a trilha (`GET /liquidacoes/{id}/trilha`)
+   existem no controller real mas não estão em nenhuma tela — follow-up.
+4. **Login gov.br real — parcialmente fechado pela RAZ-199.** O backend já
+   tem um BFF de login real (`SessaoLoginGovBrOAuthController`/ADR-0035,
+   RAZ-128): `GET /sessao/oauth/iniciar` conduz o OIDC+PKCE contra o gov.br e
+   devolve um cookie de sessão `HttpOnly` (a asserção nunca chega ao
+   navegador); `SessaoAutenticadaHttpResolver` já aceita esse cookie como
+   fallback aditivo ao `Authorization: Bearer`. `LoginPage` já linka para o
+   `/iniciar` real (só em `VITE_API_MODE=real`, já que o endpoint não existe
+   para o MSW interceptar) e `shared/api/client.ts` já manda `credentials:
+   'include'` + o cabeçalho anti-CSRF (`X-Csrf-Token`) exigido em toda
+   chamada mutante autenticada por cookie. **O que falta:** o callback do BFF
+   não devolve nenhum corpo com `{cpf, ente, orgao}` — não há hoje um
+   endpoint "quem sou eu" para este SPA aprender a claim/ente depois do
+   redirect de volta, então `AuthContext` continua sem como hidratar a sessão
+   a partir do cookie. `LoginPage`/`AuthContext` seguem sintetizando um
+   bearer token opaco local (stand-in de desenvolvimento, não o mecanismo de
+   produção) como único caminho para operar as telas neste ambiente. Ver
+   comentário em `shared/auth/AuthContext.tsx`; endpoint "quem sou eu" é
+   follow-up de backend rastreado separadamente (RAZ-199).
 5. **(Fechado majoritariamente pela RAZ-125.)** `packages/design-system/tokens/color.tokens.json` já
    era a nomenclatura semântica real (`bg.*`/`text.*`/`brand.*`/`state.*`/
    `pii.*`); agora todo valor hex também é real (lido via Figma REST API da
@@ -105,9 +122,14 @@ para a proveniência exata (arquivo por arquivo) de cada campo.
    lido diretamente) + MSW fiel ao mesmo contrato + teste de componente
    cobrindo login → registrar empenho → GET real de agregado refletindo o
    valor (`features/execucao/__tests__/fluxo-execucao.test.tsx`).
-7. **Fronteiras de feature não têm gate de lint/CI ainda** — só `oxlint`
-   está configurado; `eslint-plugin-boundaries`/regra equivalente para impedir
-   import cruzado entre `features/*` fica como follow-up.
+7. **(Fechado pela RAZ-199.)** Fronteira de import entre features (ADR-0032)
+   agora tem gate real: `oxlint` não expõe um rule set equivalente a
+   `eslint-plugin-boundaries`/`import/no-restricted-paths` (mesma lacuna já
+   resolvida para a fronteira `application/` sem React, ADR-0041), então o
+   gate é um guardrail `vitest` tool-agnóstico —
+   `src/architecture/fronteira-import-entre-features.test.ts` — que falha se
+   uma feature importar de dentro de outra fora do `index.ts` público, ou se
+   `shared/` importar de `features/`.
 8. **`react-router-dom@7.18` traz `react-router` com advisory de CSRF em modo
    RSC** (GHSA-qwww-vcr4-c8h2, `npm audit`). Não usamos RSC/server actions
    nesta SPA — não aplicável ao uso atual — mas registrar para não esquecer em
