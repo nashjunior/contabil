@@ -21,11 +21,14 @@
     "build-storybook": "npm run --workspace=@siafic/design-system build-storybook"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.6.0",
     "@siafic/design-system": "*",
     "@tanstack/react-query": "^5.101.4",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "react-router-dom": "^7.18.1"
+    "react-hook-form": "^7.84.0",
+    "react-router-dom": "^7.18.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^7.0.0",
