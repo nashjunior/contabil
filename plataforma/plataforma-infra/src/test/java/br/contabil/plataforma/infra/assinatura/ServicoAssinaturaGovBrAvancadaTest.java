@@ -121,6 +121,7 @@ class ServicoAssinaturaGovBrAvancadaTest {
             assertThat(assinatura).isNotNull();
             assertThat(assinatura.getFilter()).isEqualTo(PDSignature.FILTER_ADOBE_PPKLITE.getName());
             assertThat(assinatura.getSubFilter()).isEqualTo(PDSignature.SUBFILTER_ADBE_PKCS7_DETACHED.getName());
+            assertThat(assinatura.getName()).isEqualTo("Fulana de Tal");
             assertThat(assinatura.getContents()).startsWith(PKCS7_FALSO);
         }
 
@@ -132,6 +133,27 @@ class ServicoAssinaturaGovBrAvancadaTest {
         assertThat(evento.ator()).isEqualTo("***.222.***-**").isNotEqualTo(SIGNATARIO.cpf());
         assertThat(evento.toString()).doesNotContain(SIGNATARIO.cpf());
         assertThat(evento.detalhes()).containsEntry("bloqueado", "false");
+    }
+
+    @Test
+    @DisplayName("manifesto e metadado PAdES mascaram CPF quando o nome disponível é o próprio CPF")
+    void mascaraCpfNoManifestoENoNomeDaAssinatura() throws Exception {
+        Signatario signatarioSemNome = new Signatario("11122233344", "11122233344");
+        when(provedor.assinarPkcs7(any())).thenReturn(PKCS7_FALSO);
+        when(verificadorRevogacao.verificar(certificadoFake))
+                .thenReturn(new VerificadorRevogacaoCertificado.ResultadoRevogacao(false, "válido"));
+
+        DocumentoAssinado resultado =
+                servico.assinar(DOCUMENTO, NivelAssinatura.AVANCADA_GOVBR, List.of(signatarioSemNome));
+
+        assertThat(resultado.manifesto())
+                .contains("signatario=***.222.***-** (CPF ***.222.***-**)")
+                .doesNotContain("11122233344");
+        try (PDDocument documentoAssinado = Loader.loadPDF(pdfPublicado)) {
+            assertThat(documentoAssinado.getLastSignatureDictionary().getName())
+                    .isEqualTo("***.222.***-**")
+                    .doesNotContain("11122233344");
+        }
     }
 
     @Test

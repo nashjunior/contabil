@@ -96,6 +96,6 @@ public class GeradorNotaEmpenhoPdfPdfBox implements GeradorNotaEmpenhoPdf {
                 "Valor: R$ %s".formatted(empenho.valor().valor().toPlainString()),
                 "Data do fato: %s".formatted(empenho.dataFato()),
                 "Histórico: %s".formatted(empenho.historico()),
-                "Autor: %s".formatted(empenho.autor().numero()));
+                "Autor: %s".formatted(empenho.autor().mascarado()));
     }
 }
