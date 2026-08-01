@@ -61,12 +61,12 @@ public final class PeriodoContabil {
      * transição condicional no banco (defesa em profundidade contra corrida,
      * mesmo padrão do {@code AprovarPagamento}/ADR-0023).
      *
-     * @throws PeriodoJaEncerradoException           o período já não está mais {@code ABERTO}
+     * @throws EncerramentoConflitanteException           o período já não está mais {@code ABERTO}
      * @throws PeriodoExercicioExigeApuracaoException mês 13 exige {@code EncerrarExercicio}
      */
     public PeriodoContabil encerrar(Clock clock) {
         if (status != StatusPeriodo.ABERTO) {
-            throw new PeriodoJaEncerradoException(id);
+            throw new EncerramentoConflitanteException(id);
         }
         if (mes == 13) {
             throw new PeriodoExercicioExigeApuracaoException(id);

@@ -42,7 +42,7 @@ class PeriodoContabilTest {
                 StatusPeriodo.ENCERRADO,
                 Optional.of(Instant.parse("2026-07-31T23:59:59Z")));
 
-        assertThatThrownBy(() -> periodo.encerrar(relogioFixo)).isInstanceOf(PeriodoJaEncerradoException.class);
+        assertThatThrownBy(() -> periodo.encerrar(relogioFixo)).isInstanceOf(EncerramentoConflitanteException.class);
     }
 
     @Test

@@ -22,7 +22,7 @@ public interface PeriodoContabilRepository {
      * mesma mecânica do {@code AprovarPagamento}/ADR-0023). Retorna
      * {@code true} se esta chamada venceu a transição; {@code false} se outra
      * já encerrou o período entre a leitura e a escrita — o chamador mapeia
-     * isso a {@link br.contabil.razao.domain.PeriodoJaEncerradoException},
+     * isso a {@link br.contabil.razao.domain.EncerramentoConflitanteException},
      * nunca sobrescreve.
      */
     boolean encerrar(PeriodoContabil periodo);

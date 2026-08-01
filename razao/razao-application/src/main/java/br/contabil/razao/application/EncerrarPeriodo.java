@@ -13,7 +13,7 @@ import br.contabil.plataforma.domain.iam.ServicoIdentidade.Recurso;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
 import br.contabil.razao.domain.PeriodoContabil;
 import br.contabil.razao.domain.PeriodoContabilNaoEncontradoException;
-import br.contabil.razao.domain.PeriodoJaEncerradoException;
+import br.contabil.razao.domain.EncerramentoConflitanteException;
 import br.contabil.razao.domain.repository.PeriodoContabilRepository;
 
 /**
@@ -64,7 +64,7 @@ public class EncerrarPeriodo {
         if (!transicionou) {
             // Corrida real: o snapshot lido estava ABERTO, mas outra chamada concorrente encerrou
             // antes deste UPDATE (mesma mecânica do AprovarPagamento/ADR-0023) — nunca sobrescreve.
-            throw new PeriodoJaEncerradoException(periodo.id());
+            throw new EncerramentoConflitanteException(periodo.id());
         }
 
         auditoria.append(new EventoAuditoria(

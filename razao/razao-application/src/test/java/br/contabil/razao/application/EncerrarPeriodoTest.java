@@ -35,7 +35,7 @@ import br.contabil.razao.domain.PeriodoContabil;
 import br.contabil.razao.domain.PeriodoContabilId;
 import br.contabil.razao.domain.PeriodoContabilNaoEncontradoException;
 import br.contabil.razao.domain.PeriodoExercicioExigeApuracaoException;
-import br.contabil.razao.domain.PeriodoJaEncerradoException;
+import br.contabil.razao.domain.EncerramentoConflitanteException;
 import br.contabil.razao.domain.StatusPeriodo;
 import br.contabil.razao.domain.repository.PeriodoContabilRepository;
 
@@ -121,7 +121,7 @@ class EncerrarPeriodoTest {
         when(periodoRepositorio.buscarPorCompetencia(enteId, 2026, 7)).thenReturn(Optional.of(periodo));
         when(periodoRepositorio.encerrar(any())).thenReturn(false);
 
-        assertThatThrownBy(() -> useCase.executar(sessao, enteId, 2026, 7)).isInstanceOf(PeriodoJaEncerradoException.class);
+        assertThatThrownBy(() -> useCase.executar(sessao, enteId, 2026, 7)).isInstanceOf(EncerramentoConflitanteException.class);
 
         verifyNoInteractions(auditoria);
     }
