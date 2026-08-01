@@ -29,6 +29,8 @@ dependencies {
 
     implementation(libs.flyway.core)
     implementation(libs.flyway.postgresql)
+    implementation(libs.resilience4j.circuitbreaker)
+    implementation(libs.resilience4j.retry)
     runtimeOnly(libs.postgresql)
 
     // Guardrail de CI contra bypass de RLS via FK (RAZ-13) — roda a migration

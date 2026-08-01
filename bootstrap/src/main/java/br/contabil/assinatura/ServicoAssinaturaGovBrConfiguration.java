@@ -9,6 +9,8 @@ import br.contabil.plataforma.infra.assinatura.ProvedorAssinaturaGovBrHttp;
 import br.contabil.plataforma.infra.assinatura.ServicoAssinaturaGovBrAvancada;
 import br.contabil.plataforma.infra.assinatura.VerificadorRevogacaoCertificado;
 import br.contabil.plataforma.infra.assinatura.VerificadorRevogacaoCertificadoPkix;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.retry.Retry;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.nio.file.Path;
@@ -50,10 +52,18 @@ class ServicoAssinaturaGovBrConfiguration {
     @Bean
     ProvedorAssinaturaGovBr provedorAssinaturaGovBr(
             HttpClient assinaturaGovBrHttpClient,
+            CircuitBreaker assinaturaGovBrCircuitBreaker,
+            Retry assinaturaGovBrRetry,
             Supplier<String> tokenAcessoAssinaturaGovBr,
+            AssinaturaGovBrResilienceProperties resilienceProperties,
             @Value("${siafic.assinatura.govbr.api.base-uri:https://assinatura-api.staging.iti.br}") String baseUriTexto) {
         return new ProvedorAssinaturaGovBrHttp(
-                assinaturaGovBrHttpClient, URI.create(baseUriTexto), tokenAcessoAssinaturaGovBr);
+                assinaturaGovBrHttpClient,
+                URI.create(baseUriTexto),
+                tokenAcessoAssinaturaGovBr,
+                resilienceProperties.requestTimeout(),
+                assinaturaGovBrCircuitBreaker,
+                assinaturaGovBrRetry);
     }
 
     @Bean

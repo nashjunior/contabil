@@ -11,6 +11,10 @@ spring:
     hikari:
       pool-name: razao-pool
       maximum-pool-size: ${DB_POOL_MAX:10}
+      connection-init-sql: "${DB_CONNECTION_INIT_SQL:SET statement_timeout = '30s'; SET lock_timeout = '5s'}"
+  jdbc:
+    template:
+      query-timeout: ${DB_QUERY_TIMEOUT_SECONDS:30}
   jpa:
     open-in-view: false
     # Flyway é o DONO do schema. JPA jamais altera DDL — apenas valida o mapeamento.
@@ -83,6 +87,16 @@ siafic:
       require-ssl: ${DB_REQUIRE_SSL:true}
   assinatura:
     govbr:
+      resilience:
+        connect-timeout: ${GOVBR_ASSINATURA_CONNECT_TIMEOUT:PT3S}
+        request-timeout: ${GOVBR_ASSINATURA_REQUEST_TIMEOUT:PT10S}
+        retry-max-attempts: ${GOVBR_ASSINATURA_RETRY_MAX_ATTEMPTS:2}
+        retry-wait-duration: ${GOVBR_ASSINATURA_RETRY_WAIT_DURATION:PT0.2S}
+        circuit-sliding-window-size: ${GOVBR_ASSINATURA_CIRCUIT_WINDOW_SIZE:10}
+        circuit-minimum-number-of-calls: ${GOVBR_ASSINATURA_CIRCUIT_MIN_CALLS:5}
+        circuit-failure-rate-threshold: ${GOVBR_ASSINATURA_CIRCUIT_FAILURE_RATE:50}
+        circuit-wait-duration-in-open-state: ${GOVBR_ASSINATURA_CIRCUIT_OPEN_WAIT:PT30S}
+        circuit-permitted-calls-in-half-open-state: ${GOVBR_ASSINATURA_CIRCUIT_HALF_OPEN_CALLS:2}
       oauth:
         authorization-uri: ${GOVBR_ASSINATURA_OAUTH_AUTHORIZATION_URI:https://cas.staging.iti.br/oauth2.0/authorize}
         token-uri: ${GOVBR_ASSINATURA_OAUTH_TOKEN_URI:https://cas.staging.iti.br/oauth2.0/accessToken}
