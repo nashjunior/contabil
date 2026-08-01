@@ -4,7 +4,7 @@ Fonte **canônica** das convenções e do ferramental de IA deste projeto. `CLAU
 
 ## O que é
 
-SIAFIC — Sistema Único e Integrado de Execução Orçamentária, Administração Financeira e Controle (Decreto 10.540/2020), para estados e municípios. **Núcleo** contábil-orçamentário-financeiro + transparência + saída SICONFI; **licitações/patrimônio/folha/arrecadação são estruturantes** (integram por fora). Fase atual: **F0 em finalização** — motor de razão, IAM/RBAC, trilha de auditoria, mascaramento, assinatura eletrônica (lógica) e piso de segurança (TLS/backup/cofre) entregues; pendente: integração e2e do OAuth2 gov.br (bloqueada em provisionamento externo humano, RAZ-39) e evidência operacional em ente-piloto (RAZ-38). Índice: [docs/README.md](docs/README.md).
+SIAFIC — Sistema Único e Integrado de Execução Orçamentária, Administração Financeira e Controle (Decreto 10.540/2020), para estados e municípios. **Núcleo** contábil-orçamentário-financeiro + transparência + saída SICONFI; **licitações/patrimônio/folha/arrecadação são estruturantes** (integram por fora). Fase atual: **F0 em finalização (~95%)** — motor de razão, IAM/RBAC, trilha de auditoria, mascaramento, assinatura eletrônica (lógica + BFF OAuth2) e piso de segurança (TLS/backup/cofre) entregues; a credencial gov.br de assinatura foi provisionada e atestada pelo owner (RAZ-39/RAZ-31 concluídas). Pendente: o smoke test e2e contra o gov.br staging real (operacional, fora do sandbox) e a evidência operacional em ente-piloto (RAZ-38, backlog). Acompanhamento por fase: [docs/14-status-feito-pendente.md](docs/14-status-feito-pendente.md). Índice: [docs/README.md](docs/README.md).
 
 ## Convenções de código (JVM)
 
