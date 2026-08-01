@@ -53,6 +53,13 @@ Só reportam, não editam. Cada um é a fonte única das suas regras.
 
 `planejar-doc` → editar (`nova-spec`/manual) → revisar (`revisar-ddd` / `auditar-docs` / guardião) → registrar decisão (`adr`). Citações legais não confirmadas ficam **"revalidar na fonte oficial"** → fechar com `pesquisar-fonte`.
 
+## Workspace desconectado do repo real — canônico: ADR-0040
+
+O workspace do harness por-agente já foi visto **vazio/sem `.git`** e como **cópia estática desconectada** do repo real (tem `.git` e log próprios, aceita commits, mas nunca sincroniza — nenhum erro avisa). Já são 8 issues (RAZ-70/58/43/41/86/164/163/166) do mesmo padrão-raiz: deliverable marcado `done` que nunca chegou ao repo que o time usa. Regras — [ADR-0040](docs/arquitetura-tecnica/adr/0040-verificacao-identidade-workspace-antes-de-done.md):
+
+- **Antes de iniciar qualquer edição:** resolva o caminho autoritativo via `GET /api/companies/{companyId}/projects` → `codebase.effectiveLocalFolder`. Se seu `pwd` não for esse caminho (nem um `git worktree` dele), **entre nele** (ou crie/use um worktree próprio, ver isolamento abaixo) antes de tocar em arquivos. Não confie em "tem `.git` com log válido" como sinal de repo certo — é exatamente o sintoma da cópia desconectada.
+- **Antes de declarar `done`:** confirme o commit **no caminho autoritativo**, não só no `.git` do seu cwd — `git -C "<effectiveLocalFolder>" log --oneline -3 -- <arquivos>` ou `git show HEAD:<path>` a partir de lá.
+
 ## Concorrência de agentes (commits) — canônico: ADR-0037
 
 Vários agentes commitam no **mesmo `.git` real**. Um índice stale + `git add` amplo **reverte deliverables de outro agente sem rótulo** (RAZ-133; mesmo padrão de RAZ-70/58/43/41 e do ADR-0019 perdido). Regras — [ADR-0037](docs/arquitetura-tecnica/adr/0037-isolamento-e-guarda-commits-concorrentes-agentes.md):
