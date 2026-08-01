@@ -445,13 +445,12 @@ components:
         saldoAPagar: { $ref: '#/components/schemas/Dinheiro' }
     AssinaturaEmpenhoResponse:
       type: object
-      # java: assinatura.AssinaturaEmpenhoResponse — documentoAssinadoUri hoje e a URI crua do
-      # object store (gap conhecido, ver ADR-0039 alternativas rejeitadas; RAZ-157 fecha isso
-      # para leitura via bridge HTTP, este POST nao muda).
-      required: [empenhoId, status, documentoAssinadoUri, hashSha256, idTransacao]
+      # java: assinatura.AssinaturaEmpenhoResponse — não expõe URI interna do object
+      # store; o PDF assinado sai pelo endpoint HTTP de documento.
+      required: [empenhoId, status, documentoAssinado, hashSha256, idTransacao]
       properties:
         empenhoId: { type: string, format: uuid }
         status: { type: string, description: 'Status do empenho após assinatura (ex.: ASSINADO).' }
-        documentoAssinadoUri: { type: string }
+        documentoAssinado: { type: boolean }
         hashSha256: { type: string }
         idTransacao: { type: string, format: uuid }

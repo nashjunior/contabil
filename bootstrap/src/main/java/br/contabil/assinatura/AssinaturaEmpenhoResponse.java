@@ -7,7 +7,7 @@ import br.contabil.execucao.domain.Empenho;
 import br.contabil.execucao.domain.ExecucaoInvalidaException;
 
 record AssinaturaEmpenhoResponse(
-        UUID empenhoId, String status, String documentoAssinadoUri, String hashSha256, UUID idTransacao) {
+        UUID empenhoId, String status, boolean documentoAssinado, String hashSha256, UUID idTransacao) {
 
     static AssinaturaEmpenhoResponse de(Empenho empenho) {
         DocumentoAssinadoEmpenho documento = empenho
@@ -18,7 +18,7 @@ record AssinaturaEmpenhoResponse(
         return new AssinaturaEmpenhoResponse(
                 empenho.id().valor(),
                 empenho.status().name(),
-                documento.pdfAssinado().toString(),
+                true,
                 documento.hashSha256(),
                 documento.idTransacao());
     }
