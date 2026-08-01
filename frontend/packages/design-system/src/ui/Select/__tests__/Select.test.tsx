@@ -169,7 +169,7 @@ describe('Select — assíncrono (useAsyncOptions)', () => {
     });
   }
 
-  it('mostra "Carregando…" e depois as opções vindas do fetch; digitar refaz a busca', async () => {
+  it('mostra "Carregando opções…" e depois as opções vindas do fetch; digitar refaz a busca', async () => {
     const user = userEvent.setup();
     const fetchOptions = buscaComAtraso(30);
     render(<AsyncHarness fetchOptions={fetchOptions} />);
@@ -177,7 +177,7 @@ describe('Select — assíncrono (useAsyncOptions)', () => {
     const combobox = screen.getByRole('combobox', { name: 'Credor' });
     await user.click(combobox);
 
-    await waitFor(() => expect(screen.getByText('Carregando…')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Carregando opções…')).toBeInTheDocument());
     await waitFor(() => expect(screen.getByRole('option', { name: 'Fornecedor Alfa' })).toBeInTheDocument());
     expect(screen.getByRole('option', { name: 'Fornecedor Beta' })).toBeInTheDocument();
 

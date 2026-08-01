@@ -22,6 +22,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type KeyboardEvent,
   type ReactNode,
   type RefObject,
@@ -90,6 +91,91 @@ function nextEnabledIndex(options: SelectOption[], current: number, direction: 1
   }
   return current;
 }
+
+/**
+ * Ícones inline (16-20px, stroke=currentColor) — o DS ainda não tem pacote de ícones (nenhuma
+ * dependência de ícone em nenhum package.json do frontend); nomes espelham os componentes do
+ * Figma (RAZ-145: Chevron down/Loader/Inbox/Alert circle) para manter a fidelidade visual sem
+ * puxar uma lib nova para 4 glifos.
+ */
+function ChevronDownIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function XIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function LoaderIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" strokeOpacity="0.25" />
+      <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <animateTransform
+          attributeName="transform"
+          type="rotate"
+          from="0 12 12"
+          to="360 12 12"
+          dur="0.8s"
+          repeatCount="indefinite"
+        />
+      </path>
+    </svg>
+  );
+}
+
+function InboxIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M22 12h-6l-2 3h-4l-2-3H2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function AlertCircleIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
+      <path d="M12 7v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="12" cy="16.5" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+/**
+ * Espelha o effect style "Elevation/Overlay" do Figma (design-system-tokens-componentes.md §1.5:
+ * dropdown do Seletor de Ente/painel do Select) — ainda sem token CSS exportado (o pipeline em
+ * tokens/*.tokens.json só cobre color/radius/spacing/typography; ver ADR-0031/ADR-0033). Valor
+ * lido diretamente do effect resolvido via Figma MCP (get_design_context, nó 96:1365), não
+ * inventado — sinalizar para a Paula/Rafael formalizarem um token de elevação no pipeline.
+ */
+const ELEVATION_OVERLAY_SHADOW = '0 4px 8px -2px rgba(0, 0, 0, 0.12), 0 2px 4px -1px rgba(0, 0, 0, 0.06)';
+
+const asyncStatusPanelStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 'var(--spacing-sm)',
+  padding: 'var(--spacing-xl)',
+  textAlign: 'center',
+  color: 'var(--color-text-secondary)',
+};
 
 type SelectCommonProps = {
   options: SelectOption[];
@@ -285,13 +371,21 @@ Select.Trigger = function Trigger({ 'aria-label': ariaLabel, 'aria-labelledby': 
     placeholder,
   } = useSelectContext('Trigger');
 
+  const [isFocused, setIsFocused] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+
   const singleSelectedLabel = !multiple ? selectedOptions[0]?.label : undefined;
   const displayValue = multiple ? query : open ? query : (singleSelectedLabel ?? query);
 
   function handleFocus(event: React.FocusEvent<HTMLInputElement>) {
     if (disabled) return;
+    setIsFocused(true);
     setOpen(true);
     event.target.select();
+  }
+
+  function handleBlur() {
+    setIsFocused(false);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -342,17 +436,28 @@ Select.Trigger = function Trigger({ 'aria-label': ariaLabel, 'aria-labelledby': 
     }
   }
 
+  const borderColor = disabled
+    ? 'var(--color-border-default)'
+    : isFocused
+      ? 'var(--color-border-focus)'
+      : isHovered
+        ? 'var(--color-border-strong)'
+        : 'var(--color-border-default)';
+
   return (
     <div
       onClick={() => !disabled && inputRef.current?.focus()}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       style={{
         display: 'flex',
         flexWrap: 'wrap',
         alignItems: 'center',
-        gap: 'var(--spacing-2xs)',
-        border: '1px solid var(--color-border-default)',
-        borderRadius: 'var(--radius-sm)',
-        padding: 'var(--spacing-2xs) var(--spacing-sm)',
+        gap: 'var(--spacing-sm)',
+        boxSizing: 'border-box',
+        border: `${isFocused ? '2px' : '1px'} solid ${borderColor}`,
+        borderRadius: 'var(--radius-md)',
+        padding: 'var(--spacing-md) var(--spacing-md) var(--spacing-md) var(--spacing-lg)',
         background: disabled ? 'var(--color-bg-disabled)' : 'var(--color-bg-surface)',
         cursor: disabled ? 'not-allowed' : 'text',
       }}
@@ -367,7 +472,7 @@ Select.Trigger = function Trigger({ 'aria-label': ariaLabel, 'aria-labelledby': 
               gap: 'var(--spacing-2xs)',
               background: 'var(--color-bg-inset)',
               borderRadius: 'var(--radius-full)',
-              padding: `0 var(--spacing-sm)`,
+              padding: 'var(--spacing-2xs) var(--spacing-sm)',
               fontSize: 'var(--typography-size-sm)',
               color: 'var(--color-text-primary)',
             }}
@@ -382,15 +487,17 @@ Select.Trigger = function Trigger({ 'aria-label': ariaLabel, 'aria-labelledby': 
                 removeValue(option.value);
               }}
               style={{
+                display: 'inline-flex',
                 border: 'none',
                 background: 'transparent',
                 cursor: disabled ? 'not-allowed' : 'pointer',
                 lineHeight: 1,
+                padding: 0,
                 color: 'var(--color-text-secondary)',
                 font: 'inherit',
               }}
             >
-              ×
+              <XIcon />
             </button>
           </span>
         ))}
@@ -411,6 +518,7 @@ Select.Trigger = function Trigger({ 'aria-label': ariaLabel, 'aria-labelledby': 
         value={displayValue}
         onChange={(event) => setQuery(event.target.value)}
         onFocus={handleFocus}
+        onBlur={handleBlur}
         onKeyDown={handleKeyDown}
         style={{
           flex: '1 1 auto',
@@ -423,6 +531,9 @@ Select.Trigger = function Trigger({ 'aria-label': ariaLabel, 'aria-labelledby': 
           color: 'var(--color-text-primary)',
         }}
       />
+      <span style={{ display: 'flex', color: 'var(--color-text-secondary)' }}>
+        <ChevronDownIcon />
+      </span>
     </div>
   );
 };
@@ -452,32 +563,32 @@ Select.Options = function Options({ children }: SelectOptionsProps) {
         maxHeight: '16rem',
         overflowY: 'auto',
         width: '100%',
+        boxSizing: 'border-box',
         listStyle: 'none',
         padding: 'var(--spacing-2xs) 0',
         margin: 0,
         background: 'var(--color-bg-surface)',
         border: '1px solid var(--color-border-default)',
-        borderRadius: 'var(--radius-sm)',
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.12)',
+        borderRadius: 'var(--radius-md)',
+        boxShadow: ELEVATION_OVERLAY_SHADOW,
       }}
     >
       {status === 'loading' && visibleOptions.length === 0 && (
-        <li
-          role="status"
-          aria-live="polite"
-          style={{ padding: 'var(--spacing-sm)', color: 'var(--color-text-secondary)' }}
-        >
-          Carregando…
+        <li role="status" aria-live="polite" style={asyncStatusPanelStyle}>
+          <LoaderIcon />
+          <span>Carregando opções…</span>
         </li>
       )}
       {status === 'error' && (
-        <li role="alert" style={{ padding: 'var(--spacing-sm)', color: 'var(--color-state-danger-fg)' }}>
-          {errorMessage ?? 'Não foi possível carregar as opções.'}
+        <li role="alert" style={{ ...asyncStatusPanelStyle, color: 'var(--color-state-danger-fg)' }}>
+          <AlertCircleIcon />
+          <span>{errorMessage ?? 'Não foi possível carregar as opções.'}</span>
         </li>
       )}
       {status !== 'loading' && status !== 'error' && visibleOptions.length === 0 && (
-        <li style={{ padding: 'var(--spacing-sm)', color: 'var(--color-text-secondary)' }}>
-          Nenhuma opção encontrada.
+        <li style={asyncStatusPanelStyle}>
+          <InboxIcon />
+          <span>Nenhuma opção encontrada.</span>
         </li>
       )}
       {visibleOptions.map((option, index) =>
@@ -491,8 +602,15 @@ Select.Options = function Options({ children }: SelectOptionsProps) {
         <li
           role="status"
           aria-live="polite"
-          style={{ padding: 'var(--spacing-sm)', color: 'var(--color-text-secondary)' }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--spacing-sm)',
+            padding: 'var(--spacing-sm)',
+            color: 'var(--color-text-secondary)',
+          }}
         >
+          <LoaderIcon />
           Carregando mais…
         </li>
       )}

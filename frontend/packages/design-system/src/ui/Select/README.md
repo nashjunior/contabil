@@ -120,8 +120,9 @@ localmente, elas já vêm filtradas do servidor" — o `useAsyncOptions` cuida d
 - **Cancelamento**: cada nova busca aborta (`AbortController`) a anterior
   ainda em voo — resposta obsoleta nunca sobrescreve resultado mais novo.
 - **Estados**: `status` é `'idle' | 'loading' | 'success' | 'empty' | 'error'`
-  — `Select.Options` já renderiza "Carregando…"/"Nenhuma opção
-  encontrada."/mensagem de erro para cada um.
+  — `Select.Options` já renderiza um painel com ícone + "Carregando
+  opções…"/"Nenhuma opção encontrada."/mensagem de erro para cada um (fiel ao
+  Figma RAZ-145, RAZ-194).
 - **Cache + paginação**: respostas ficam em cache por `query`+página (evita
   refetch ao repetir uma busca já feita); `hasMore`/`loadMore` cobrem
   paginação quando `fetchOptions` retorna `{ options, hasMore: true }`.
