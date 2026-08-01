@@ -1,0 +1,19 @@
+# ADR-0042 · Gate de `npm run build` no CI do frontend + tsconfig isolado para o teste de arquitetura
+
+- **Status:** Aceita
+- **Data:** 2026-08-01
+- **Contexto:** O job `frontend-test` do `.github/workflows/ci.yml` rodava `npm ci` + `npm test` (vitest), mas nunca `npm run build` (`tsc -b` + `vite build`). `vitest` transpila com esbuild e não type-checa — logo um erro de tipo que quebra `tsc -b` nunca reprovava o CI. Um agente marcava a issue `done` com `npm test` verde, e `npm run build` ficava vermelho localmente sem ninguém notar. Esta é a causa raiz (RAZ-196) de uma classe de "false-done" do frontend: o CI simplesmente não cobria o mesmo comando que decide se o app compila.
+
+  A causa imediata do vermelho: `src/architecture/fronteira-application-sem-react.test.ts` (guardrail da fronteira `application/` sem React, ADR-0041 §4/§5, RAZ-137/RAZ-192) usa `node:fs`, `node:url`, `node:path` e o global `process` — mas esse arquivo caía sob `tsconfig.app.json`, cujo `"types": ["vite/client"]` restringe deliberadamente os globais ambientes ao runtime de browser (Vite), sem `@types/node`. `tsc -b` reprovava com `TS2307`/`TS2591`/`TS7006` nesse arquivo.
+- **Decisão:**
+  1. **Isolar o guardrail de arquitetura num projeto TS próprio, tipado para Node** (`frontend/tsconfig.architecture.json`), em vez de afrouxar `tsconfig.app.json`. `tsconfig.app.json` passa a `"exclude": ["src/architecture"]`; o novo projeto usa `"types": ["node"]`, `module`/`moduleResolution": "nodenext"` (mesmo padrão já usado em `tsconfig.node.json` para `vite.config.ts`) e é referenciado a partir de `tsconfig.json` (`references`), para que `tsc -b` o compile. Código de app (browser) continua sem acesso a módulos Node — só testes de arquitetura sob `src/architecture/**` ganham esse tipo.
+  2. **Adicionar `npm run build` como step bloqueante no job `frontend-test`**, logo após `npm ci` e antes de `npm test`, espelhando o padrão já bloqueante do job de backend (`./gradlew check`) e do próprio `npm test` (ADR/RAZ-180). Qualquer erro de `tsc` agora reprova o CI, não só erro de teste vitest.
+- **Consequências:** `npm run build` fica verde localmente e no CI passa a rodar `tsc -b` + `vite build` a cada push/PR — um type error introduzido por qualquer agente reprova o pipeline imediatamente, fechando a lacuna que permitia "done" com build quebrado. Custo: um step a mais no job (redundante em parte com o `pretest` do `npm test`, que já roda `ds:build`/`api:generate` — aceito, prioriza clareza e paridade 1:1 com o comando que humanos/agentes rodam localmente sobre economizar alguns segundos de CI). Qualquer novo teste "de arquitetura" que precise de Node (`fs`/`path`/`process`) deve viver em `src/architecture/**` para herdar o tipo correto automaticamente; qualquer outro caso de mistura Node/browser deve ganhar seu próprio projeto TS isolado em vez de relaxar `tsconfig.app.json`.
+- **Alternativas consideradas:**
+  - **Adicionar `"node"` a `"types"` de `tsconfig.app.json` diretamente:** rejeitado — vazaria globais/módulos Node (`process`, `Buffer`, `fs`, etc.) para todo `src/`, inclusive código de produção que roda no browser; exatamente o que a issue RAZ-196 pediu para evitar ("sem afrouxar o tsconfig do app browser").
+  - **Mover o arquivo de teste para fora de `src/` (ex.: `scripts/` ou raiz do projeto):** rejeitado — o guardrail varre `features/*/application/` com caminho relativo a partir de si mesmo (`import.meta.url`); e `vitest` já descobre testes em `src/**` por convenção do projeto (nenhum `include` customizado em `vite.config.ts`). Manter em `src/architecture/` com projeto TS próprio é mais simples que mexer em descoberta de teste.
+  - **Não type-checar esse arquivo (`// @ts-nocheck` ou excluir de `tsc -b` sem projeto substituto):** rejeitado — reintroduziria exatamente o problema (erro de tipo não pega no CI), só que de forma silenciosa; o objetivo é gate, não supressão.
+
+---
+
+[← ADRs](./README.md)
