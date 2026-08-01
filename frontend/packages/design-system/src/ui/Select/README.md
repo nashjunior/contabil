@@ -142,3 +142,22 @@ localmente, elas já vêm filtradas do servidor" — o `useAsyncOptions` cuida d
   )}
 </Select.Options>
 ```
+
+## Catálogo hierárquico servido como lista plana (cenário Picker de Conta PCASP)
+
+Quando a API devolve uma árvore como lista plana ordenada (sem endpoint
+"filhos de X" — caso do catálogo de contas do PCASP, RAZ-142) este mesmo
+`Select` já cobre o cenário, sem precisar de um componente à parte
+(auditado na RAZ-194 comparando com o Figma do Picker de Conta PCASP):
+
+- `SelectOption.depth` (0 = raiz) indenta a opção via `paddingInlineStart` —
+  calcule a partir do nº de segmentos do código no seu mapeamento
+  `ContaResumo -> SelectOption`, não dentro do `Select`.
+- `SelectOption.disabled` marca contas "sintéticas/agregadoras" (não
+  escrituráveis): aparecem na lista para dar contexto hierárquico, mas não
+  são selecionáveis — mesma regra de negócio do Formulário — Conta PCASP.
+- Conteúdo por linha (código + descrição + natureza + tag Analítica/Sintética)
+  usa a render prop de `Select.Options` (seção acima) — o Select não sabe o
+  que é uma "conta", só orquestra seleção/teclado/ARIA.
+
+Ver a story `PickerContaPcasp` (`Select.stories.tsx`) para o exemplo completo.

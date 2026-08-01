@@ -102,6 +102,35 @@ describe('Select — modo single', () => {
   });
 });
 
+describe('Select — hierarquia (cenário Picker de Conta PCASP, RAZ-142/RAZ-194)', () => {
+  const CATALOGO_PCASP: SelectOption[] = [
+    { value: '1.1', label: 'Ativo circulante', depth: 0, disabled: true },
+    { value: '1.1.1.01.01', label: 'Caixa e equivalentes de caixa', depth: 1 },
+    { value: '1.1.1.01.02', label: 'Bancos conta movimento', depth: 1 },
+  ];
+
+  it('indenta opções por `depth` e bloqueia seleção de conta sintética (disabled) sem escondê-la', async () => {
+    const user = userEvent.setup();
+    render(<SingleHarness options={CATALOGO_PCASP} />);
+
+    const combobox = screen.getByRole('combobox', { name: 'Conta contábil' });
+    await user.click(combobox);
+
+    const sintetica = screen.getByRole('option', { name: 'Ativo circulante' });
+    const analitica = screen.getByRole('option', { name: 'Caixa e equivalentes de caixa' });
+
+    expect(sintetica).toHaveAttribute('aria-disabled', 'true');
+    expect(analitica).not.toHaveAttribute('aria-disabled');
+    expect(analitica.style.paddingInlineStart).not.toBe(sintetica.style.paddingInlineStart);
+
+    await user.click(sintetica);
+    expect(screen.getByText('Selecionado: (nenhum)')).toBeInTheDocument();
+
+    await user.click(analitica);
+    expect(screen.getByText('Selecionado: 1.1.1.01.01')).toBeInTheDocument();
+  });
+});
+
 describe('Select — modo múltiplo', () => {
   it('seleciona várias opções com chips e remove individualmente (botão e Backspace)', async () => {
     const user = userEvent.setup();

@@ -38,6 +38,14 @@ export type SelectOption = {
    */
   searchValue?: string;
   disabled?: boolean;
+  /**
+   * Profundidade hierárquica (0 = raiz) para listas derivadas de uma árvore servida como lista
+   * plana — ex.: catálogo de contas do PCASP (RAZ-142), onde a API não tem endpoint "filhos de
+   * X" e a indentação é calculada client-side pelo nº de segmentos do código. `Select.Option`
+   * usa este valor só para indentar via `paddingInlineStart`; combine com `disabled` para o
+   * padrão "linha sintética/agregadora visível mas não selecionável" do mesmo cenário.
+   */
+  depth?: number;
 };
 
 export type SelectStatus = 'idle' | 'loading' | 'success' | 'empty' | 'error';
@@ -647,6 +655,7 @@ Select.Option = function Option({ option, index, children }: SelectOptionProps) 
   const { isSelected, selectOption, activeIndex, setActiveIndex, getOptionId } = useSelectContext('Option');
   const selected = isSelected(option.value);
   const active = activeIndex === index;
+  const depth = Math.max(0, Math.floor(option.depth ?? 0));
 
   return (
     <li
@@ -662,6 +671,7 @@ Select.Option = function Option({ option, index, children }: SelectOptionProps) 
       }}
       style={{
         padding: 'var(--spacing-sm)',
+        paddingInlineStart: depth > 0 ? `calc(var(--spacing-sm) + var(--spacing-lg) * ${depth})` : 'var(--spacing-sm)',
         cursor: option.disabled ? 'not-allowed' : 'pointer',
         color: option.disabled ? 'var(--color-neutral-500)' : 'var(--color-text-primary)',
         background: active ? 'var(--color-brand-subtle-bg)' : 'transparent',

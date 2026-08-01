@@ -110,6 +110,75 @@ export const Assincrono: Story = {
   render: () => <AssincronoDemo />,
 };
 
+/**
+ * Cenário do "Picker de Conta PCASP" (RAZ-142/RAZ-194): a API devolve o catálogo como lista
+ * PLANA ordenada por código (sem endpoint "filhos de X"), então a hierarquia é derivada
+ * client-side pelo nº de segmentos do código (`depth`) e só a conta "escriturável" (Analítica)
+ * é selecionável — a "Sintética" aparece para dar contexto mas fica `disabled`. Prova que este
+ * mesmo `Select` (single + `depth` + `disabled` + conteúdo customizado por opção via
+ * `Select.Options` render prop) cobre o cenário, sem precisar de um componente à parte.
+ */
+type ContaPcasp = SelectOption & {
+  depth: number;
+  natureza: string;
+  escrituravel: boolean;
+};
+
+const CONTAS_PCASP: ContaPcasp[] = [
+  { value: '1.1', label: 'Ativo circulante', depth: 0, natureza: 'D · Patrimonial · agregadora — não lança', escrituravel: false, disabled: true },
+  { value: '1.1.1.01.01', label: 'Caixa e equivalentes de caixa', depth: 1, natureza: 'D · Patrimonial', escrituravel: true },
+  { value: '1.1.1.01.02', label: 'Bancos conta movimento', depth: 1, natureza: 'D · Patrimonial', escrituravel: true },
+  { value: '1.2', label: 'Ativo não circulante', depth: 0, natureza: 'D · Patrimonial · agregadora — não lança', escrituravel: false, disabled: true },
+  { value: '1.2.1.01', label: 'Imóveis', depth: 1, natureza: 'D · Patrimonial', escrituravel: true },
+];
+
+function TagEscrituravel({ escrituravel }: { escrituravel: boolean }) {
+  return (
+    <span
+      style={{
+        flexShrink: 0,
+        padding: 'var(--spacing-2xs) var(--spacing-sm)',
+        borderRadius: 'var(--radius-sm)',
+        fontSize: 'var(--typography-size-sm)',
+        background: escrituravel ? 'var(--color-state-success-bg)' : 'var(--color-bg-inset)',
+        color: escrituravel ? 'var(--color-state-success-fg)' : 'var(--color-text-secondary)',
+      }}
+    >
+      {escrituravel ? 'Analítica' : 'Sintética'}
+    </span>
+  );
+}
+
+function PickerContaPcaspDemo() {
+  const [contaId, setContaId] = useState<string | null>(null);
+  return (
+    <Select value={contaId} onChange={setContaId} options={CONTAS_PCASP} placeholder="Conta PCASP (código ou descrição)">
+      <Select.Trigger aria-label="Conta PCASP" />
+      <Select.Options>
+        {(option, index) => (
+          <Select.Option key={option.value} option={option} index={index}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', width: '100%' }}>
+              <span style={{ flex: '1 1 auto', minWidth: 0 }}>
+                <span style={{ display: 'block' }}>
+                  {option.value} {option.label}
+                </span>
+                <span style={{ display: 'block', fontSize: 'var(--typography-size-sm)', color: 'var(--color-text-secondary)' }}>
+                  {(option as ContaPcasp).natureza}
+                </span>
+              </span>
+              <TagEscrituravel escrituravel={(option as ContaPcasp).escrituravel} />
+            </span>
+          </Select.Option>
+        )}
+      </Select.Options>
+    </Select>
+  );
+}
+
+export const PickerContaPcasp: Story = {
+  render: () => <PickerContaPcaspDemo />,
+};
+
 function DesabilitadoDemo() {
   return (
     <Select value={CONTAS[0]!.value} onChange={() => {}} options={CONTAS} disabled placeholder="Selecione a conta">
