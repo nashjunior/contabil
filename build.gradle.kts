@@ -49,5 +49,23 @@ subprojects {
 
     tasks.withType<Test>().configureEach {
         useJUnitPlatform()
+        // CofreSegredosEnvironmentPostProcessor agora é de fato descoberto pelo Spring
+        // Boot (META-INF/spring.factories corrigido, RAZ-211 — antes nunca rodava,
+        // então nenhum teste precisava disso). Assinatura/login gov.br real estão fora
+        // do escopo de qualquer teste JVM hoje (nenhum configura client-id) — em
+        // branco, o cofre pula essas duas refs em vez de exigir um segredo que não
+        // existe no ambiente de teste. Testes que legitimamente exercitam a resolução
+        // desses segredos continuam livres para sobrescrever via `environment(...)`.
+        environment("GOVBR_ASSINATURA_OAUTH_CLIENT_SECRET_REF", "")
+        environment("GOVBR_LOGIN_OAUTH_CLIENT_SECRET_REF", "")
+        // Datasource/Flyway: os testes `@SpringBootTest` com Testcontainers sobrescrevem
+        // `spring.datasource.password`/`spring.flyway.password` via `@DynamicPropertySource`
+        // — mas isso roda DEPOIS do EnvironmentPostProcessor (fase de contexto, não de
+        // ambiente), então o cofre sempre vê essas propriedades "vazias" no momento em que
+        // decide se resolve a `-ref` e tentaria resolver de verdade sem estas variáveis.
+        // O valor aqui nunca chega a ser usado numa conexão real — o `@DynamicPropertySource`
+        // de cada teste sobrescreve por cima antes do `refresh()` do contexto.
+        environment("SIAFIC_F0_DB_RUNTIME_PASSWORD", "nao-usado-dynamicpropertysource-sobrescreve")
+        environment("SIAFIC_F0_DB_MIGRATION_PASSWORD", "nao-usado-dynamicpropertysource-sobrescreve")
     }
 }
