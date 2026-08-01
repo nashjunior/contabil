@@ -29,6 +29,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantContext;
 import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
 import br.contabil.plataforma.domain.iam.ControleAcesso;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
@@ -85,8 +86,10 @@ class TenantContextUseCasesConfigurationTest {
                 UUID.randomUUID(), new Cpf("12345678901"), enteId, Optional.empty(), true,
                 Instant.parse("2030-01-01T00:00:00Z"));
 
+        AuditoriaEscrita auditoria = mock(AuditoriaEscrita.class);
         RegistrarFatoContabil alvo = new RegistrarFatoContabil(
-                new ControleAcesso(servicoIdentidadePermissivo), repositorio, contadorFato, periodoContabil, relogioFixo);
+                new ControleAcesso(servicoIdentidadePermissivo), repositorio, contadorFato, periodoContabil, auditoria,
+                relogioFixo);
         RegistrarFatoContabil proxy = comAdvisorAplicado(alvo, jdbcTemplate);
 
         proxy.executar(

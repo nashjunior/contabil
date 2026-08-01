@@ -1,10 +1,14 @@
 package br.contabil.razao.application;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Map;
 import java.util.NoSuchElementException;
 
 import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
+import br.contabil.plataforma.domain.auditoria.EventoAuditoria;
 import br.contabil.plataforma.domain.iam.ControleAcesso;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Acao;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Recurso;
@@ -33,6 +37,7 @@ public class EstornarFatoContabil {
     private final FatoContabilRepository repositorio;
     private final ContadorFatoPort contadorFato;
     private final PeriodoContabilPort periodoContabil;
+    private final AuditoriaEscrita auditoria;
     private final Clock clock;
 
     public EstornarFatoContabil(
@@ -40,11 +45,13 @@ public class EstornarFatoContabil {
             FatoContabilRepository repositorio,
             ContadorFatoPort contadorFato,
             PeriodoContabilPort periodoContabil,
+            AuditoriaEscrita auditoria,
             Clock clock) {
         this.controleAcesso = controleAcesso;
         this.repositorio = repositorio;
         this.contadorFato = contadorFato;
         this.periodoContabil = periodoContabil;
+        this.auditoria = auditoria;
         this.clock = clock;
     }
 
@@ -68,6 +75,20 @@ public class EstornarFatoContabil {
                 FatoContabil.estornar(original, numeroSeq, dataCompetencia, periodoId, historico, origem, clock);
 
         repositorio.inserir(estorno);
+
+        // Trilha [OBRIGATÓRIO] (docs/04-fluxos §7 cita explicitamente ESTORNO): auditada no use
+        // case para que a correção por estorno do razão nunca saia sem rastro, qualquer que seja
+        // o chamador (hoje sem borda de produção; sairá com trilha desde o primeiro uso real).
+        auditoria.append(new EventoAuditoria(
+                enteId,
+                "razao_fato_contabil_estornado",
+                usuarioAutenticado.titular().mascarado(),
+                "razao:fato_contabil:%s".formatted(estorno.id().valor()),
+                Instant.now(clock),
+                Map.of(
+                        "fatoOriginalId", fatoOriginalId.valor().toString(),
+                        "origem", origem,
+                        "dataCompetencia", dataCompetencia.toString())));
         return estorno;
     }
 }

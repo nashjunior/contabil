@@ -15,6 +15,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -24,6 +25,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
+import br.contabil.plataforma.domain.auditoria.EventoAuditoria;
 import br.contabil.plataforma.domain.iam.ControleAcesso;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Acao;
@@ -58,6 +61,9 @@ class RegistrarFatoContabilTest {
     @Mock
     private PeriodoContabilPort periodoContabil;
 
+    @Mock
+    private AuditoriaEscrita auditoria;
+
     private RegistrarFatoContabil useCase;
 
     private final TenantId enteId = TenantId.de(UUID.randomUUID().toString());
@@ -69,7 +75,7 @@ class RegistrarFatoContabilTest {
     void setUp() {
         Clock relogioFixo = Clock.fixed(Instant.parse("2026-07-19T12:00:00Z"), ZoneOffset.UTC);
         useCase = new RegistrarFatoContabil(
-                new ControleAcesso(servicoIdentidade), repositorio, contadorFato, periodoContabil, relogioFixo);
+                new ControleAcesso(servicoIdentidade), repositorio, contadorFato, periodoContabil, auditoria, relogioFixo);
     }
 
     private List<Lancamento> lancamentosBalanceados() {
@@ -102,6 +108,9 @@ class RegistrarFatoContabilTest {
         assertThat(fato.numeroSeq()).isEqualTo(42L);
         assertThat(fato.periodoId()).isEqualTo(periodoId);
         verify(repositorio).inserir(fato);
+        ArgumentCaptor<EventoAuditoria> evento = ArgumentCaptor.forClass(EventoAuditoria.class);
+        verify(auditoria).append(evento.capture());
+        assertThat(evento.getValue().tipo()).isEqualTo("razao_fato_contabil_registrado");
     }
 
     @Test
@@ -156,7 +165,7 @@ class RegistrarFatoContabilTest {
                         lancamentosBalanceados()))
                 .isInstanceOf(SemPermissaoException.class);
 
-        verifyNoInteractions(repositorio, contadorFato, periodoContabil);
+        verifyNoInteractions(repositorio, contadorFato, periodoContabil, auditoria);
     }
 
     @Test
@@ -170,7 +179,7 @@ class RegistrarFatoContabilTest {
                         lancamentosBalanceados()))
                 .isInstanceOf(MfaRequeridoException.class);
 
-        verifyNoInteractions(repositorio, contadorFato, periodoContabil);
+        verifyNoInteractions(repositorio, contadorFato, periodoContabil, auditoria);
     }
 
     @Test
@@ -190,6 +199,6 @@ class RegistrarFatoContabilTest {
                 .isInstanceOf(SemPermissaoException.class);
 
         verify(servicoIdentidade, never()).autorizar(any(), any(), any());
-        verifyNoInteractions(repositorio, contadorFato, periodoContabil);
+        verifyNoInteractions(repositorio, contadorFato, periodoContabil, auditoria);
     }
 }

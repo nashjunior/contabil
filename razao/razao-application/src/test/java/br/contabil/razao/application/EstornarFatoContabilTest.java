@@ -17,6 +17,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -26,6 +27,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
+import br.contabil.plataforma.domain.auditoria.EventoAuditoria;
 import br.contabil.plataforma.domain.iam.ControleAcesso;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Acao;
@@ -59,6 +62,9 @@ class EstornarFatoContabilTest {
     @Mock
     private PeriodoContabilPort periodoContabil;
 
+    @Mock
+    private AuditoriaEscrita auditoria;
+
     private EstornarFatoContabil useCase;
 
     private final TenantId enteId = TenantId.de(UUID.randomUUID().toString());
@@ -78,7 +84,7 @@ class EstornarFatoContabilTest {
     @BeforeEach
     void setUp() {
         useCase = new EstornarFatoContabil(
-                new ControleAcesso(servicoIdentidade), repositorio, contadorFato, periodoContabil, relogioFixo);
+                new ControleAcesso(servicoIdentidade), repositorio, contadorFato, periodoContabil, auditoria, relogioFixo);
     }
 
     @Test
@@ -111,6 +117,9 @@ class EstornarFatoContabilTest {
         assertThat(estorno.isEstorno()).isTrue();
         assertThat(estorno.fatoEstornadoId()).isEqualTo(original.id());
         assertThat(estorno.numeroSeq()).isEqualTo(2L);
+        ArgumentCaptor<EventoAuditoria> evento = ArgumentCaptor.forClass(EventoAuditoria.class);
+        verify(auditoria).append(evento.capture());
+        assertThat(evento.getValue().tipo()).isEqualTo("razao_fato_contabil_estornado");
     }
 
     @Test
@@ -140,7 +149,7 @@ class EstornarFatoContabilTest {
         assertThatThrownBy(() -> useCase.executar(sessao, enteId, fatoId, dataEstorno, "correção", "origem"))
                 .isInstanceOf(SemPermissaoException.class);
 
-        verifyNoInteractions(repositorio, contadorFato, periodoContabil);
+        verifyNoInteractions(repositorio, contadorFato, periodoContabil, auditoria);
     }
 
     @Test
@@ -155,7 +164,7 @@ class EstornarFatoContabilTest {
         assertThatThrownBy(() -> useCase.executar(sessao, enteId, fatoId, dataEstorno, "correção", "origem"))
                 .isInstanceOf(MfaRequeridoException.class);
 
-        verifyNoInteractions(repositorio, contadorFato, periodoContabil);
+        verifyNoInteractions(repositorio, contadorFato, periodoContabil, auditoria);
     }
 
     @Test
@@ -175,6 +184,6 @@ class EstornarFatoContabilTest {
                 .isInstanceOf(SemPermissaoException.class);
 
         verify(servicoIdentidade, never()).autorizar(any(), any(), any());
-        verifyNoInteractions(repositorio, contadorFato, periodoContabil);
+        verifyNoInteractions(repositorio, contadorFato, periodoContabil, auditoria);
     }
 }

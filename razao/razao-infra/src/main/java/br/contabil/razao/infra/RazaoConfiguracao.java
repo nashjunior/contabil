@@ -5,6 +5,7 @@ import java.time.Clock;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
 import br.contabil.plataforma.domain.iam.ControleAcesso;
 import br.contabil.razao.application.ConsultarContas;
 import br.contabil.razao.application.ConsultarSaldo;
@@ -41,8 +42,10 @@ public class RazaoConfiguracao {
             FatoContabilRepository repositorio,
             ContadorFatoPort contadorFato,
             PeriodoContabilPort periodoContabil,
+            AuditoriaEscrita auditoria,
             Clock clock) {
-        return new RegistrarFatoContabil(controleAcesso, repositorio, contadorFato, periodoContabil, clock);
+        return new RegistrarFatoContabil(
+                controleAcesso, repositorio, contadorFato, periodoContabil, auditoria, clock);
     }
 
     @Bean
@@ -51,8 +54,10 @@ public class RazaoConfiguracao {
             FatoContabilRepository repositorio,
             ContadorFatoPort contadorFato,
             PeriodoContabilPort periodoContabil,
+            AuditoriaEscrita auditoria,
             Clock clock) {
-        return new EstornarFatoContabil(controleAcesso, repositorio, contadorFato, periodoContabil, clock);
+        return new EstornarFatoContabil(
+                controleAcesso, repositorio, contadorFato, periodoContabil, auditoria, clock);
     }
 
     /**

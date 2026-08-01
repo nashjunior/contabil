@@ -1,10 +1,14 @@
 package br.contabil.razao.application;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
+import br.contabil.plataforma.domain.auditoria.EventoAuditoria;
 import br.contabil.plataforma.domain.iam.ControleAcesso;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Acao;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Recurso;
@@ -37,6 +41,7 @@ public class RegistrarFatoContabil {
     private final FatoContabilRepository repositorio;
     private final ContadorFatoPort contadorFato;
     private final PeriodoContabilPort periodoContabil;
+    private final AuditoriaEscrita auditoria;
     private final Clock clock;
 
     public RegistrarFatoContabil(
@@ -44,11 +49,13 @@ public class RegistrarFatoContabil {
             FatoContabilRepository repositorio,
             ContadorFatoPort contadorFato,
             PeriodoContabilPort periodoContabil,
+            AuditoriaEscrita auditoria,
             Clock clock) {
         this.controleAcesso = controleAcesso;
         this.repositorio = repositorio;
         this.contadorFato = contadorFato;
         this.periodoContabil = periodoContabil;
+        this.auditoria = auditoria;
         this.clock = clock;
     }
 
@@ -70,6 +77,20 @@ public class RegistrarFatoContabil {
                 enteId, numeroSeq, dataCompetencia, periodoId, tipoEvento, historico, origem, lancamentos, clock);
 
         repositorio.inserir(fato);
+
+        // Trilha [OBRIGATÓRIO] (docs/04-fluxos §7): toda escrituração de fato é auditada AQUI,
+        // no use case, não por conta do chamador — assim qualquer borda futura do razão herda a
+        // trilha (o caminho da execução já audita a própria operação em RegistrarEmpenho etc.).
+        auditoria.append(new EventoAuditoria(
+                enteId,
+                "razao_fato_contabil_registrado",
+                usuarioAutenticado.titular().mascarado(),
+                "razao:fato_contabil:%s".formatted(fato.id().valor()),
+                Instant.now(clock),
+                Map.of(
+                        "tipoEvento", tipoEvento.name(),
+                        "origem", origem,
+                        "dataCompetencia", dataCompetencia.toString())));
         return fato;
     }
 }
