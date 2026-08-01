@@ -47,8 +47,9 @@
 | [0040](./0040-verificacao-identidade-workspace-antes-de-done.md) | Verificação de identidade do workspace: resolver `codebase.effectiveLocalFolder` via API de projetos antes de iniciar trabalho, e confirmar o commit no caminho autoritativo antes de declarar `done` — mitiga workspace vazio/cópia desconectada (RAZ-70/58/43/41/86/164/163/166) | Aceita |
 | [0041](./0041-frontend-requests-abortaveis-e-camada-de-caso-de-uso.md) | Frontend: `get`/`post` aceitam e repassam `AbortSignal` ao `fetch`, hooks de query encaminham o signal do React Query; lógica de negócio migra para caso de uso puro em `features/*/application/`, nomeado igual ao use case real do backend (sem sufixo `UseCase`); hook fica fino | Aceita |
 | [0042](./0042-gate-build-ci-frontend-tsconfig-arquitetura.md) | Gate bloqueante de `npm run build` no job `frontend-test` do CI + `tsconfig.architecture.json` isolado (tipos Node) para o teste de fronteira `application/`, sem afrouxar `tsconfig.app.json` | Aceita |
+| [0043](./0043-frontend-forms-react-hook-form-dominio-hexagonal.md) | Frontend: forms em React Hook Form + fronteiras hexagonais — domínio framework-free (VOs/invariantes do Empenho), schema zod derivado do domínio, hook reutilizável `useFormDeAgregado` e wrappers RHF de `FormSection`/`Select` sem mudar o design system | Aceita |
 
-> **Nota:** o número **0019 não foi utilizado** — reservado durante execução paralela de agentes e nunca materializado em arquivo (o **mesmo** padrão-raiz endereçado pelo [ADR-0037](./0037-isolamento-e-guarda-commits-concorrentes-agentes.md)). Não renumerar os ADRs existentes (a numeração é histórica/imutável, mesmo princípio do ADR); o próximo ADR novo continua a partir do 0042.
+> **Nota:** o número **0019 não foi utilizado** — reservado durante execução paralela de agentes e nunca materializado em arquivo (o **mesmo** padrão-raiz endereçado pelo [ADR-0037](./0037-isolamento-e-guarda-commits-concorrentes-agentes.md)). Não renumerar os ADRs existentes (a numeração é histórica/imutável, mesmo princípio do ADR); o próximo ADR novo continua a partir do 0043.
 
 ## Como adicionar/mudar uma decisão
 

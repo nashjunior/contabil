@@ -6,7 +6,8 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { server } from '../../../shared/api/mocks/server';
 import type { EmpenhoRequest, GovbrContexto } from '../../../shared/api/client';
-import { registrarEmpenho } from './registrarEmpenho';
+import type { CamposEmpenho } from '../domain/empenhoSchema';
+import { paraEmpenhoRequest, registrarEmpenho } from './registrarEmpenho';
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => server.resetHandlers());
@@ -44,5 +45,37 @@ describe('registrarEmpenho', () => {
     controller.abort();
 
     await expect(registrarEmpenho(body, contexto, { signal: controller.signal })).rejects.toBeTruthy();
+  });
+});
+
+describe('paraEmpenhoRequest', () => {
+  const campos: CamposEmpenho = {
+    dotacaoId: '11111111-1111-4111-8111-000000000001',
+    tipo: 'ordinario',
+    credorId: '11111111-1111-4111-8111-000000000002',
+    unidadeGestoraId: '11111111-1111-4111-8111-000000000003',
+    contratoId: '',
+    valor: '1000,5',
+    dataFato: '2026-01-15',
+    exercicio: '2026',
+    classificacaoOrcamentaria: '  3.3.90.30  ',
+    fonteRecurso: '0100',
+    historico: 'Compra de material de expediente',
+  };
+
+  it('mapeia campos de formulário (string) para o EmpenhoRequest tipado do use case', () => {
+    const request = paraEmpenhoRequest(campos);
+
+    expect(request.contratoId).toBeNull();
+    expect(request.valor).toBe('1000.50');
+    expect(typeof request.valor).toBe('string');
+    expect(request.exercicio).toBe(2026);
+    expect(typeof request.exercicio).toBe('number');
+    expect(request.classificacaoOrcamentaria).toBe('3.3.90.30');
+  });
+
+  it('preserva contratoId quando preenchido', () => {
+    const request = paraEmpenhoRequest({ ...campos, contratoId: '11111111-1111-4111-8111-000000000004' });
+    expect(request.contratoId).toBe('11111111-1111-4111-8111-000000000004');
   });
 });
