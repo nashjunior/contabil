@@ -82,6 +82,16 @@ siafic:
     icp:
       certificados-confiaveis-sha256: []
     concessoes: []
+  # IdP de dev local exposto por HTTP (RAZ-228/ADR-0052 item 1) — nunca ativo por
+  # acidente: exige AMBAS as flags (enabled=true aqui E siafic.iam.enabled=true acima)
+  # mais o par de chaves de dev completo (issuer/audience/public-key-pem reaproveitados
+  # de siafic.iam.govbr + a private-key-pem exclusiva daqui). Ver README §Variáveis.
+  dev-idp:
+    enabled: ${SIAFIC_DEV_IDP_ENABLED:false}
+    issuer: ${GOVBR_IAM_ISSUER:https://sso.staging.acesso.gov.br}
+    audience: ${GOVBR_IAM_AUDIENCE:}
+    public-key-pem: ${GOVBR_IAM_PUBLIC_KEY_PEM:}
+    private-key-pem: ${SIAFIC_DEV_IDP_PRIVATE_KEY_PEM:}
   security:
     database:
       require-ssl: ${DB_REQUIRE_SSL:true}
