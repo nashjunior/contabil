@@ -98,7 +98,7 @@ flowchart TB
 | **Workers de integração / ingestão** | **Go** (opcional) ou a mesma JVM | I/O-bound, alta concorrência, **binário único** = deploy barato por ente | Manter na JVM para simplificar o time |
 | **Pipeline de dados / ETL / migração** | **Python** (pandas) | De-para PCASP, conciliação, cargas; produtividade em manipulação de dados | JVM (Spring Batch) se preferir um runtime só |
 | **Portal da transparência (cidadão)** | **TypeScript + SSR (Next.js/Nuxt)** | Acessibilidade (WCAG 2.2 AA), SEO, HTML semântico server-side; adota **Design System gov.br** | — |
-| **Back-office (servidor)** | **TypeScript SPA (React/Vue)** | Formulários ricos, RBAC no cliente; reusa o DS gov.br | — |
+| **Back-office (servidor)** | **TypeScript SPA (React/Vue)** | Formulários ricos, RBAC no cliente; reusa o DS gov.br — [guia de padrões de frontend](./frontend-guia-padroes.md) · [design system (tokens e componentes)](./design-system-tokens-componentes.md) | — |
 | **Relatórios/matrizes (RREO/RGF/MSC/DCA)** | JVM (mesma do núcleo) sobre read models | Precisa dos mesmos tipos monetários e regras contábeis | Python para protótipo |
 | **Assinatura/cripto** | Bibliotecas da plataforma (JVM: BouncyCastle/iText; .NET equivalente) | Não reimplementar cripto; PAdES/CAdES prontos | — |
 | **Infra como código / deploy** | **Docker + Terraform**; orquestração K8s **só quando** a escala pedir | Reprodutível; começar simples (compose/VM) para município pequeno | Nomad/compose no início |

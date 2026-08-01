@@ -8,7 +8,7 @@
   Modelo de referência (`shared/ui/FormSection`): componente pai cria um Context com o estado do formulário (valores, erros vindos de `ErroContrato` do servidor); subcomponentes (`FormSection.Field`, `FormSection.Error`) leem via hook (`useFormSectionContext`), nunca por prop do pai. Critério prático:
 
   | Situação | Solução |
-  |---|---|
+  | --- | --- |
   | Intermediário só repassa `children` sem olhar o dado | Composição — pai recebe o subcomponente pronto |
   | Subcomponentes irmãos/não-adjacentes precisam do mesmo estado (ex.: `Field` e `Error` do mesmo campo, ou `Badge Estágio`/`Badge Aprovação` do RAZ-100 §2 lendo o mesmo item de fila) | Context via compound component |
   | Dado só usado no próprio nível | Prop normal — a regra não proíbe prop, proíbe prop que atravessa 3+ níveis sem uso intermediário |

@@ -73,8 +73,8 @@ Atalhos diretos para os diagramas em [04-fluxos.md](./04-fluxos.md):
 | User stories + critérios de aceite | Backlog detalhado (Gherkin) | ⏳ pendente |
 | [Máquinas de estado](./10-modelo-dados.md#ciclo-de-vida-do-empenho) | Ciclo de vida do empenho e do período | 🟡 parcial (empenho) |
 | Matriz de perfis (RBAC) | Segregação de funções por persona × operação | ✅ código F0 (`ServicoIdentidadeGovBrIcp`) |
-| [Fluxo do operador + contrato de API — execução (F1)](./arquitetura-tecnica/fluxo-execucao-operador-contrato-api.md) | Empenho→liquidação→pagamento do ponto de vista do operador, segregação de funções, wireframes descritos e contrato de API (decisão de lote em [ADR-0022](./arquitetura-tecnica/adr/0022-lote-pagamento-contrato-api-execucao.md)) | 🟡 proposto (RAZ-79, cruzar com Aurélio) |
-| [Design system SIAFIC — tokens e componentes (F1)](./arquitetura-tecnica/design-system-tokens-componentes.md) | Biblioteca Figma (tokens cor/tipografia/espaçamento/elevação + 10 componentes-núcleo); mapeamento token→uso; decisões estruturais em [ADR-0026](./arquitetura-tecnica/adr/0026-design-system-figma-decisoes-estruturais.md) | 🟡 proposto (RAZ-100, cruzar com Aurélio) |
+| [Fluxo do operador + contrato de API — execução (F1)](./arquitetura-tecnica/fluxo-execucao-operador-contrato-api.md) | Empenho→liquidação→pagamento do ponto de vista do operador, segregação de funções, wireframes descritos e contrato de API (decisão de lote em [ADR-0022](./arquitetura-tecnica/adr/0022-lote-pagamento-contrato-api-execucao.md)) | ✅ ratificado (Aurélio, RAZ-79; ADR-0022/0029/0030/0038/0039) |
+| [Design system SIAFIC — tokens e componentes (F1)](./arquitetura-tecnica/design-system-tokens-componentes.md) | Biblioteca Figma (tokens cor/tipografia/espaçamento/elevação + 10 componentes-núcleo); mapeamento token→uso; decisões estruturais em [ADR-0026](./arquitetura-tecnica/adr/0026-design-system-figma-decisoes-estruturais.md) | ✅ ratificado (Aurélio, RAZ-100; ADR-0026/0036) |
 
 ---
 

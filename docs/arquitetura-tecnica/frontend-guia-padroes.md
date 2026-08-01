@@ -27,7 +27,7 @@ ver nota de coordenação no fim.
 ### Endpoints (todos sob `/api/v1/entes/{enteId}/`)
 
 | Método | Rota | Controller | Resposta |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | POST | `execucao/empenhos` | `EmpenhoController` | `EmpenhoResponse` (201) |
 | POST | `execucao/liquidacoes` | `LiquidacaoController` | `LiquidacaoResponse` (201) |
 | POST | `execucao/liquidacoes/{id}/aprovacao` | `LiquidacaoController` | `LiquidacaoResponse` |
