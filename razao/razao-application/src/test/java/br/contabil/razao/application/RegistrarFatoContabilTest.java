@@ -111,6 +111,10 @@ class RegistrarFatoContabilTest {
         ArgumentCaptor<EventoAuditoria> evento = ArgumentCaptor.forClass(EventoAuditoria.class);
         verify(auditoria).append(evento.capture());
         assertThat(evento.getValue().tipo()).isEqualTo("razao_fato_contabil_registrado");
+        assertThat(evento.getValue().detalhes())
+                .containsEntry("tipoEvento", "RECEITA")
+                .containsEntry("origem", "origem")
+                .containsEntry("dataCompetencia", "2026-07-01");
     }
 
     @Test
