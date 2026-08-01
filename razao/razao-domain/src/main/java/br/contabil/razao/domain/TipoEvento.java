@@ -11,6 +11,7 @@ public enum TipoEvento {
     PAGAMENTO("pagamento"),
     RECEITA("receita"),
     ESTORNO("estorno"),
+    ENCERRAMENTO("encerramento"),
     ABERTURA("abertura");
 
     private final String codigo;

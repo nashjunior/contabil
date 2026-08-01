@@ -9,6 +9,7 @@ import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
 import br.contabil.plataforma.domain.iam.ControleAcesso;
 import br.contabil.razao.application.ConsultarContas;
 import br.contabil.razao.application.ConsultarSaldo;
+import br.contabil.razao.application.EncerrarExercicio;
 import br.contabil.razao.application.EncerrarPeriodo;
 import br.contabil.razao.application.EstornarFatoContabil;
 import br.contabil.razao.application.GerarBalancete;
@@ -92,5 +93,13 @@ public class RazaoConfiguracao {
             AuditoriaEscrita auditoria,
             Clock clock) {
         return new EncerrarPeriodo(controleAcesso, periodoRepositorio, auditoria, clock);
+    }
+
+    /** RAZ-226: boundary do encerramento de exercício (mês 13) — bloqueado até revalidar MCASP/RP. */
+    @Bean
+    public EncerrarExercicio encerrarExercicio(
+            ControleAcesso controleAcesso,
+            PeriodoContabilRepository periodoRepositorio) {
+        return new EncerrarExercicio(controleAcesso, periodoRepositorio);
     }
 }
