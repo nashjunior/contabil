@@ -2,8 +2,9 @@ name: CI
 
 # Guardrail de CI bloqueante (ADR-0003, RAZ-16): build/testes E o teste de
 # vazamento cross-tenant (VazamentoCrossTenantRlsTest) rodam aqui — falha
-# vermelha nesta pipeline é reprovação, não aviso. gitleaks bloqueia segredo
-# no repo (AGENTS.md §Segurança/LGPD).
+# vermelha nesta pipeline é reprovação, não aviso. O frontend (vitest) também
+# é gate, não só o backend (RAZ-180). gitleaks bloqueia segredo no repo
+# (AGENTS.md §Segurança/LGPD).
 on:
   push:
     branches: [master]
@@ -46,6 +47,31 @@ jobs:
           name: test-reports
           path: "**/build/reports/tests/"
           retention-days: 7
+
+  frontend-test:
+    name: Frontend (vitest) — RAZ-180
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configura Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: npm ci
+        run: npm ci
+
+      # npm test roda o pretest (build de tokens do design system + geração do
+      # client de API a partir de openapi/contrato-provisorio.yaml, sem rede/backend)
+      # e depois vitest run — mesmo padrão bloqueante do job de backend.
+      - name: npm test
+        run: npm test
 
   gitleaks:
     name: gitleaks (segredo no repositório)
