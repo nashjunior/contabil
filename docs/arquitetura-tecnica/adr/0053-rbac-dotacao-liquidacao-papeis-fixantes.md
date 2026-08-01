@@ -1,4 +1,4 @@
-# ADR-0052 · Matriz RBAC concede `execucao:dotacao` a `ADMIN_PLATAFORMA` e `execucao:liquidacao` a `LANCADOR`
+# ADR-0053 · Matriz RBAC concede `execucao:dotacao` a `ADMIN_PLATAFORMA` e `execucao:liquidacao` a `LANCADOR`
 
 - **Status:** Aceita
 - **Data:** 2026-08-01

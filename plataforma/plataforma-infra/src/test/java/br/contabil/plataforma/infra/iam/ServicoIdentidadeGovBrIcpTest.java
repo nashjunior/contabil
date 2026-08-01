@@ -164,7 +164,7 @@ class ServicoIdentidadeGovBrIcpTest {
     }
 
     @Test
-    @DisplayName("RAZ-218/ADR-0052: LANCADOR NÃO ganha execucao:dotacao — quem fixa o teto não é quem gasta contra ele")
+    @DisplayName("RAZ-218/ADR-0053: LANCADOR NÃO ganha execucao:dotacao — quem fixa o teto não é quem gasta contra ele")
     void lancadorNaoAutorizaDotacao() throws Exception {
         var sessao = servico.autenticar(new CredencialGovBr(jwt("OURO")));
 
@@ -173,7 +173,7 @@ class ServicoIdentidadeGovBrIcpTest {
     }
 
     @Test
-    @DisplayName("RAZ-218/ADR-0052: ADMIN_PLATAFORMA autoriza CRIAR (fixação/LOA) e ALTERAR (crédito adicional) sobre execucao:dotacao")
+    @DisplayName("RAZ-218/ADR-0053: ADMIN_PLATAFORMA autoriza CRIAR (fixação/LOA) e ALTERAR (crédito adicional) sobre execucao:dotacao")
     void adminPlataformaAutorizaDotacaoCriarEAlterar() throws Exception {
         ServicoIdentidade servicoAdmin = servico(properties(Set.of(IamProperties.Papel.ADMIN_PLATAFORMA)));
         var sessao = servicoAdmin.autenticar(new CredencialGovBr(jwt("OURO")));

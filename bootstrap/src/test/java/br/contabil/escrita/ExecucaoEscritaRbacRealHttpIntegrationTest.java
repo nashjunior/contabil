@@ -44,7 +44,7 @@ import br.contabil.RazaoApplication;
  * através da borda HTTP real contra a **matriz RBAC de verdade** — {@code siafic.iam.enabled=true},
  * JWT gov.br RS256 assinado neste teste (sem substituir {@link
  * br.contabil.plataforma.domain.iam.ServicoIdentidade} por duplo permissivo, diferente de {@link
- * ExecucaoEscritaHttpIntegrationTest}), com quatro CPFs/papéis segregados (ADR-0052 + RAZ-222):
+ * ExecucaoEscritaHttpIntegrationTest}), com quatro CPFs/papéis segregados (ADR-0053 + RAZ-222):
  * {@code ADMIN_PLATAFORMA} fixa a dotação, {@code LANCADOR} empenha e liquida, {@code AUTORIZADOR}
  * aprova (gate de 4 olhos, ADR-0023) e {@code PAGADOR} efetiva a baixa.
  *
