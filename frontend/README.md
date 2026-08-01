@@ -78,27 +78,27 @@ para a proveniência exata (arquivo por arquivo) de cada campo.
    credor/unidade gestora (só `ConsultarDotacoes` existe hoje), fora do
    escopo de "1 tela mínima". Nomes e tipos de campo são reais, não
    inventados.
-2. **Esqueleto de rotas fechado pela RAZ-221/ADR-0052; formulários fechados
-   pela RAZ-230 — resíduo é só a decisão do gate.**
+2. **Esqueleto de rotas fechado pela RAZ-221/ADR-0052; formulários e decisão
+   do gate fechados pela RAZ-230/RAZ-229.**
    `/execucao/liquidacoes`, `/execucao/pagamentos`, `/execucao/aprovacoes`
    (fila) e `/execucao/liquidacoes/:id/trilha` já existem e estão no
    `FeatureNav`. O lado de leitura é real e completo (fila via
    `consultarFilaAprovacao`, trilha via `consultarTrilhaLiquidacao`, mesmo
-   padrão hook→`application/`→client das demais telas). `execucaoClient`
-   ganhou `aprovarLiquidacao` (decisão do gate, antes só existia hardcoded no
-   helper e2e). Os formulários de registro de liquidação/pagamento
-   (`LiquidacaoForm`/`PagamentoForm`, padrão RHF+zod do `EmpenhoForm`,
-   ADR-0043) foram fechados pela RAZ-230, com `EmpenhoPicker`/
-   `LiquidacaoAprovadaPicker` (`Select` em modo síncrono — `GET
-   /execucao/empenhos` não tem `busca` server-side ao contrário de
+   padrão hook→`application/`→client das demais telas). Os formulários de
+   registro de liquidação/pagamento (`LiquidacaoForm`/`PagamentoForm`,
+   padrão RHF+zod do `EmpenhoForm`, ADR-0043) foram fechados pela RAZ-230,
+   com `EmpenhoPicker`/`LiquidacaoAprovadaPicker` (`Select` em modo síncrono
+   — `GET /execucao/empenhos` não tem `busca` server-side ao contrário de
    `/dotacoes`, então filtra localmente o exercício corrente; mesma
-   convenção de "1 tela mínima" do item 1). **Resíduo, não gap de
-   arquitetura:** a ação de decisão do gate (aprovar/devolver —
-   irreversível, ADR-0023, precisa de confirmação + motivo obrigatório na
-   devolução + mapeamento de erro 403/409) segue sem interface — a RAZ-230
-   optou por não decidir essa UX sozinha, ver RAZ-236 (review com a Paula).
-   A suíte E2E (`frontend/e2e/`, RAZ-211) segue cobrindo a decisão do gate
-   por HTTP direto contra o backend real enquanto essa interface não existe.
+   convenção de "1 tela mínima" do item 1). A decisão do gate
+   (aprovar/devolver — irreversível, ADR-0023) foi fechada pela RAZ-229
+   seguindo a UX revisada com a Paula (RAZ-236/ADR-0055): botão "Decidir"
+   por linha pendente em `FilaAprovacaoList` abre `GateAprovacaoModal`
+   (confirmação por revisão de contexto, sem segundo modal "tem certeza?";
+   motivo obrigatório só na devolução; erro mapeado por `erro.codigo` —
+   403/409/428). Modal mínimo local em `shared/components/Modal.tsx`, já
+   que `@siafic/design-system` ainda não tem um componente de Modal/Dialog
+   próprio (segue como débito de higiene do DS, não bloqueia esta tela).
 3. **Consulta completa.** `GET /execucao/orcamentaria` (agregado do período),
    `GET /execucao/dotacoes` (combo do formulário), `GET /execucao/empenhos`
    (lista da tela, **fechado pela RAZ-199**), a fila de aprovação (`GET

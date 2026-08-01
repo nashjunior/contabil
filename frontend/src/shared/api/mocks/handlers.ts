@@ -321,6 +321,30 @@ export const handlers = [
     });
   }),
 
+  // Decisão do gate 4-eyes (ADR-0055) — feliz padrão contra um item fixo de FILA_APROVACAO_BASE;
+  // os testes de erro (409/403/428/400 do mapeamento da decisão 4) sobrescrevem via `server.use`,
+  // mesmo padrão de LiquidacaoForm.test.tsx pro POST /liquidacoes.
+  http.post(`${BASE}/liquidacoes/:id/aprovacao`, async ({ request, params }) => {
+    const erro = exigirBearer(request);
+    if (erro) return erro;
+    const { id } = params as PathParams;
+    const body = (await request.json()) as Record<string, unknown>;
+    const item = FILA_APROVACAO_BASE.find((i) => i.id === id);
+    if (!item) {
+      return erroContrato(400, 'liquidacao_nao_encontrada', 'Liquidação não encontrada.');
+    }
+    return HttpResponse.json({
+      id: item.id,
+      empenhoId: item.empenhoId,
+      dataCompetencia: item.dataCompetencia,
+      valor: item.valor,
+      documentosSuporte: [],
+      historico: 'Liquidação de mock',
+      fatoContabilId: randomUUID(),
+      status: body.decisao === 'devolver' ? 'devolvida' : 'aprovada',
+    });
+  }),
+
   http.post(`${BASE}/pagamentos`, async ({ request }) => {
     const erro = exigirBearer(request);
     if (erro) return erro;

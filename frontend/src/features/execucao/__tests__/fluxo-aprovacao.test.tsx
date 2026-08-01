@@ -3,7 +3,9 @@
  * aprovação (GET /execucao/liquidacoes real) lista o item pendente -> "Ver trilha" navega para
  * a trilha dedicada (GET /execucao/liquidacoes/{id}/trilha real) -> volta para a fila; e
  * navegação entre as rotas de registro de liquidação/pagamento, já com formulário real (RAZ-230)
- * montado em cada uma. A decisão do gate (aprovar/devolver) segue sem interface — RAZ-236.
+ * montado em cada uma. A decisão do gate (aprovar/devolver, botão "Decidir" -> `GateAprovacaoModal`,
+ * ADR-0055) tem cobertura própria e mais profunda em `GateAprovacaoModal.test.tsx` — aqui só a
+ * prova de que o botão está acessível a partir da fila real.
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -55,6 +57,21 @@ describe('fluxo aprovação — fila de aprovação (gate 4-eyes) + trilha', () 
 
     await user.click(screen.getByRole('link', { name: /voltar para a fila de aprovação/i }));
     expect(await screen.findByRole('heading', { name: /fila de aprovação/i })).toBeInTheDocument();
+  });
+
+  it('o botão "Decidir" do item pendente abre o modal de decisão do gate (RAZ-229/ADR-0055)', async () => {
+    const user = userEvent.setup();
+    renderApp('/execucao/aprovacoes');
+
+    expect(await screen.findByRole('heading', { name: /entrar/i })).toBeInTheDocument();
+    await user.type(screen.getByLabelText('CPF'), '12345678900');
+    await user.click(screen.getByRole('button', { name: /entrar/i }));
+
+    expect(await screen.findByRole('heading', { name: /fila de aprovação/i })).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: /^decidir$/i }));
+
+    expect(await screen.findByRole('dialog', { name: /decidir liquidação/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^aprovar$/i })).toBeInTheDocument();
   });
 
   it('rotas de registro de liquidação e pagamento estão montadas, cada uma com formulário real (RAZ-230)', async () => {
