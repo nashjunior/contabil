@@ -15,6 +15,8 @@
     "preview": "vite preview",
     "pretest": "npm run ds:build && npm run api:generate",
     "test": "vitest run",
+    "pretest:e2e": "cd .. && ./gradlew :bootstrap:bootJar -q",
+    "test:e2e": "playwright test --config=e2e/playwright.config.ts",
     "ds:build": "npm run --workspace=@siafic/design-system build",
     "api:generate": "node scripts/generate-api-client.mjs",
     "storybook": "npm run --workspace=@siafic/design-system storybook",
@@ -31,6 +33,8 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "1.62.1",
+    "@testcontainers/postgresql": "12.0.4",
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",

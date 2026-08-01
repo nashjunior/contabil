@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# RAZ-211 (E2E Playwright) — gerado por e2e/global-setup.ts a cada execução
+# (JWTs assinados por execução, nunca comitar) + relatórios do Playwright.
+e2e/.runtime.json
+playwright-report
+test-results
+
 # Artefatos de build (ADR-0031/ADR-0033) — GERADOS, nunca editados a mao.
 # `npm run tokens:build` / `npm run api:generate` regeneram antes de dev/build/test.
 src/shared/tokens/theme.ts

@@ -80,7 +80,12 @@ para a proveniência exata (arquivo por arquivo) de cada campo.
    inventados.
 2. **Só empenho tem tela.** Liquidação (com gate de aprovação 4-eyes) e
    pagamento (individual + lote fail-soft) existem no client (`shared/api/client.ts`
-   expõe os 3) mas não têm tela própria ainda — próximas issues.
+   expõe os 3) mas não têm tela própria ainda — próximas issues. A suíte E2E
+   (`frontend/e2e/`, RAZ-211) dirige empenho + consulta pelo DOM real e cobre
+   liquidação/aprovação/pagamento por HTTP direto contra o mesmo backend
+   real enquanto essas telas não existem — promover essas chamadas para
+   interação de UI quando as telas chegarem é o próximo passo natural da
+   suíte.
 3. **Consulta parcial.** `GET /execucao/orcamentaria` (agregado do período),
    `GET /execucao/dotacoes` (combo do formulário) e `GET /execucao/empenhos`
    (lista da tela, **fechado pela RAZ-199** — RAZ-121 tinha entregue o
@@ -121,11 +126,24 @@ para a proveniência exata (arquivo por arquivo) de cada campo.
    não bloqueiam nenhum componente, já que primitivos ficam ocultos da camada
    semântica (ADR-0026). Ver `packages/design-system/tokens/README.md` e
    ADR-0031 (atualização RAZ-125).
-6. **Sem backend rodável neste ambiente para prova 100% real.** A prova
-   fim-a-fim aqui é: client real (paths/campos/auth batendo com o código-fonte
-   lido diretamente) + MSW fiel ao mesmo contrato + teste de componente
-   cobrindo login → registrar empenho → GET real de agregado refletindo o
-   valor (`features/execucao/__tests__/fluxo-execucao.test.tsx`).
+6. **(Fechado pela RAZ-211 para o essencial — resíduo abaixo.)** Prova
+   fim-a-fim contra o backend real: `frontend/e2e/` sobe Postgres real
+   (Testcontainers) + o jar real do backend (JWT RS256 assinado localmente,
+   verificado por `VerificadorJwtGovBr`/RBAC real — não um duplo de teste) +
+   `vite dev` apontando pra ele, e dirige um navegador real (Playwright)
+   por login → registrar empenho → consulta real, cobrindo dinheiro decimal
+   e CPF mascarado no DOM, além de isolamento multi-ente com duas sessões
+   reais em paralelo. `npm run test:e2e` (job `e2e-playwright` no CI). Sem
+   componente de teste (`fluxo-execucao.test.tsx`, MSW) segue existindo à
+   parte — mais rápido para o loop de desenvolvimento, não substituído.
+   Resíduo real, não desta suíte: a RAZ-211 descobriu que a matriz RBAC
+   (`IamProperties.Papel`) não concede a nenhum papel `CRIAR` em
+   `execucao:liquidacao` nem `AUTORIZADOR` para aprovar (só `PAGADOR`, que é
+   mutuamente exclusivo de `AUTORIZADOR`) — bloqueio funcional do backend,
+   não desta suíte, tracked como RAZ-222 (`frontend/e2e/specs/fluxo-execucao.pw.ts`
+   documenta com `test.fail()`). O smoke test contra o gov.br staging real
+   é um gap operacional diferente, fora deste escopo (ver
+   `docs/operacao/RAZ-126-runbook-oidc-login-govbr.md`).
 7. **(Fechado pela RAZ-199.)** Fronteira de import entre features (ADR-0032)
    agora tem gate real: `oxlint` não expõe um rule set equivalente a
    `eslint-plugin-boundaries`/`import/no-restricted-paths` (mesma lacuna já

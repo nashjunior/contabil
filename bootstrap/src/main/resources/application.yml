@@ -85,6 +85,8 @@ siafic:
   security:
     database:
       require-ssl: ${DB_REQUIRE_SSL:true}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:}
   assinatura:
     govbr:
       resilience:
