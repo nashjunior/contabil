@@ -1,10 +1,10 @@
 /**
- * Fila de aprovação (gate 4-eyes) — RAZ-221/ADR-0052: esqueleto de arquitetura, não a
- * tela final. Lado de leitura (`GET /execucao/liquidacoes`, ADR-0029 §1) real e completo,
- * mesmo padrão hook→application→client das demais páginas (ADR-0041). A decisão do gate
- * (aprovar/devolver, `execucaoClient.aprovarLiquidacao`, já existe no client) ainda não
- * tem interface — fica para a issue-filha de implementação de tela (dono: Bruno), porque
- * é uma ação irreversível que merece revisão de UX própria antes de virar um botão.
+ * Fila de aprovação (gate 4-eyes) — leitura real e completa (`consultarFilaAprovacao`, mesmo
+ * padrão hook→application→client, ADR-0041) desde a RAZ-221/ADR-0052. A decisão do gate
+ * (aprovar/devolver, `execucaoClient.aprovarLiquidacao` já existe e está tipado) segue sem
+ * interface: é uma ação IRREVERSÍVEL (ADR-0023) que a RAZ-230 optou por não decidir sozinha —
+ * ver RAZ-236 (review de UX com a Paula: confirmação, motivo obrigatório na devolução,
+ * mapeamento de erro 403/409).
  */
 import { useAuth } from '../../../shared/auth/AuthContext';
 import { FeatureNav } from '../../../shared/components/FeatureNav';
@@ -35,8 +35,8 @@ export function AprovacaoFilaPage() {
         <h2 id="fila-titulo">Liquidações pendentes de decisão</h2>
         {isLoading ? <p role="status">Carregando…</p> : <FilaAprovacaoList itens={data?.itens ?? []} />}
         <p role="note">
-          A decisão do gate (aprovar/devolver) ainda não tem interface nesta tela — ver
-          follow-up de implementação (RAZ-221).
+          A decisão do gate (aprovar/devolver) ainda não tem interface nesta tela — aguardando
+          review de UX (RAZ-236) antes de implementar, já que é uma ação irreversível.
         </p>
       </section>
     </main>

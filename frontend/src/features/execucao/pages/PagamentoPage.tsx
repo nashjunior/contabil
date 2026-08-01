@@ -1,11 +1,11 @@
 /**
- * Registrar pagamento — RAZ-221/ADR-0052: esqueleto de rota/página, não a tela final.
- * `execucaoClient.registrarPagamento` já existe e está tipado contra o contrato real
- * (`POST /execucao/pagamentos`); o formulário (RHF+zod, padrão ADR-0043 do `EmpenhoForm`)
- * fica para a issue-filha de implementação de tela (dono: Bruno).
+ * Registrar pagamento (RAZ-230) — formulário RHF+zod (ADR-0043), fecha o gap deixado pela
+ * RAZ-221/ADR-0052 (esqueleto de rota/página, decisão 3: formulário ficava para issue-filha).
+ * `PagamentoForm` fala só com `useRegistrarPagamento` (nunca `execucaoClient` direto).
  */
 import { useAuth } from '../../../shared/auth/AuthContext';
 import { FeatureNav } from '../../../shared/components/FeatureNav';
+import { PagamentoForm } from '../components/PagamentoForm';
 
 export function PagamentoPage() {
   const { sessao, sair } = useAuth();
@@ -26,11 +26,7 @@ export function PagamentoPage() {
 
       <FeatureNav />
 
-      <p role="note">
-        Formulário ainda não implementado nesta tela — ver follow-up de implementação
-        (RAZ-221). O client de API (<code>execucaoClient.registrarPagamento</code>) já está
-        pronto e tipado contra o contrato real.
-      </p>
+      <PagamentoForm />
     </main>
   );
 }
