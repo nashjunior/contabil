@@ -13,7 +13,8 @@
     "prepare": "node scripts/check-contrast.mjs && node scripts/build-tokens.mjs",
     "tokens:contrast": "node scripts/check-contrast.mjs",
     "tokens:build": "npm run tokens:contrast && node scripts/build-tokens.mjs",
-    "typecheck": "npm run tokens:build && tsc --noEmit"
+    "typecheck": "npm run tokens:build && tsc --noEmit",
+    "build": "npm run tokens:build && tsc -p tsconfig.build.json && node scripts/copy-theme-css.mjs"
   },
   "peerDependencies": {
     "react": ">=19"
