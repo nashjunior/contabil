@@ -6,8 +6,8 @@ import br.contabil.plataforma.domain.ErroContrato;
  * Erro {@code login_oauth_provedor_indisponivel}: o provedor OIDC gov.br falhou ou
  * recusou a troca de code por token no BFF de <b>login</b> (ADR-0035; distinto de
  * {@code oauth_provedor_indisponivel} do BFF de assinatura, ADR-0017). Cai no
- * {@code ErroContratoExceptionHandler} global, que gera o correlationId e loga a
- * causa — o controller só traduz a falha de infraestrutura do cliente HTTP.
+ * {@code ErroContratoExceptionHandler} global, que usa o correlationId da borda e
+ * loga a causa — o controller só traduz a falha de infraestrutura do cliente HTTP.
  */
 public final class SessaoLoginGovBrOAuthProvedorIndisponivelException extends RuntimeException implements ErroContrato {
 

@@ -6,6 +6,7 @@ import org.springframework.stereotype.Repository;
 import br.contabil.execucao.application.SolicitacaoDocumentoAssinaturaPort;
 import br.contabil.execucao.domain.Empenho;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
+import br.contabil.plataforma.infra.observabilidade.CorrelacaoIds;
 
 /**
  * Enfileira {@code execucao_empenho_pendente_documento} na tabela dedicada
@@ -26,8 +27,8 @@ class PostgresSolicitacaoDocumentoAssinaturaPort implements SolicitacaoDocumento
 
     private static final String SQL_INSERT =
             """
-            insert into execucao_empenho_documento_outbox (ente_id, empenho_id)
-            values (?, ?)
+            insert into execucao_empenho_documento_outbox (ente_id, empenho_id, correlation_id)
+            values (?, ?, ?)
             on conflict (ente_id, empenho_id) do nothing
             """;
 
@@ -39,6 +40,6 @@ class PostgresSolicitacaoDocumentoAssinaturaPort implements SolicitacaoDocumento
 
     @Override
     public void solicitar(Empenho empenho, Sessao sessao) {
-        jdbcTemplate.update(SQL_INSERT, empenho.enteId().valor(), empenho.id().valor());
+        jdbcTemplate.update(SQL_INSERT, empenho.enteId().valor(), empenho.id().valor(), CorrelacaoIds.atualOuNovo());
     }
 }

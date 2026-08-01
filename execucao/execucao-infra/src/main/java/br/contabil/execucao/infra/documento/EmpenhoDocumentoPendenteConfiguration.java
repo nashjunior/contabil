@@ -14,6 +14,7 @@ import br.contabil.execucao.domain.GeradorNotaEmpenhoPdf;
 import br.contabil.execucao.domain.repository.EmpenhoRepository;
 import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
 import br.contabil.plataforma.domain.documento.ArmazenamentoDocumentos;
+import io.micrometer.core.instrument.MeterRegistry;
 
 /**
  * Wiring do worker de geração do documento pendente (ADR-0027 (b)). Mesmo
@@ -46,8 +47,9 @@ public class EmpenhoDocumentoPendenteConfiguration {
             EmpenhoDocumentoOutboxRepository repository,
             GerarDocumentoEmpenho gerarDocumentoEmpenho,
             EmpenhoDocumentoPendenteProperties properties,
-            Clock clock) {
-        return new EmpenhoDocumentoPendenteWorker(repository, gerarDocumentoEmpenho, properties, clock);
+            Clock clock,
+            MeterRegistry meterRegistry) {
+        return new EmpenhoDocumentoPendenteWorker(repository, gerarDocumentoEmpenho, properties, clock, meterRegistry);
     }
 
     @Bean

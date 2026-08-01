@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import br.contabil.plataforma.domain.ChaveIdempotencia;
 import br.contabil.plataforma.domain.entrega.ServicoEntrega;
+import br.contabil.plataforma.infra.observabilidade.CorrelacaoIds;
 
 /**
  * Adapter Postgres do outbox de entrega garantida (ADR-0004/0011). {@code enqueue}
@@ -24,8 +25,8 @@ public class PostgresServicoEntrega implements ServicoEntrega {
 
     private static final String SQL_INSERT =
             """
-            insert into outbox_mensagem (id, ente_id, chave, destino, tipo, conteudo)
-            values (?, ?, ?, ?, ?, ?)
+            insert into outbox_mensagem (id, ente_id, chave, destino, tipo, conteudo, correlation_id)
+            values (?, ?, ?, ?, ?, ?, ?)
             on conflict (ente_id, chave) do nothing
             """;
 
@@ -50,7 +51,8 @@ public class PostgresServicoEntrega implements ServicoEntrega {
                 chave.valor(),
                 mensagem.destino(),
                 mensagem.tipo(),
-                mensagem.conteudo());
+                mensagem.conteudo(),
+                CorrelacaoIds.atualOuNovo());
         if (linhasInseridas == 0) {
             UUID idExistente = jdbcTemplate.queryForObject(
                     SQL_BUSCAR_ID_POR_CHAVE, UUID.class, mensagem.ente().valor(), chave.valor());

@@ -11,6 +11,7 @@ testcontainers = "1.20.1"
 pdfbox = "3.0.8"
 awsSdk = "2.28.16"
 resilience4j = "2.2.0"
+logstashLogbackEncoder = "8.1"
 
 [libraries]
 # Persistência / migração (Flyway 10 exige módulo específico por banco).
@@ -33,6 +34,8 @@ awssdk-url-connection-client = { module = "software.amazon.awssdk:url-connection
 # Resiliência de borda externa: circuit breaker/retry em chamadas gov.br/PNCP/SICONFI.
 resilience4j-circuitbreaker = { module = "io.github.resilience4j:resilience4j-circuitbreaker", version.ref = "resilience4j" }
 resilience4j-retry = { module = "io.github.resilience4j:resilience4j-retry", version.ref = "resilience4j" }
+# Log JSON com MDC para correlação de requisições na borda HTTP (RAZ-212).
+logstash-logback-encoder = { module = "net.logstash.logback:logstash-logback-encoder", version.ref = "logstashLogbackEncoder" }
 
 [plugins]
 spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }

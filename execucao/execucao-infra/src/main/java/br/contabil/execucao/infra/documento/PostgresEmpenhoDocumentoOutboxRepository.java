@@ -59,6 +59,8 @@ class PostgresEmpenhoDocumentoOutboxRepository implements EmpenhoDocumentoOutbox
                 rs.getObject("id", UUID.class),
                 new TenantId(rs.getObject("ente_id", UUID.class)),
                 new EmpenhoId(rs.getObject("empenho_id", UUID.class)),
+                rs.getString("correlation_id"),
+                rs.getTimestamp("criado_em").toInstant(),
                 rs.getInt("tentativas"));
     }
 }

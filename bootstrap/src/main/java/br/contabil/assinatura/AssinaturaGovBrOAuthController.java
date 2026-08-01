@@ -6,7 +6,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.Objects;
-import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,6 +20,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import br.contabil.plataforma.domain.TenantId;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade;
+import br.contabil.plataforma.infra.observabilidade.CorrelacaoIds;
 import jakarta.servlet.http.HttpSession;
 
 /**
@@ -109,7 +109,7 @@ final class AssinaturaGovBrOAuthController {
             token = clienteToken.trocarCodigoPorToken(code, fluxo.codeVerifier());
         } catch (IllegalStateException e) {
             AssinaturaGovBrOAuthProvedorIndisponivelException falha = new AssinaturaGovBrOAuthProvedorIndisponivelException(e);
-            String correlationId = UUID.randomUUID().toString();
+            String correlationId = CorrelacaoIds.atualOuNovo();
             LOG.error("Falha ao trocar code OAuth2 por token gov.br [correlationId={}]", correlationId, falha);
             return redirecionarParaFrontend(falha.codigo());
         }

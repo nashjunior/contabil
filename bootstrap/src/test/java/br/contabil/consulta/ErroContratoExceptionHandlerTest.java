@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.Test;
+import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 
 import br.contabil.assinatura.AssinaturaGovBrOAuthProvedorIndisponivelException;
@@ -18,6 +19,7 @@ import br.contabil.plataforma.domain.iam.ServicoIdentidade.DesafioMfa;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.MfaRequeridoException;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.NaoAutenticadoException;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.SemPermissaoException;
+import br.contabil.plataforma.infra.observabilidade.CorrelacaoIds;
 import br.contabil.razao.domain.ContaContabilId;
 import br.contabil.razao.domain.ContaNaoEncontradaException;
 import br.contabil.razao.domain.PeriodoEncerradoException;
@@ -103,11 +105,16 @@ class ErroContratoExceptionHandlerTest {
 
     @Test
     void oauthProvedorIndisponivelDevolve502ComCorrelationIdEmDetalhes() {
-        var resposta = handler.oauthProvedorIndisponivel(
-                new AssinaturaGovBrOAuthProvedorIndisponivelException(new IllegalStateException("token endpoint 503")));
+        MDC.put(CorrelacaoIds.MDC_CORRELATION_ID, "corr-teste-123");
+        try {
+            var resposta = handler.oauthProvedorIndisponivel(new AssinaturaGovBrOAuthProvedorIndisponivelException(
+                    new IllegalStateException("token endpoint 503")));
 
-        assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
-        assertThat(resposta.getBody().codigo()).isEqualTo("oauth_provedor_indisponivel");
-        assertThat(resposta.getBody().detalhes().get("correlationId")).isNotBlank();
+            assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
+            assertThat(resposta.getBody().codigo()).isEqualTo("oauth_provedor_indisponivel");
+            assertThat(resposta.getBody().detalhes().get("correlationId")).isEqualTo("corr-teste-123");
+        } finally {
+            MDC.clear();
+        }
     }
 }

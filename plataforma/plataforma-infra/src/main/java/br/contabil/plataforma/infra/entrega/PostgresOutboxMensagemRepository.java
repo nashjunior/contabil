@@ -56,6 +56,8 @@ class PostgresOutboxMensagemRepository implements OutboxMensagemRepository {
                 rs.getString("destino"),
                 rs.getString("tipo"),
                 rs.getString("conteudo"),
+                rs.getString("correlation_id"),
+                rs.getTimestamp("criado_em").toInstant(),
                 rs.getInt("tentativas"));
     }
 }

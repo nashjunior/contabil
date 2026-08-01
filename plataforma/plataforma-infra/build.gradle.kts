@@ -8,6 +8,7 @@ dependencies {
     implementation("com.fasterxml.jackson.core:jackson-databind")
     // Incorporação PAdES do PKCS#7 no PDF (ServicoAssinaturaGovBrAvancada) — RAZ-34.
     implementation(libs.pdfbox)
+    implementation("io.micrometer:micrometer-core")
     implementation(libs.resilience4j.circuitbreaker)
     implementation(libs.resilience4j.retry)
     // Object store S3-compatível (ADR-0018, RAZ-32). BOM fixa as versões do SDK.

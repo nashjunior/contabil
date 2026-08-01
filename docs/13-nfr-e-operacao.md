@@ -17,6 +17,13 @@
 - **Multi-ente** com isolamento (ver decisão de tenancy em [arquitetura](./03-arquitetura.md)); absorver picos (fechamento, prazos LRF) sem degradar.
 - **Controles de borda** na API pública (rate limiting, quotas, cache/CDN, anti-DDoS) que preservem a disponibilidade sem exigir cadastro.
 
+## Observabilidade mínima
+
+- Logs de aplicação em JSON, com MDC, para permitir busca por campos técnicos sem parse de texto livre.
+- Correlação ponta-a-ponta: a borda HTTP aceita ou gera `X-Correlation-Id`, registra `correlationId` no MDC, devolve o header ao cliente e persiste o mesmo valor em `correlation_id` no outbox antes do worker repor o MDC.
+- Logs de fim de request não incluem query string; carregam apenas `httpMethod`, `httpPath`, `httpStatus` e `httpDurationMs`.
+- SLA da transparência emite sinal mínimo por outbox: `siafic.publicacao.transparencia.processadas` e `siafic.publicacao.transparencia.latencia`, com tag técnica `resultado` sem PII.
+
 ## Piso de segurança F0
 
 Conjunto **inegociável** no F0/MVP — o corte de escopo pode adiar riqueza funcional, **nunca** um controle que protege movimentação de recurso ou dado pessoal. Escala-se o que é *enterprise*; não se abre mão do piso.

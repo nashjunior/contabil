@@ -1,5 +1,6 @@
 package br.contabil.plataforma.infra.entrega;
 
+import java.time.Instant;
 import java.util.Objects;
 
 import br.contabil.plataforma.domain.ChaveIdempotencia;
@@ -14,6 +15,8 @@ public record MensagemOutbox(
         String destino,
         String tipo,
         String conteudo,
+        String correlationId,
+        Instant criadoEm,
         int tentativas) {
 
     public MensagemOutbox {
@@ -23,6 +26,8 @@ public record MensagemOutbox(
         Objects.requireNonNull(destino, "destino");
         Objects.requireNonNull(tipo, "tipo");
         Objects.requireNonNull(conteudo, "conteúdo");
+        Objects.requireNonNull(correlationId, "id de correlação");
+        Objects.requireNonNull(criadoEm, "criação da mensagem");
         if (tentativas < 0) {
             throw new IllegalArgumentException("tentativas não pode ser negativo");
         }

@@ -11,10 +11,13 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.MDC;
 
 import br.contabil.plataforma.domain.ChaveIdempotencia;
 import br.contabil.plataforma.domain.TenantId;
 import br.contabil.plataforma.domain.entrega.ServicoEntrega.IdEntrega;
+import br.contabil.plataforma.infra.observabilidade.CorrelacaoIds;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 class OutboxEntregaWorkerTest {
 
@@ -23,6 +26,7 @@ class OutboxEntregaWorkerTest {
 
     private FakeOutboxRepository repository;
     private OutboxEntregaProperties properties;
+    private SimpleMeterRegistry meterRegistry;
 
     @BeforeEach
     void setUp() {
@@ -33,6 +37,7 @@ class OutboxEntregaWorkerTest {
         properties.setLockDuration(Duration.ofMinutes(2));
         properties.setBackoffBase(Duration.ofSeconds(5));
         properties.setBackoffMax(Duration.ofMinutes(1));
+        meterRegistry = new SimpleMeterRegistry();
     }
 
     @Test
@@ -40,7 +45,11 @@ class OutboxEntregaWorkerTest {
         MensagemOutbox mensagem = mensagem(0);
         repository.reclamadas.add(mensagem);
         List<MensagemOutbox> publicadas = new ArrayList<>();
-        OutboxEntregaWorker worker = worker(publicadas::add);
+        List<String> correlationIdsNoMdc = new ArrayList<>();
+        OutboxEntregaWorker worker = worker(msg -> {
+            correlationIdsNoMdc.add(MDC.get(CorrelacaoIds.MDC_CORRELATION_ID));
+            publicadas.add(msg);
+        });
 
         int processadas = worker.processarPendentes();
 
@@ -48,9 +57,18 @@ class OutboxEntregaWorkerTest {
         assertThat(repository.limiteRecebido).isEqualTo(10);
         assertThat(repository.bloqueadoAteRecebido).isEqualTo(AGORA.plus(Duration.ofMinutes(2)));
         assertThat(publicadas).containsExactly(mensagem);
+        assertThat(correlationIdsNoMdc).containsExactly(mensagem.correlationId());
+        assertThat(MDC.get(CorrelacaoIds.MDC_CORRELATION_ID)).isNull();
         assertThat(repository.confirmadas).containsExactly(mensagem.id());
         assertThat(repository.retentativas).isEmpty();
         assertThat(repository.dlq).isEmpty();
+        assertThat(meterRegistry.counter(
+                        "siafic.publicacao.transparencia.processadas", "resultado", "entregue")
+                .count())
+                .isEqualTo(1.0);
+        assertThat(meterRegistry.timer("siafic.publicacao.transparencia.latencia", "resultado", "entregue")
+                .count())
+                .isEqualTo(1);
     }
 
     @Test
@@ -103,7 +121,7 @@ class OutboxEntregaWorkerTest {
     }
 
     private OutboxEntregaWorker worker(BrokerEntrega broker) {
-        return new OutboxEntregaWorker(repository, broker, properties, CLOCK);
+        return new OutboxEntregaWorker(repository, broker, properties, CLOCK, meterRegistry);
     }
 
     private static MensagemOutbox mensagem(int tentativas) {
@@ -114,6 +132,8 @@ class OutboxEntregaWorkerTest {
                 "transparencia",
                 "execucao.empenho.criado",
                 "{\"id\":\"1\"}",
+                "corr-outbox-123",
+                AGORA.minus(Duration.ofHours(2)),
                 tentativas);
     }
 

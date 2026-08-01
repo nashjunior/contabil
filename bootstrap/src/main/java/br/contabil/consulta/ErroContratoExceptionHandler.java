@@ -1,8 +1,6 @@
 package br.contabil.consulta;
 
 import java.util.Map;
-import java.util.UUID;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -18,6 +16,7 @@ import br.contabil.execucao.domain.ExecucaoInvalidaException;
 import br.contabil.execucao.domain.LiquidacaoJaDecididaException;
 import br.contabil.execucao.domain.PagamentoNaoAprovadoException;
 import br.contabil.execucao.domain.SaldoInsuficienteException;
+import br.contabil.plataforma.infra.observabilidade.CorrelacaoIds;
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.CertificadoInvalidoException;
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.NivelInsuficienteException;
 import br.contabil.plataforma.domain.documento.ArmazenamentoDocumentos.DocumentoNaoEncontradoException;
@@ -157,7 +156,7 @@ class ErroContratoExceptionHandler {
 
     @ExceptionHandler(AssinaturaGovBrOAuthProvedorIndisponivelException.class)
     ResponseEntity<ErroResponse> oauthProvedorIndisponivel(AssinaturaGovBrOAuthProvedorIndisponivelException e) {
-        String correlationId = UUID.randomUUID().toString();
+        String correlationId = CorrelacaoIds.atualOuNovo();
         LOG.error("Falha ao trocar code OAuth2 por token gov.br [correlationId={}]", correlationId, e);
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                 .body(new ErroResponse(e.codigo(), mensagemDe(e, e.codigo()), Map.of("correlationId", correlationId)));

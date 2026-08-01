@@ -1,7 +1,7 @@
 package br.contabil.execucao.infra.documento;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -18,10 +18,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.MDC;
 
 import br.contabil.execucao.application.GerarDocumentoEmpenho;
 import br.contabil.execucao.domain.EmpenhoId;
 import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.infra.observabilidade.CorrelacaoIds;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 @ExtendWith(MockitoExtension.class)
 class EmpenhoDocumentoPendenteWorkerTest {
@@ -34,6 +37,7 @@ class EmpenhoDocumentoPendenteWorkerTest {
 
     private FakeEmpenhoDocumentoOutboxRepository repository;
     private EmpenhoDocumentoPendenteProperties properties;
+    private SimpleMeterRegistry meterRegistry;
     private EmpenhoDocumentoPendenteWorker worker;
 
     @BeforeEach
@@ -45,14 +49,19 @@ class EmpenhoDocumentoPendenteWorkerTest {
         properties.setLockDuration(Duration.ofMinutes(2));
         properties.setBackoffBase(Duration.ofSeconds(5));
         properties.setBackoffMax(Duration.ofMinutes(1));
-        worker = new EmpenhoDocumentoPendenteWorker(repository, gerarDocumentoEmpenho, properties, CLOCK);
+        meterRegistry = new SimpleMeterRegistry();
+        worker = new EmpenhoDocumentoPendenteWorker(repository, gerarDocumentoEmpenho, properties, CLOCK, meterRegistry);
     }
 
     @Test
     void processaMensagemReclamadaEConfirma() {
         MensagemEmpenhoDocumentoOutbox mensagem = mensagem(0);
         repository.reclamadas.add(mensagem);
-        doNothing().when(gerarDocumentoEmpenho).executar(mensagem.enteId(), mensagem.empenhoId());
+        doAnswer(invocation -> {
+                    assertThat(MDC.get(CorrelacaoIds.MDC_CORRELATION_ID)).isEqualTo(mensagem.correlationId());
+                    return null;
+                })
+                .when(gerarDocumentoEmpenho).executar(mensagem.enteId(), mensagem.empenhoId());
 
         int processadas = worker.processarPendentes();
 
@@ -62,6 +71,11 @@ class EmpenhoDocumentoPendenteWorkerTest {
         assertThat(repository.confirmadas).containsExactly(mensagem.id());
         assertThat(repository.retentativas).isEmpty();
         assertThat(repository.dlq).isEmpty();
+        assertThat(MDC.get(CorrelacaoIds.MDC_CORRELATION_ID)).isNull();
+        assertThat(meterRegistry.counter(
+                        "siafic.execucao.empenho_documento.outbox.processadas", "resultado", "concluido")
+                .count())
+                .isEqualTo(1.0);
     }
 
     @Test
@@ -104,7 +118,12 @@ class EmpenhoDocumentoPendenteWorkerTest {
 
     private static MensagemEmpenhoDocumentoOutbox mensagem(int tentativas) {
         return new MensagemEmpenhoDocumentoOutbox(
-                UUID.randomUUID(), new TenantId(UUID.randomUUID()), EmpenhoId.novo(), tentativas);
+                UUID.randomUUID(),
+                new TenantId(UUID.randomUUID()),
+                EmpenhoId.novo(),
+                "corr-documento-123",
+                AGORA.minus(Duration.ofMinutes(10)),
+                tentativas);
     }
 
     private static final class FakeEmpenhoDocumentoOutboxRepository implements EmpenhoDocumentoOutboxRepository {

@@ -5,9 +5,9 @@ import br.contabil.plataforma.domain.ErroContrato;
 /**
  * Erro {@code oauth_provedor_indisponivel}: o provedor OAuth2 gov.br falhou
  * ou recusou a troca de code por token (RAZ-107 2º passo). Cai no
- * {@code ErroContratoExceptionHandler} global, que gera o correlationId e
- * loga a causa — o controller só traduz a falha de infraestrutura do cliente
- * HTTP para este tipo.
+ * {@code ErroContratoExceptionHandler} global, que usa o correlationId da
+ * borda e loga a causa — o controller só traduz a falha de infraestrutura do
+ * cliente HTTP para este tipo.
  */
 public final class AssinaturaGovBrOAuthProvedorIndisponivelException extends RuntimeException implements ErroContrato {
 

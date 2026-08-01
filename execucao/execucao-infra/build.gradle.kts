@@ -4,6 +4,7 @@ dependencies {
     implementation(project(":plataforma:plataforma-infra"))
 
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    implementation("io.micrometer:micrometer-core")
     implementation(libs.pdfbox)
     // PostgresLiquidacaoRepository serializa documentos_suporte (jsonb) — RAZ-105.
     implementation("com.fasterxml.jackson.core:jackson-databind")

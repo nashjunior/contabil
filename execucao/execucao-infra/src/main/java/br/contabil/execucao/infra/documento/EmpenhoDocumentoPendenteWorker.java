@@ -8,6 +8,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import br.contabil.execucao.application.GerarDocumentoEmpenho;
+import br.contabil.plataforma.infra.observabilidade.CorrelacaoIds;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 
 /**
  * Consumidor do outbox dedicado de {@code execucao_empenho_pendente_documento}
@@ -31,16 +34,19 @@ public class EmpenhoDocumentoPendenteWorker {
     private final GerarDocumentoEmpenho gerarDocumentoEmpenho;
     private final EmpenhoDocumentoPendenteProperties properties;
     private final Clock clock;
+    private final MeterRegistry meterRegistry;
 
     public EmpenhoDocumentoPendenteWorker(
             EmpenhoDocumentoOutboxRepository repository,
             GerarDocumentoEmpenho gerarDocumentoEmpenho,
             EmpenhoDocumentoPendenteProperties properties,
-            Clock clock) {
+            Clock clock,
+            MeterRegistry meterRegistry) {
         this.repository = repository;
         this.gerarDocumentoEmpenho = gerarDocumentoEmpenho;
         this.properties = properties;
         this.clock = clock;
+        this.meterRegistry = meterRegistry;
     }
 
     public int processarPendentes() {
@@ -53,11 +59,14 @@ public class EmpenhoDocumentoPendenteWorker {
     }
 
     private int processarUma(MensagemEmpenhoDocumentoOutbox mensagem) {
-        try {
-            gerarDocumentoEmpenho.executar(mensagem.enteId(), mensagem.empenhoId());
-            repository.confirmar(mensagem.id());
-        } catch (RuntimeException ex) {
-            registrarFalha(mensagem, ex);
+        try (CorrelacaoIds.Escopo ignored = CorrelacaoIds.escopo(mensagem.correlationId())) {
+            try {
+                gerarDocumentoEmpenho.executar(mensagem.enteId(), mensagem.empenhoId());
+                repository.confirmar(mensagem.id());
+                registrarMetrica("concluido");
+            } catch (RuntimeException ex) {
+                registrarFalha(mensagem, ex);
+            }
         }
         return 1;
     }
@@ -67,6 +76,7 @@ public class EmpenhoDocumentoPendenteWorker {
         String erro = mensagemErro(ex);
         if (tentativaAtual >= properties.maxTentativasEfetivo()) {
             repository.enviarParaDlq(mensagem.id(), erro);
+            registrarMetrica("dlq");
             LOGGER.warn(
                     "execucao_empenho_documento_outbox_dlq id={} empenhoId={} tentativas={}",
                     mensagem.id(),
@@ -76,6 +86,7 @@ public class EmpenhoDocumentoPendenteWorker {
         }
 
         repository.registrarRetentativa(mensagem.id(), clock.instant().plus(backoff(tentativaAtual)), erro);
+        registrarMetrica("retentativa");
         LOGGER.info(
                 "execucao_empenho_documento_outbox_retentativa id={} empenhoId={} tentativa={}",
                 mensagem.id(),
@@ -89,6 +100,14 @@ public class EmpenhoDocumentoPendenteWorker {
         long multiplicador = 1L << Math.min(tentativaAtual - 1, 10);
         Duration calculado = base.multipliedBy(multiplicador);
         return calculado.compareTo(max) > 0 ? max : calculado;
+    }
+
+    private void registrarMetrica(String resultado) {
+        Counter.builder("siafic.execucao.empenho_documento.outbox.processadas")
+                .description("Mensagens do outbox de documento de empenho processadas")
+                .tag("resultado", resultado)
+                .register(meterRegistry)
+                .increment();
     }
 
     private static String mensagemErro(RuntimeException ex) {

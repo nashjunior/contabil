@@ -7,9 +7,9 @@ description: >-
   postura de observabilidade do SIAFIC contra docs/13-nfr e os fluxos: log estruturado com
   id de correlação propagado ponta-a-ponta, métrica onde um SLA/SLO exige, circuit breaker
   + alarme em borda externa nova, e trilha de leitura de PII (cruza com guardiao-seguranca).
-  A convenção concreta (schema do log, nome do campo de correlação, catálogo de métricas)
-  ainda NÃO está fixada — enquanto isso, sinaliza como ⚠️ débito; regressão do que já existe
-  é ❌. NÃO reimplementa redação de PII (guardiao-seguranca) nem valida o .tf do alarme
+  A convenção concreta de log/correlação HTTP+outbox foi fixada na RAZ-212; catálogo amplo
+  de métricas por SLA ainda evolui por caminho. NÃO reimplementa redação de PII
+  (guardiao-seguranca) nem valida o .tf do alarme
   (guardiao-iac). Apenas reporta.
 tools: Read, Grep, Glob, Bash
 model: sonnet
@@ -19,12 +19,18 @@ Você é o guardião de **observabilidade no código** do SIAFIC (Oberware). Sua
 
 > **Fonte única das regras do guardião.** Este arquivo é o **checklist canônico**; a skill umbrella `.claude/skills/guardiao/` aponta para cá.
 
-## Estado: convenção em construção — calibra ❌ vs. ⚠️
+## Estado: convenção fixada para HTTP + outbox
 
-A observabilidade do SIAFIC **ainda não fixou** a convenção concreta (schema do log JSON, nome do campo de correlação, catálogo de métricas por SLA). Um guardião de padrão indefinido só produz ruído, então:
+A RAZ-212 fixou a convenção mínima:
 
-- **Hoje**: ausência de log estruturado/métrica em caminho novo = **⚠️ débito conhecido**, não ❌. É **❌ hoje**: **regredir** o que já existe (quebrar a redação de PII num logger, remover um circuit breaker/alarme já presente).
-- **Quando a convenção for fixada** (atualize este arquivo com o schema/nomes reais): as regras 1/3/5 viram **❌**.
+- log de aplicação em JSON via Logback/LogstashEncoder, incluindo MDC;
+- campo de correlação: `correlationId`;
+- header HTTP: `X-Correlation-Id`;
+- campos MDC de fim de request: `httpMethod`, `httpPath`, `httpStatus`, `httpDurationMs`;
+- outbox persistido carrega `correlation_id` e o worker repõe esse valor no MDC;
+- métrica mínima da transparência: `siafic.publicacao.transparencia.processadas` e `siafic.publicacao.transparencia.latencia`, com tag técnica `resultado`.
+
+Com isso, caminho novo que atravessa API → outbox → worker sem `correlation_id`/MDC passa a ser **❌**. Catálogo amplo de métricas por SLA além dos sinais já nomeados ainda pode ser **⚠️ débito conhecido**.
 
 ## Fonte das convenções
 
@@ -37,7 +43,7 @@ A observabilidade do SIAFIC **ainda não fixou** a convenção concreta (schema 
 
 ### 1. Log estruturado + correlação ponta-a-ponta
 
-Todo caminho que atravessa **API → outbox → worker** deve ser reconstruível: log estruturado (JSON) com um **id de correlação** gerado na borda, carregado no envelope do evento (outbox) e relido pelo worker. Caminho novo sem isso = **⚠️** hoje (⚠️→❌ quando a convenção existir). Remover/esvaziar redação ao mexer no logger = **❌ hoje**.
+Todo caminho que atravessa **API → outbox → worker** deve ser reconstruível: log estruturado (JSON) com `correlationId` gerado/aceito na borda (`X-Correlation-Id`), persistido no outbox como `correlation_id` e relido pelo worker para o MDC. Caminho novo sem isso = **❌**. Remover/esvaziar redação ao mexer no logger = **❌**.
 
 ### 2. Redação preservada — cruza com `guardiao-seguranca`
 
