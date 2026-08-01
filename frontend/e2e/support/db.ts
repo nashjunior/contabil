@@ -71,7 +71,9 @@ export async function semearDadosBase(container: StartedPostgreSqlContainer): Pr
     if (resultado.exitCode !== 0) {
       throw new Error(`semeadura de dotacao falhou para ${enteId}: ${resultado.output}`);
     }
-    dotacaoIdPorEnte[enteId] = resultado.stdout.trim();
+    // psql, mesmo com `-t -A`, ainda emite a tag de comando ("INSERT 0 1") numa
+    // segunda linha após o valor de RETURNING — só a primeira linha é o id.
+    dotacaoIdPorEnte[enteId] = resultado.stdout.trim().split('\n')[0].trim();
   }
 
   return dotacaoIdPorEnte;
