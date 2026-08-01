@@ -91,6 +91,16 @@ describe('LoginPage — modo desenvolvimento via POST /sessao/dev-idp/token', ()
     expect(await screen.findByText('Selecione um ente válido.')).toBeInTheDocument();
   });
 
+  it('404 (dev-IdP desligado no backend real) mostra mensagem própria, não tenta parsear o corpo como {erro}', async () => {
+    server.use(http.post('/sessao/dev-idp/token', () => new HttpResponse('<html>Not Found</html>', { status: 404 })));
+    const user = userEvent.setup();
+    renderLoginPage();
+
+    await preencherEEnviar(user);
+
+    expect(await screen.findByText(/dev-IdP desligado/)).toBeInTheDocument();
+  });
+
   it('falha de rede/erro não mapeado mostra mensagem genérica, não a mensagem crua', async () => {
     server.use(http.post('/sessao/dev-idp/token', () => HttpResponse.error()));
     const user = userEvent.setup();

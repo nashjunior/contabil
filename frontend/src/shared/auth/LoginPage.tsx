@@ -36,11 +36,16 @@ const ENTES_DEV = [
   { id: '22222222-2222-4222-8222-222222222222', nome: 'Secretaria Estadual de Exemplo (ente-b)' },
 ];
 
-// Client já valida CPF (11 dígitos)/ente (dropdown fechado) antes de chamar o endpoint — estes
-// dois códigos só chegam via alguma inconsistência fora do fluxo normal do form.
+// cpf_invalido/ente_id_invalido: o client já valida CPF (11 dígitos)/ente (dropdown fechado)
+// antes de chamar o endpoint — só chegam via alguma inconsistência fora do fluxo normal do
+// form. endpoint_indisponivel (404 sintético, ver DevIdpTokenError): backend real rodando sem
+// as flags de dev-IdP (SIAFIC_DEV_IDP_ENABLED/IAM_ENABLED) — esperado em produção/staging, não
+// deveria acontecer em VITE_API_MODE=mock (MSW intercepta antes da rede).
 const MENSAGEM_POR_ERRO_DEV_IDP: Record<string, string> = {
   cpf_invalido: 'Informe um CPF com 11 dígitos.',
   ente_id_invalido: 'Selecione um ente válido.',
+  endpoint_indisponivel:
+    'Este modo de desenvolvimento não está disponível neste backend (dev-IdP desligado). Use o login gov.br ou peça para habilitar SIAFIC_DEV_IDP_ENABLED/IAM_ENABLED.',
 };
 
 function mensagemErroDevIdp(erro: unknown): string {

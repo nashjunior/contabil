@@ -167,14 +167,19 @@ export type SessaoDevIdpResponse = { bearerToken: string };
 
 /** Erro de `POST /sessao/dev-idp/token` (RAZ-228) — envelope próprio (`{erro}`), distinto do
  * `ErroContratoResponse` (`{codigo, mensagem, detalhes}`) das rotas de negócio: este endpoint é
- * dev-only e não passa por `ErroContratoExceptionHandler`, ver `SessaoDevIdpController.java`. */
+ * dev-only e não passa por `ErroContratoExceptionHandler`, ver `SessaoDevIdpController.java`.
+ * `erro: 'endpoint_indisponivel'` é sintético (não vem do backend) — cobre o 404 fail-closed de
+ * `ConditionalOnDevIdpAtivo` (backend real sem as duas flags de dev-IdP ligadas), cujo corpo não
+ * é `{erro}` (é a página de erro default do Spring), então não tenta parsear como JSON de erro. */
 export class DevIdpTokenError extends Error {
   readonly erro: string;
+  readonly status: number;
 
-  constructor(erro: string) {
+  constructor(erro: string, status: number) {
     super(erro);
     this.name = 'DevIdpTokenError';
     this.erro = erro;
+    this.status = status;
   }
 }
 
@@ -205,9 +210,12 @@ export const sessaoClient = {
       body: JSON.stringify(body),
       signal: options?.signal,
     });
+    if (response.status === 404) {
+      throw new DevIdpTokenError('endpoint_indisponivel', 404);
+    }
     const parsed = (await response.json()) as SessaoDevIdpResponse | { erro?: string };
     if (!response.ok) {
-      throw new DevIdpTokenError('erro' in parsed && parsed.erro ? parsed.erro : 'erro_desconhecido');
+      throw new DevIdpTokenError('erro' in parsed && parsed.erro ? parsed.erro : 'erro_desconhecido', response.status);
     }
     return parsed as SessaoDevIdpResponse;
   },
