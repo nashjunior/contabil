@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { LoginPage } from '../shared/auth/LoginPage';
 import { RequireAuth } from '../shared/auth/RequireAuth';
-import { ExecucaoPage } from '../features/execucao';
+import { AprovacaoFilaPage, ExecucaoPage, LiquidacaoPage, PagamentoPage, TrilhaLiquidacaoPage } from '../features/execucao';
 import { BalancetePage, CatalogoContasPage, SaldoContaPage } from '../features/razao';
 
 export function AppRoutes() {
@@ -13,6 +13,38 @@ export function AppRoutes() {
         element={
           <RequireAuth>
             <ExecucaoPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/execucao/liquidacoes"
+        element={
+          <RequireAuth>
+            <LiquidacaoPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/execucao/liquidacoes/:id/trilha"
+        element={
+          <RequireAuth>
+            <TrilhaLiquidacaoPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/execucao/pagamentos"
+        element={
+          <RequireAuth>
+            <PagamentoPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/execucao/aprovacoes"
+        element={
+          <RequireAuth>
+            <AprovacaoFilaPage />
           </RequireAuth>
         }
       />

@@ -2,6 +2,9 @@ import { NavLink } from 'react-router-dom';
 
 const LINKS = [
   { to: '/execucao', label: 'Execução orçamentária' },
+  { to: '/execucao/liquidacoes', label: 'Registrar liquidação' },
+  { to: '/execucao/pagamentos', label: 'Registrar pagamento' },
+  { to: '/execucao/aprovacoes', label: 'Fila de aprovação' },
   { to: '/razao/saldo', label: 'Saldo por conta' },
   { to: '/razao/balancete', label: 'Balancete' },
   { to: '/razao/contas', label: 'Catálogo de contas' },
