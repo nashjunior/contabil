@@ -189,14 +189,20 @@ const FILA_APROVACAO_BASE = [
 ];
 
 // Trilha fixa por liquidação (consulta.ExecucaoConsultaController.trilha, ADR-0029 §3) — ator
-// já mascarado no mock, espelhando o boundary real (nunca CPF em claro).
+// já mascarado no mock, espelhando o boundary real (nunca CPF em claro). Tipos e `detalhes`
+// espelham ConsultarTrilhaLiquidacao/AprovarPagamento (execucao-application) — RAZ-240.
 const TRILHA_POR_LIQUIDACAO: Record<string, { tipo: string; ator: string; quando: string; detalhes: Record<string, string> }[]> = {
   '44444444-4444-4444-8444-000000000001': [
-    { tipo: 'liquidacao_registrada', ator: '***.456.***-**', quando: '2026-01-20T10:00:00Z', detalhes: {} },
+    { tipo: 'execucao_liquidacao_registrada', ator: '***.456.***-**', quando: '2026-01-20T10:00:00Z', detalhes: {} },
   ],
   '44444444-4444-4444-8444-000000000002': [
-    { tipo: 'liquidacao_registrada', ator: '***.456.***-**', quando: '2026-01-22T09:00:00Z', detalhes: {} },
-    { tipo: 'liquidacao_aprovada', ator: '***.789.***-**', quando: '2026-01-22T14:30:00Z', detalhes: {} },
+    { tipo: 'execucao_liquidacao_registrada', ator: '***.456.***-**', quando: '2026-01-22T09:00:00Z', detalhes: {} },
+    {
+      tipo: 'execucao_pagamento_aprovacao_decidida',
+      ator: '***.789.***-**',
+      quando: '2026-01-22T14:30:00Z',
+      detalhes: { decisao: 'APROVADA', empenhoId: '11111111-1111-4111-8111-000000000011' },
+    },
   ],
 };
 
