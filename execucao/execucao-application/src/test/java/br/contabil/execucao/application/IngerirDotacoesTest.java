@@ -119,6 +119,9 @@ class IngerirDotacoesTest {
         ArgumentCaptor<EventoAuditoria> evento = ArgumentCaptor.forClass(EventoAuditoria.class);
         verify(auditoria).append(evento.capture());
         assertThat(evento.getValue().tipo()).isEqualTo("execucao_dotacao_ingerida");
+        // RAZ-218: ator mascarado — a trilha tem guardrail de banco (ck_auditoria_evento_sem_cpf_claro,
+        // Cpf#mascarado) que rejeita CPF em claro no ator; publicar o número cru derruba o INSERT em produção.
+        assertThat(evento.getValue().ator()).isEqualTo("***.456.***-**");
         assertThat(evento.getValue().detalhes())
                 .containsEntry("inseridas", "1")
                 .containsEntry("atualizadas", "1")

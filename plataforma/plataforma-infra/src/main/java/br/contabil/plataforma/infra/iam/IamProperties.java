@@ -161,7 +161,9 @@ record IamProperties(
                 case PAGADOR -> urn.equals("execucao:pagamento")
                         && (acao == ServicoIdentidade.Acao.CRIAR || acao == ServicoIdentidade.Acao.ASSINAR);
                 case ADMIN_ACESSO -> urn.equals("plataforma:iam") && acao == ServicoIdentidade.Acao.ALTERAR;
-                case ADMIN_PLATAFORMA -> urn.startsWith("plataforma:");
+                case ADMIN_PLATAFORMA -> urn.startsWith("plataforma:")
+                        || (urn.equals("execucao:dotacao")
+                                && (acao == ServicoIdentidade.Acao.CRIAR || acao == ServicoIdentidade.Acao.ALTERAR));
                 case AUDITOR -> acao == ServicoIdentidade.Acao.LER;
                 case PUBLICADOR -> urn.startsWith("transparencia:") && acao == ServicoIdentidade.Acao.PUBLICAR;
             };

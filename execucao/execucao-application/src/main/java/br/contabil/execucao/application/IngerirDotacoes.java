@@ -142,7 +142,7 @@ public class IngerirDotacoes {
         auditoria.append(new EventoAuditoria(
                 enteId,
                 "execucao_dotacao_ingerida",
-                usuarioAutenticado.titular().numero(),
+                usuarioAutenticado.titular().mascarado(),
                 "execucao:dotacao:lote",
                 Instant.now(clock),
                 Map.of(
