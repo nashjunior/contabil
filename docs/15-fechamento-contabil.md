@@ -4,8 +4,8 @@
 
 > **Fase F1.** Rito que consolida um período contábil e, no mês 13, o exercício:
 > apura resultados, encerra contas transitórias, gera as demonstrações e abre o
-> exercício seguinte — tudo **append-only**. Os pontos marcados `[REVALIDAR]` dependem
-> de confirmação na fonte oficial **MCASP (edição vigente)** antes de produção.
+> exercício seguinte — tudo **append-only**. O roteiro de apuração (patrimonial e
+> orçamentário) está confirmado na fonte oficial (**IPC 03/STN**, ver Fontes/a revalidar).
 
 ## O que é / base legal
 
@@ -19,10 +19,9 @@ nunca por `UPDATE`/`DELETE`.
   Anexo 15) — mapeamento confirmado na fonte oficial (ver Fontes/a revalidar).
 - **LRF (LC 101/2000)** — resultado e apuração fiscal do período (alimenta RREO/RGF).
 - **MCASP (STN, 11ª edição, dez/2024 — edição vigente)** — a estrutura das 4 demonstrações
-  DCASP está confirmada (ver acima). O procedimento de encerramento do exercício segue
-  `[REVALIDAR PARCIAL]`: a apuração do resultado **patrimonial** (encerramento de VPA/VPD)
-  tem achado de fonte secundária a confirmar na fonte primária; a apuração
-  **orçamentária** segue sem fonte encontrada (ver Fontes/a revalidar).
+  DCASP está confirmada (ver acima). O procedimento de encerramento do exercício —
+  apuração do resultado **patrimonial** (VPA/VPD) e **orçamentário** (classes 5/6) —
+  está confirmado na **IPC 03/STN** (ver Fontes/a revalidar).
 - **Decreto 10.540/2020** — o SIAFIC deve gerar as demonstrações e permitir o encerramento
   com integridade e trilha.
 
@@ -32,10 +31,15 @@ nunca por `UPDATE`/`DELETE`.
    depois de validar que não há pendência que impeça. O bloqueio de lançamento em período
    fechado **já existe** (trigger `checa_periodo_aberto`, migration V1).
 2. **Apuração do resultado patrimonial** (mês 13): lançamentos de encerramento que zeram
-   VPA/VPD contra o **superávit/déficit do exercício** (conta de resultado PCASP). `[REVALIDAR]`
-   o roteiro exato no MCASP.
+   VPA/VPD **diretamente** contra a conta de PL `2.3.7.1.1.01.00` — Superávits ou Déficits
+   do Exercício (sem conta transitória intermediária) — roteiro exato confirmado, ver
+   Fontes/a revalidar.
 3. **Apuração do resultado orçamentário**: encerramento das contas de controle da execução
-   (empenhado/liquidado/pago) e do resultado da execução orçamentária.
+   (previsão de receita/receita realizada, dotação/crédito disponível/empenhado/liquidado/pago,
+   classes 5/6) — roteiro exato confirmado, ver Fontes/a revalidar. **Ordem:** primeiro
+   encerra as contas de restos a pagar inscritos no *exercício anterior* (parte do item 4),
+   só depois a execução da despesa/receita do exercício corrente — os empenhos não pagos
+   do exercício corrente viram os novos restos a pagar do item 4.
 4. **Inscrição de restos a pagar** no encerramento — *interface* com a frente
    [**Restos a pagar**](./17-restos-a-pagar.md) (a inscrição de RP processados/não-processados
    acontece no rito de encerramento; a trava do art. 42 gateia o que pode ser inscrito por fonte).
@@ -100,18 +104,36 @@ Operador (com RBAC+MFA) solicita encerrar período/exercício
 - **Estrutura das DCASP** — confirmado (Lei 4.320/1964 arts. 101–106 + MCASP 11ª edição,
   STN, dez/2024, Parte V): Balanço Orçamentário = art. 102/Anexo 12; Balanço Financeiro =
   art. 103/Anexo 13; DVP = art. 104/Anexo 14; Balanço Patrimonial = arts. 105–106/Anexo 15.
-- `[REVALIDAR PARCIAL]` **Apuração do resultado patrimonial (MCASP/IPC-03)** — achado: as
-  contas de VPA (classe 4 do PCASP) e VPD (classe 3) encerram em contrapartida à conta
-  **2.3.7.1.0.00.00 — Superávits ou Déficits do Exercício** (patrimônio líquido, saldo por
-  1 dia em 31/dez), cujo saldo alimenta a DVP como resultado patrimonial do exercício.
-  Fonte: citação de terceiro do texto da IPC-03/STN, não a fonte primária — a extração
-  direta do PDF oficial da IPC-03/MCASP falhou nesta pesquisa (ferramenta não decodificou o
-  PDF). Serve de base de trabalho para `EncerrarExercicio`, mas exige confirmação do texto
-  oficial antes de produção.
-- `[REVALIDAR]` **Apuração do resultado orçamentário (MCASP, classes 5/6 do PCASP)** —
-  nenhuma fonte concreta encontrada (nem primária nem secundária) sobre o roteiro de
-  encerramento das contas de controle da execução (empenhado/liquidado/pago). Lacuna real,
-  a resolver antes de implementar essa parte de `EncerrarExercicio`.
+- **Apuração do resultado patrimonial** — confirmado na fonte primária:
+  [**IPC 03/STN — Encerramento de Contas Contábeis no PCASP**](https://cdn.tesouro.gov.br/sistemas-internos/apex/producao/sistemas/thot/arquivos/publicacoes/26305_1605342/anexos/8637_363147/IPC%20Encerramento%20-%20Revis%C3%A3o.pdf)
+  (STN, revisão 2017 — vigente; listada em
+  gov.br/tesouronacional/pt-br/contabilidade-e-custos/federacao/instrucoes-de-pronunciamentos-contabeis-ipcs),
+  itens 19–34 (p. 6–12). As contas de VPD (classe 3) e VPA (classe 4) encerram
+  **diretamente** (sem conta transitória) em contrapartida à conta de Patrimônio Líquido
+  `2.3.7.1.1.01.00 — Superávits ou Déficits do Exercício` (item 21/24, p. 7/9) — **não**
+  `2.3.7.1.0.00.00` (essa é a conta agregadora "Superávits ou Déficits Acumulados", nível
+  superior; a IPC 03 desdobra por contexto de consolidação em `2.3.7.1.X.01.00`, X=1 a 5 —
+  para o SIAFIC como ente único, o lançamento é sempre contra `2.3.7.1.1.01.00`). A conta
+  de resultado tem saldo zero antes do encerramento (item 23) e, após, seu saldo é o
+  resultado apurado do exercício (item 26), levado à DVP (item 27). Na abertura do
+  exercício seguinte (1º/jan), o saldo é transposto para `2.3.7.1.1.02.00 — Superávits ou
+  Déficits de Exercícios Anteriores` (item 30/lançamentos de abertura, p. 11).
+- **Apuração do resultado orçamentário (classes 5/6 do PCASP)** — confirmado na mesma
+  fonte primária (IPC 03/STN rev. 2017), seção "Encerramento das Contas de Orçamento
+  Aprovado e de Restos a Pagar", itens 35–63 (p. 12–26). Cobre: encerramento da Execução
+  da Receita (6.2.1.x) contra Previsão Inicial da Receita Bruta (5.2.1.1.1.00.00, item 42);
+  encerramento da Execução da Despesa (6.2.2.1.3.0x — crédito disponível/indisponível/
+  empenhado a liquidar/em liquidação/liquidado a pagar/liquidado pago) contra Crédito
+  Inicial (5.2.2.1.1.01.00) e Dotação Adicional por Tipo de Crédito (5.2.2.1.2.xx), com
+  dois roteiros conforme o ente rastreie ou não a origem do crédito desde o empenho
+  (itens 44–46); encerramento da Dotação Adicional por Fonte (5.2.2.1.3, controle vertical
+  contra 5.2.2.1.3.99.00, item 47); e a ordem obrigatória de encerrar primeiro as contas de
+  Restos a Pagar inscritos no **exercício anterior** (item 48) antes da execução da
+  despesa do exercício corrente, com a reclassificação RP Não Processados → RP
+  Processados quando liquidados e não pagos (itens 49–56). Este roteiro (execução
+  orçamentária geral) é anterior e complementar ao já mapeado em
+  [**Restos a pagar**](./17-restos-a-pagar.md) (contas de controle de RP/DDR por
+  fonte/vinculação, foco na trava art. 42).
 - Lei 4.320/1964 arts. 101–106 (texto oficial) — planalto.gov.br ficou intermitente nesta
   pesquisa (mesma limitação já registrada no projeto); art. 104 confirmado literal via
   mirror oficial de órgão público e fontes cruzadas; demais artigos pendentes de
