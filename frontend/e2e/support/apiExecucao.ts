@@ -71,6 +71,50 @@ export async function aprovar(
   return { status: resposta.status(), corpo: await resposta.json() };
 }
 
+export async function buscarLiquidacaoPorHistorico(
+  request: APIRequestContext,
+  backendBaseUrl: string,
+  usuario: UsuarioRuntime,
+  historico: string,
+): Promise<{ id: string; statusAprovacao: string }> {
+  const resposta = await request.get(`${baseUrl(backendBaseUrl, usuario.enteId)}/execucao/liquidacoes/registradas`, {
+    headers: headers(usuario),
+  });
+  if (!resposta.ok()) {
+    throw new Error(`GET /execucao/liquidacoes/registradas falhou: ${resposta.status()} ${await resposta.text()}`);
+  }
+  const corpo = (await resposta.json()) as {
+    itens: Array<{ id: string; historico: string; statusAprovacao: string }>;
+  };
+  const achado = corpo.itens.find((item) => item.historico === historico);
+  if (!achado) {
+    throw new Error(`Liquidação com histórico "${historico}" não encontrada em GET /execucao/liquidacoes/registradas`);
+  }
+  return achado;
+}
+
+export async function buscarPagamentoPorHistorico(
+  request: APIRequestContext,
+  backendBaseUrl: string,
+  usuario: UsuarioRuntime,
+  historico: string,
+): Promise<{ id: string; liquidacaoId: string; valor: string }> {
+  const resposta = await request.get(`${baseUrl(backendBaseUrl, usuario.enteId)}/execucao/pagamentos`, {
+    headers: headers(usuario),
+  });
+  if (!resposta.ok()) {
+    throw new Error(`GET /execucao/pagamentos falhou: ${resposta.status()} ${await resposta.text()}`);
+  }
+  const corpo = (await resposta.json()) as {
+    itens: Array<{ id: string; liquidacaoId: string; valor: string; historico: string }>;
+  };
+  const achado = corpo.itens.find((item) => item.historico === historico);
+  if (!achado) {
+    throw new Error(`Pagamento com histórico "${historico}" não encontrado em GET /execucao/pagamentos`);
+  }
+  return achado;
+}
+
 export async function pagar(
   request: APIRequestContext,
   backendBaseUrl: string,

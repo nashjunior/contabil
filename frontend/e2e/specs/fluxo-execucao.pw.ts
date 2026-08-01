@@ -5,20 +5,29 @@
  * duplo de teste que sempre autoriza, como os testes JVM existentes usam).
  *
  * Empenho e a consulta final rodam pelo DOM (navegador real); liquidação/
- * aprovação/pagamento iriam por HTTP real direto (`support/apiExecucao.ts`)
- * porque essas 3 etapas ainda não têm tela própria (gap documentado em
- * `frontend/README.md` "Gaps sinalizados"). "Iriam" porque essa continuação está
- * BLOQUEADA hoje por um gap de RBAC real que esta suíte descobriu (RAZ-222,
- * primeira prova fim-a-fim com RBAC real neste repo): nenhum papel concede CRIAR
- * em `execucao:liquidacao`, então NINGUÉM consegue criar uma liquidação via a API
- * real com um usuário devidamente autorizado — não é um gap desta suíte, é um
- * bloqueio funcional do próprio backend. O segundo teste abaixo documenta isso com
- * `test.fail()` (falha esperada — Playwright alerta sozinho se um dia passar sem
- * que RAZ-222 tenha sido resolvida e este teste atualizado).
+ * aprovação/pagamento vão por HTTP real direto (`support/apiExecucao.ts`) porque
+ * essas 3 etapas ainda não têm tela própria (gap documentado em
+ * `frontend/README.md` "Gaps sinalizados").
+ *
+ * Esta suíte foi a primeira prova fim-a-fim com RBAC real neste repo e descobriu
+ * o gap RAZ-222 (nenhum papel concedia `CRIAR` em `execucao:liquidacao`, e o gate
+ * de aprovação exigia `PAGADOR` — que a Regra 9/ADR-0023 reservam para "quem
+ * paga", não "quem autoriza"). RAZ-222 corrigiu a matriz em `IamProperties.Papel`
+ * (LANCADOR ganha `CRIAR` em `execucao:liquidacao`; AUTORIZADOR ganha `APROVAR`
+ * em `execucao:pagamento`, alinhado à tabela §2 de
+ * `fluxo-execucao-operador-contrato-api.md`) — o segundo teste abaixo exercita o
+ * fluxo completo com o lançador e o autorizador como atores distintos.
  */
 import { test, expect } from '@playwright/test';
 import { carregarRuntime } from '../support/runtime';
-import { buscarEmpenhoPorHistorico, liquidar } from '../support/apiExecucao';
+import {
+  buscarEmpenhoPorHistorico,
+  buscarLiquidacaoPorHistorico,
+  buscarPagamentoPorHistorico,
+  liquidar,
+  aprovar,
+  pagar,
+} from '../support/apiExecucao';
 
 const runtime = carregarRuntime();
 const EXERCICIO_ATUAL = new Date().getFullYear();
@@ -73,13 +82,12 @@ test.describe('fluxo de execução orçamentária — navegador real x backend r
     await context.close();
   });
 
-  test('liquidação → aprovação → pagamento via API real — bloqueado por gap de RBAC (RAZ-222)', async ({ request }) => {
-    test.fail(true, 'RAZ-222: nenhum papel concede CRIAR em execucao:liquidacao — remover test.fail() quando corrigido');
-
+  test('liquidação → aprovação → pagamento → consulta via API real, com RBAC real (RAZ-222)', async ({ request }) => {
     const lancador = runtime.usuarios.enteALancador;
+    const autorizador = runtime.usuarios.enteAAutorizador;
     const historicoEmpenho = `Empenho E2E RAZ-211 (p/ liquidação) ${Date.now()}`;
     // Cria o empenho por HTTP direto aqui (não é o foco deste teste) só para ter um
-    // empenhoId real ao qual tentar liquidar.
+    // empenhoId real ao qual liquidar.
     const criacao = await request.post(
       `${runtime.backendBaseUrl}/api/v1/entes/${lancador.enteId}/execucao/empenhos`,
       {
@@ -101,14 +109,49 @@ test.describe('fluxo de execução orçamentária — navegador real x backend r
     expect(criacao.status()).toBe(201);
     const empenhoId = (await criacao.json()).id as string;
 
-    // Confirma o 403 exato do gap (RAZ-222) — não um erro genérico qualquer.
+    // LANCADOR cria a liquidação (RAZ-222 Gap 1: agora concedido em IamProperties.Papel).
+    const historicoLiquidacao = `Liquidação E2E RAZ-211 ${Date.now()}`;
     const liquidacao = await liquidar(request, runtime.backendBaseUrl, lancador, {
       empenhoId,
       valor: '4200.30',
-      historico: `Liquidação E2E RAZ-211 ${Date.now()}`,
+      historico: historicoLiquidacao,
     });
-    // Se isto passar (liquidacao com `status`), RAZ-222 foi corrigida — trocar este
-    // teste para continuar aprovação/pagamento/consulta e remover o test.fail() acima.
     expect(liquidacao.status).toBe('pendente');
+
+    // AUTORIZADOR aprova — ator distinto do lançador (Regra 9/ADR-0023; RAZ-222 Gap 2:
+    // o gate exigia PAGADOR, que conflita com AUTORIZADOR e nunca podia aprovar de fato).
+    const aprovacao = await aprovar(request, runtime.backendBaseUrl, autorizador, liquidacao.id);
+    expect(aprovacao.status).toBe(200);
+    expect(aprovacao.corpo.status).toBe('aprovada');
+
+    // PAGADOR efetiva a baixa — `lancador` também carrega o papel PAGADOR na fixture
+    // (`support/fixtures.ts`), ator distinto de quem aprovou.
+    const historicoPagamento = `Pagamento E2E RAZ-211 ${Date.now()}`;
+    const pagamento = await pagar(request, runtime.backendBaseUrl, lancador, {
+      liquidacaoId: liquidacao.id,
+      valor: '4200.30',
+      historico: historicoPagamento,
+      idempotencyKey: crypto.randomUUID(),
+    });
+    expect(pagamento.valor).toBe('4200.30');
+
+    // Consulta: liquidação e pagamento lidos de volta do backend real refletem o
+    // estado final do fluxo (aprovada + baixa efetivada).
+    const liquidacaoConsultada = await buscarLiquidacaoPorHistorico(
+      request,
+      runtime.backendBaseUrl,
+      lancador,
+      historicoLiquidacao,
+    );
+    expect(liquidacaoConsultada.statusAprovacao).toBe('aprovada');
+
+    const pagamentoConsultado = await buscarPagamentoPorHistorico(
+      request,
+      runtime.backendBaseUrl,
+      lancador,
+      historicoPagamento,
+    );
+    expect(pagamentoConsultado.liquidacaoId).toBe(liquidacao.id);
+    expect(pagamentoConsultado.valor).toBe('4200.30');
   });
 });
