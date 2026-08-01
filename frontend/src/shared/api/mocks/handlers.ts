@@ -163,6 +163,43 @@ const MOVIMENTOS_POR_CONTA: Record<string, { saldoAnterior: string; movimentoDeb
   '22222222-2222-4222-8222-000000000007': { saldoAnterior: '1000.00', movimentoDebito: '200.00', movimentoCredito: '700.00' },
 };
 
+// Fila de aprovação fixa do mock (consulta.ExecucaoConsultaController.fila, ADR-0029 §1,
+// RAZ-221/ADR-0052) — id do primeiro item usado por TRILHA_POR_LIQUIDACAO abaixo.
+const FILA_APROVACAO_BASE = [
+  {
+    id: '44444444-4444-4444-8444-000000000001',
+    empenhoId: '11111111-1111-4111-8111-000000000010',
+    numeroEmpenho: 1,
+    exercicioEmpenho: new Date().getFullYear(),
+    credorId: '11111111-1111-4111-8111-000000000002',
+    valor: '1500.00',
+    dataCompetencia: '2026-01-20',
+    statusAprovacao: 'pendente',
+  },
+  {
+    id: '44444444-4444-4444-8444-000000000002',
+    empenhoId: '11111111-1111-4111-8111-000000000011',
+    numeroEmpenho: 2,
+    exercicioEmpenho: new Date().getFullYear(),
+    credorId: '11111111-1111-4111-8111-000000000003',
+    valor: '820.75',
+    dataCompetencia: '2026-01-22',
+    statusAprovacao: 'aprovada',
+  },
+];
+
+// Trilha fixa por liquidação (consulta.ExecucaoConsultaController.trilha, ADR-0029 §3) — ator
+// já mascarado no mock, espelhando o boundary real (nunca CPF em claro).
+const TRILHA_POR_LIQUIDACAO: Record<string, { tipo: string; ator: string; quando: string; detalhes: Record<string, string> }[]> = {
+  '44444444-4444-4444-8444-000000000001': [
+    { tipo: 'liquidacao_registrada', ator: '***.456.***-**', quando: '2026-01-20T10:00:00Z', detalhes: {} },
+  ],
+  '44444444-4444-4444-8444-000000000002': [
+    { tipo: 'liquidacao_registrada', ator: '***.456.***-**', quando: '2026-01-22T09:00:00Z', detalhes: {} },
+    { tipo: 'liquidacao_aprovada', ator: '***.789.***-**', quando: '2026-01-22T14:30:00Z', detalhes: {} },
+  ],
+};
+
 export const handlers = [
   // GET /sessao/atual (RAZ-203/RAZ-205) — fora do template /api/v1/entes/:enteId. Neste
   // ambiente de mock nao ha cookie de sessao do BFF de login real (ADR-0035) pra simular, so
@@ -254,6 +291,28 @@ export const handlers = [
       },
       { status: 201 },
     );
+  }),
+
+  // Fila de aprovação (gate 4-eyes, RAZ-221/ADR-0052) — itens fixos do mock, mesmo padrão de
+  // DOTACOES_BASE/CATALOGO_CONTAS acima (não amarrado ao estado do POST /liquidacoes, que
+  // ainda não tem armazenamento em memória como empenhosPorEnte).
+  http.get(`${BASE}/liquidacoes`, ({ request }) => {
+    const erro = exigirBearer(request);
+    if (erro) return erro;
+    const url = new URL(request.url);
+    const statusAprovacao = url.searchParams.get('statusAprovacao') ?? 'pendente';
+    const itens = FILA_APROVACAO_BASE.filter((item) => item.statusAprovacao === statusAprovacao);
+    return HttpResponse.json({ itens, proximoCursor: null });
+  }),
+
+  http.get(`${BASE}/liquidacoes/:id/trilha`, ({ request, params }) => {
+    const erro = exigirBearer(request);
+    if (erro) return erro;
+    const { id } = params as PathParams;
+    return HttpResponse.json({
+      liquidacaoId: id,
+      eventos: TRILHA_POR_LIQUIDACAO[String(id)] ?? [],
+    });
   }),
 
   http.post(`${BASE}/pagamentos`, async ({ request }) => {

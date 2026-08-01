@@ -78,20 +78,28 @@ para a proveniência exata (arquivo por arquivo) de cada campo.
    credor/unidade gestora (só `ConsultarDotacoes` existe hoje), fora do
    escopo de "1 tela mínima". Nomes e tipos de campo são reais, não
    inventados.
-2. **Só empenho tem tela.** Liquidação (com gate de aprovação 4-eyes) e
-   pagamento (individual + lote fail-soft) existem no client (`shared/api/client.ts`
-   expõe os 3) mas não têm tela própria ainda — próximas issues. A suíte E2E
-   (`frontend/e2e/`, RAZ-211) dirige empenho + consulta pelo DOM real e cobre
-   liquidação/aprovação/pagamento por HTTP direto contra o mesmo backend
-   real enquanto essas telas não existem — promover essas chamadas para
-   interação de UI quando as telas chegarem é o próximo passo natural da
-   suíte.
-3. **Consulta parcial.** `GET /execucao/orcamentaria` (agregado do período),
-   `GET /execucao/dotacoes` (combo do formulário) e `GET /execucao/empenhos`
-   (lista da tela, **fechado pela RAZ-199** — RAZ-121 tinha entregue o
-   endpoint sem consumidor) estão consumidos. A fila de aprovação (`GET
-   /liquidacoes`, paginada/cursor) e a trilha (`GET /liquidacoes/{id}/trilha`)
-   existem no controller real mas não estão em nenhuma tela — follow-up.
+2. **Esqueleto de rotas fechado pela RAZ-221/ADR-0052 — formulários residuais.**
+   `/execucao/liquidacoes`, `/execucao/pagamentos`, `/execucao/aprovacoes`
+   (fila) e `/execucao/liquidacoes/:id/trilha` já existem e estão no
+   `FeatureNav`. O lado de leitura é real e completo (fila via
+   `consultarFilaAprovacao`, trilha via `consultarTrilhaLiquidacao`, mesmo
+   padrão hook→`application/`→client das demais telas). `execucaoClient`
+   ganhou `aprovarLiquidacao` (decisão do gate, antes só existia hardcoded no
+   helper e2e). **Resíduo, não gap de arquitetura:** os formulários de
+   registro de liquidação/pagamento (padrão RHF+zod do `EmpenhoForm`,
+   ADR-0043) e a ação de decisão do gate (aprovar/devolver — irreversível,
+   merece UX própria) ainda não têm interface — issue-filha de implementação
+   de tela, dono Bruno (ver ADR-0052 decisão 3). A suíte E2E (`frontend/e2e/`,
+   RAZ-211) segue cobrindo liquidação/aprovação/pagamento por HTTP direto
+   contra o backend real enquanto os formulários não existem — promover essas
+   chamadas para interação de UI é o próximo passo natural da suíte quando a
+   issue-filha fechar.
+3. **Consulta completa.** `GET /execucao/orcamentaria` (agregado do período),
+   `GET /execucao/dotacoes` (combo do formulário), `GET /execucao/empenhos`
+   (lista da tela, **fechado pela RAZ-199**), a fila de aprovação (`GET
+   /liquidacoes`, **fechado pela RAZ-221/ADR-0052**) e a trilha (`GET
+   /liquidacoes/{id}/trilha`, **idem**) estão todos consumidos por uma tela
+   real.
 4. **Login gov.br real — fechado pela RAZ-203/RAZ-205.** O backend já tem um
    BFF de login real (`SessaoLoginGovBrOAuthController`/ADR-0035, RAZ-128):
    `GET /sessao/oauth/iniciar` conduz o OIDC+PKCE contra o gov.br e devolve
