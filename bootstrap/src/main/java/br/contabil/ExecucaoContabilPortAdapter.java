@@ -116,8 +116,8 @@ public class ExecucaoContabilPortAdapter implements ExecucaoContabilPort {
         List<Lancamento> lancamentos = List.of(
                 Lancamento.de(contaVpd, Natureza.DEBITO, solicitacao.valor()),
                 Lancamento.de(contaFornecedoresAPagar, Natureza.CREDITO, solicitacao.valor()),
-                Lancamento.de(contaEmpenhadoLiquidadoAPagar, Natureza.CREDITO, solicitacao.valor()),
-                Lancamento.de(contaEmpenhadoALiquidar, Natureza.DEBITO, solicitacao.valor()));
+                Lancamento.de(contaEmpenhadoLiquidadoAPagar, Natureza.DEBITO, solicitacao.valor()),
+                Lancamento.de(contaEmpenhadoALiquidar, Natureza.CREDITO, solicitacao.valor()));
 
         var periodoId = periodoContabil.periodoAbertoPara(solicitacao.enteId(), solicitacao.dataCompetencia());
         long numeroSeq = contadorFato.proximoNumeroSeq(solicitacao.enteId());
@@ -153,8 +153,8 @@ public class ExecucaoContabilPortAdapter implements ExecucaoContabilPort {
         List<Lancamento> lancamentos = List.of(
                 Lancamento.de(contaFornecedoresAPagar, Natureza.DEBITO, solicitacao.valor()),
                 Lancamento.de(contaCaixaEBancos, Natureza.CREDITO, solicitacao.valor()),
-                Lancamento.de(contaEmpenhadoPago, Natureza.CREDITO, solicitacao.valor()),
-                Lancamento.de(contaEmpenhadoLiquidadoAPagar, Natureza.DEBITO, solicitacao.valor()));
+                Lancamento.de(contaEmpenhadoPago, Natureza.DEBITO, solicitacao.valor()),
+                Lancamento.de(contaEmpenhadoLiquidadoAPagar, Natureza.CREDITO, solicitacao.valor()));
 
         var periodoId = periodoContabil.periodoAbertoPara(solicitacao.enteId(), solicitacao.dataCompetencia());
         long numeroSeq = contadorFato.proximoNumeroSeq(solicitacao.enteId());

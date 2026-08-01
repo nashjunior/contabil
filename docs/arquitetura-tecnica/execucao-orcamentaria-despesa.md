@@ -49,8 +49,8 @@ Cada movimento de execução, **na mesma transação de banco**, (1) mexe no sal
 | Evento (`TipoEvento`) | Subsistemas PCASP tocados | Mecânica (representativa — **revalidar MCASP/PCASP**) |
 | --- | --- | --- |
 | **Empenho** | Orçamentário + Controle (DDR) | D `6.2.2.1.1` Crédito Disponível → C `6.2.2.1.3` Crédito Empenhado a Liquidar; controle da disponibilidade por fonte (classes 7/8) |
-| **Liquidação** | Patrimonial + Orçamentário | D `3.x` VPD (competência) → C `2.1.3` Fornecedores a Pagar; D `6.2.2.1.3` Empenhado a Liquidar → C `6.2.2.1.4` Empenhado Liquidado a Pagar |
-| **Pagamento** | Patrimonial/Financeiro + Orçamentário + Controle | D `2.1.3` Fornecedores a Pagar → C `1.1.1` Caixa/Bancos; D `6.2.2.1.4` Liquidado a Pagar → C `6.2.2.1.5` Empenhado Pago; baixa da DDR |
+| **Liquidação** | Patrimonial + Orçamentário | D `3.x` VPD (competência) → C `2.1.3` Fornecedores a Pagar; D `6.2.2.1.4` Empenhado Liquidado a Pagar → C `6.2.2.1.3` Empenhado a Liquidar |
+| **Pagamento** | Patrimonial/Financeiro + Orçamentário + Controle | D `2.1.3` Fornecedores a Pagar → C `1.1.1` Caixa/Bancos; D `6.2.2.1.5` Empenhado Pago → C `6.2.2.1.4` Liquidado a Pagar; baixa da DDR |
 | **Reforço** | Orçamentário | mesmo do empenho, valor incremental |
 | **Anulação** | Orçamentário (+ Controle) | inverso do empenho; devolve crédito à dotação |
 

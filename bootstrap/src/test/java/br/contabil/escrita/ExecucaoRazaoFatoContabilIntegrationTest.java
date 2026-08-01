@@ -226,7 +226,7 @@ class ExecucaoRazaoFatoContabilIntegrationTest {
 
     @Test
     @Order(2)
-    @DisplayName("liquidacao: patrimonial D VPD/C Fornecedores + orcamentario D Empenhado a Liquidar/C Liquidado a Pagar, Sd=Sc")
+    @DisplayName("liquidacao: patrimonial D VPD/C Fornecedores + orcamentario D Liquidado a Pagar/C Empenhado a Liquidar, Sd=Sc")
     void liquidacaoGeraUmUnicoFatoComOsDoisSubsistemasBalanceadosJuntos() throws SQLException {
         Map<String, Object> documento = Map.of("tipo", "nota_fiscal", "numero", "NF-213", "dataEmissao", "2026-08-09");
         Map<String, Object> corpo = Map.of(
@@ -248,8 +248,8 @@ class ExecucaoRazaoFatoContabilIntegrationTest {
                 fatoLiquidacaoId,
                 lancamento(CODIGO_VPD, 'D', "4200.33"),
                 lancamento(CODIGO_FORNECEDORES_A_PAGAR, 'C', "4200.33"),
-                lancamento(CODIGO_EMPENHADO_LIQUIDADO_A_PAGAR, 'C', "4200.33"),
-                lancamento(CODIGO_CREDITO_EMPENHADO_A_LIQUIDAR, 'D', "4200.33"));
+                lancamento(CODIGO_EMPENHADO_LIQUIDADO_A_PAGAR, 'D', "4200.33"),
+                lancamento(CODIGO_CREDITO_EMPENHADO_A_LIQUIDAR, 'C', "4200.33"));
     }
 
     @Test
@@ -268,7 +268,7 @@ class ExecucaoRazaoFatoContabilIntegrationTest {
 
     @Test
     @Order(4)
-    @DisplayName("pagamento apos aprovacao: patrimonial D Fornecedores/C Caixa + orcamentario D Liquidado a Pagar/C Empenhado Pago, Sd=Sc")
+    @DisplayName("pagamento apos aprovacao: patrimonial D Fornecedores/C Caixa + orcamentario D Empenhado Pago/C Liquidado a Pagar, Sd=Sc")
     void pagamentoGeraUmUnicoFatoComOsDoisSubsistemasBalanceadosJuntos() throws SQLException {
         ResponseEntity<Map> respostaAprovacao = post(
                 "/execucao/liquidacoes/" + liquidacaoId + "/aprovacao",
@@ -289,8 +289,8 @@ class ExecucaoRazaoFatoContabilIntegrationTest {
                 fatoPagamentoId,
                 lancamento(CODIGO_FORNECEDORES_A_PAGAR, 'D', "4200.33"),
                 lancamento(CODIGO_CAIXA_E_BANCOS, 'C', "4200.33"),
-                lancamento(CODIGO_EMPENHADO_PAGO, 'C', "4200.33"),
-                lancamento(CODIGO_EMPENHADO_LIQUIDADO_A_PAGAR, 'D', "4200.33"));
+                lancamento(CODIGO_EMPENHADO_PAGO, 'D', "4200.33"),
+                lancamento(CODIGO_EMPENHADO_LIQUIDADO_A_PAGAR, 'C', "4200.33"));
     }
 
     @Test
@@ -307,6 +307,16 @@ class ExecucaoRazaoFatoContabilIntegrationTest {
                 fatoEmpenhoId,
                 lancamento(CODIGO_CREDITO_EMPENHADO_A_LIQUIDAR, 'D', "12345.67"),
                 lancamento(CODIGO_CREDITO_DISPONIVEL, 'C', "12345.67"));
+
+        assertThat(saldoLiquidoDaConta(CODIGO_CREDITO_EMPENHADO_A_LIQUIDAR))
+                .as("liquidacao credita 6.2.2.1.3 e reduz o saldo a liquidar")
+                .isEqualByComparingTo(new BigDecimal("8145.34"));
+        assertThat(saldoLiquidoDaConta(CODIGO_EMPENHADO_LIQUIDADO_A_PAGAR))
+                .as("pagamento credita 6.2.2.1.4 e zera o liquidado a pagar")
+                .isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(saldoLiquidoDaConta(CODIGO_EMPENHADO_PAGO))
+                .as("pagamento abre o empenhado pago")
+                .isEqualByComparingTo(new BigDecimal("4200.33"));
     }
 
     @Test
@@ -389,6 +399,22 @@ class ExecucaoRazaoFatoContabilIntegrationTest {
             try (ResultSet rs = ps.executeQuery()) {
                 rs.next();
                 return rs.getLong(1);
+            }
+        }
+    }
+
+    private static BigDecimal saldoLiquidoDaConta(String codigoPcasp) throws SQLException {
+        try (Connection admin = adminConnection();
+                PreparedStatement ps = admin.prepareStatement("""
+                        select coalesce(sum(case when l.natureza = 'D' then l.valor else -l.valor end), 0)
+                          from lancamento l join conta_pcasp cp on cp.id = l.conta_id
+                         where l.ente_id = ?::uuid and cp.codigo = ?
+                        """)) {
+            ps.setString(1, ENTE);
+            ps.setString(2, codigoPcasp);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getBigDecimal(1);
             }
         }
     }
