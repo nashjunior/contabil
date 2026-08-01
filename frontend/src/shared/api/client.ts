@@ -162,8 +162,11 @@ async function get<TResponse>(
 
 export type SessaoAtualResponse = components['schemas']['SessaoAtualResponse'];
 
-export type SessaoDevIdpRequest = { cpf: string; enteId: string };
-export type SessaoDevIdpResponse = { bearerToken: string };
+// Tipos derivados do contrato (openapi/contrato-provisorio.yaml), como todo o resto deste
+// arquivo — RAZ-242 originalmente shippou com tipos locais escritos à mão porque o contrato
+// ainda não tinha o path/schemas deste endpoint; agora tem.
+export type SessaoDevIdpRequest = components['schemas']['SessaoDevIdpRequest'];
+export type SessaoDevIdpResponse = components['schemas']['SessaoDevIdpResponse'];
 
 /** Erro de `POST /sessao/dev-idp/token` (RAZ-228) — envelope próprio (`{erro}`), distinto do
  * `ErroContratoResponse` (`{codigo, mensagem, detalhes}`) das rotas de negócio: este endpoint é

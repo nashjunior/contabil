@@ -488,6 +488,48 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/SessaoAtualResponse' }
         '401': { $ref: '#/components/responses/ErroContrato' }
+  /sessao/dev-idp/token:
+    servers:
+      - url: /
+    post:
+      operationId: emitirTokenDev
+      summary: >-
+        IdP de dev local exposto por HTTP (RAZ-228/RAZ-242/ADR-0052 item 1) — assina um JWT
+        RS256 de verdade (`AssinadorJwtDevIdp`) para o formulário "Modo desenvolvimento" do
+        SPA, substituindo a string opaca `dev.<cpf>.<ente>` que `AuthContext.entrar`
+        fabricava antes (RAZ-120), sempre rejeitada por `VerificadorJwtGovBr` contra um
+        backend real. `papel` é aceito só para o contrato ficar estável — NÃO vira claim do
+        JWT nem decide nada aqui (RBAC é 100% via `siafic.iam.concessoes`, deny-by-default);
+        o frontend (`sessaoClient.emitirTokenDev`) não o envia. Sem `credentials: 'include'`
+        — stateless, não depende do cookie do BFF (ADR-0035). A rota só existe (404 senão,
+        fail-closed por ausência de rota) quando o backend roda com
+        `SIAFIC_DEV_IDP_ENABLED=true` + `IAM_ENABLED=true` + o par de chaves de dev completo
+        — nunca em staging/produção. # java: sessao.SessaoDevIdpController.emitirToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SessaoDevIdpRequest' }
+      responses:
+        '200':
+          description: Token de dev emitido.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessaoDevIdpResponse' }
+        '400':
+          description: >-
+            cpf (não tem 11 dígitos) ou enteId (não é UUID) malformados — envelope MÍNIMO
+            (`{erro}`), NÃO o `ErroContratoResponse` padrão: este endpoint responde direto
+            no controller, sem passar pelo `ErroContratoExceptionHandler` central.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessaoDevIdpErro' }
+        '404':
+          description: >-
+            Rota inexistente — backend rodando sem as flags/chaves de dev-IdP (fail-closed
+            por ausência de bean/rota, nunca 403/500). Sem corpo JSON garantido (pode ser a
+            página de erro default do Spring) — `sessaoClient.emitirTokenDev` trata por
+            status, não por corpo (ver `DevIdpTokenError`/`endpoint_indisponivel`).
   /assinatura/oauth/callback:
     servers:
       - url: /
@@ -574,6 +616,32 @@ components:
         codigo: { type: string, example: nao_autenticado }
         mensagem: { type: string }
         detalhes: { type: object, additionalProperties: { type: string } }
+    SessaoDevIdpRequest:
+      type: object
+      # java: sessao.SessaoDevIdpController.SessaoDevIdpRequest — RAZ-228/ADR-0052.
+      # papel e' opcional aqui porque o frontend real (sessaoClient.emitirTokenDev) nao o
+      # envia (o backend nunca le, so aceita pra estabilidade do contrato); required so em
+      # cpf/enteId, que o controller de fato valida.
+      required: [cpf, enteId]
+      properties:
+        cpf: { type: string, description: '11 dígitos, com ou sem pontuação.' }
+        enteId: { type: string, format: uuid }
+        papel:
+          type: string
+          nullable: true
+          description: 'Só estabiliza o contrato do form de dev — não vira claim nem decide RBAC.'
+    SessaoDevIdpResponse:
+      type: object
+      # java: sessao.SessaoDevIdpController.SessaoDevIdpResponse
+      required: [bearerToken]
+      properties:
+        bearerToken: { type: string, description: 'JWT RS256 assinado pela chave de dev.' }
+    SessaoDevIdpErro:
+      type: object
+      # java: Map.of("erro", ...) direto no controller — bespoke, não é ErroContratoResponse.
+      required: [erro]
+      properties:
+        erro: { type: string, enum: [cpf_invalido, ente_id_invalido] }
     SessaoAtualResponse:
       type: object
       # java: sessao.SessaoAtualController.SessaoAtualResponse — RAZ-203.
