@@ -2,6 +2,8 @@
 // theme.css deve ser importado separadamente via: import '@siafic/design-system/theme.css'
 export { theme } from './tokens/theme';
 export type { Theme } from './tokens/theme';
+export { Alert } from './ui/Alert';
+export type { AlertLevel, AlertProps } from './ui/Alert';
 export { FormSection } from './ui/FormSection';
 export { Select, useAsyncOptions } from './ui/Select';
 export type { SelectOption, SelectProps, SelectStatus, AsyncOptionsPage, FetchOptions } from './ui/Select';
