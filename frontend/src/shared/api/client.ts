@@ -16,6 +16,13 @@ export type GovbrContexto = {
   enteId: string;
 };
 
+/** Toda chamada aceita `signal` e repassa ao `fetch` (ADR-0041/RAZ-137): hook de
+ * query encaminha o signal do React Query, caso de uso/busca imperativa gerencia
+ * seu próprio `AbortController`. */
+export type RequestOptions = {
+  signal?: AbortSignal;
+};
+
 export class ApiError extends Error {
   readonly status: number;
   readonly codigo: string;
@@ -60,22 +67,34 @@ async function tratarResposta<TResponse>(response: Response): Promise<TResponse>
   return parsed as TResponse;
 }
 
-async function post<TResponse>(path: string, body: Record<string, unknown>, contexto: GovbrContexto): Promise<TResponse> {
+async function post<TResponse>(
+  path: string,
+  body: Record<string, unknown>,
+  contexto: GovbrContexto,
+  options?: RequestOptions,
+): Promise<TResponse> {
   const response = await fetch(`${baseUrl(contexto.enteId)}${path}`, {
     method: 'POST',
     headers: headersFor(contexto),
     body: stringifyBodyWithRawMoney(body),
+    signal: options?.signal,
   });
   return tratarResposta<TResponse>(response);
 }
 
-async function get<TResponse>(path: string, query: Record<string, string | number>, contexto: GovbrContexto): Promise<TResponse> {
+async function get<TResponse>(
+  path: string,
+  query: Record<string, string | number>,
+  contexto: GovbrContexto,
+  options?: RequestOptions,
+): Promise<TResponse> {
   const queryString = new URLSearchParams(
     Object.fromEntries(Object.entries(query).map(([k, v]) => [k, String(v)])),
   ).toString();
   const response = await fetch(`${baseUrl(contexto.enteId)}${path}?${queryString}`, {
     method: 'GET',
     headers: headersFor(contexto),
+    signal: options?.signal,
   });
   return tratarResposta<TResponse>(response);
 }
@@ -89,14 +108,14 @@ export type PagamentoResponse = components['schemas']['PagamentoResponse'];
 export type ExecucaoOrcamentariaResponse = components['schemas']['ExecucaoOrcamentariaResponse'];
 
 export const execucaoClient = {
-  registrarEmpenho: (body: EmpenhoRequest, contexto: GovbrContexto) =>
-    post<EmpenhoResponse>('/execucao/empenhos', body, contexto),
-  registrarLiquidacao: (body: LiquidacaoRequest, contexto: GovbrContexto) =>
-    post<LiquidacaoResponse>('/execucao/liquidacoes', body, contexto),
-  registrarPagamento: (body: PagamentoRequest, contexto: GovbrContexto) =>
-    post<PagamentoResponse>('/execucao/pagamentos', body, contexto),
-  consultarExecucaoOrcamentaria: (exercicio: number, mes: number, contexto: GovbrContexto) =>
-    get<ExecucaoOrcamentariaResponse>('/execucao/orcamentaria', { exercicio, mes }, contexto),
+  registrarEmpenho: (body: EmpenhoRequest, contexto: GovbrContexto, options?: RequestOptions) =>
+    post<EmpenhoResponse>('/execucao/empenhos', body, contexto, options),
+  registrarLiquidacao: (body: LiquidacaoRequest, contexto: GovbrContexto, options?: RequestOptions) =>
+    post<LiquidacaoResponse>('/execucao/liquidacoes', body, contexto, options),
+  registrarPagamento: (body: PagamentoRequest, contexto: GovbrContexto, options?: RequestOptions) =>
+    post<PagamentoResponse>('/execucao/pagamentos', body, contexto, options),
+  consultarExecucaoOrcamentaria: (exercicio: number, mes: number, contexto: GovbrContexto, options?: RequestOptions) =>
+    get<ExecucaoOrcamentariaResponse>('/execucao/orcamentaria', { exercicio, mes }, contexto, options),
   consultarFilaAprovacao: (
     params: {
       statusAprovacao?: 'pendente' | 'aprovada' | 'devolvida';
@@ -109,6 +128,7 @@ export const execucaoClient = {
       valorMax?: string;
     },
     contexto: GovbrContexto,
+    options?: RequestOptions,
   ) => {
     const query: Record<string, string | number> = {};
     if (params.statusAprovacao) query['statusAprovacao'] = params.statusAprovacao;
@@ -119,10 +139,10 @@ export const execucaoClient = {
     if (params.dataFim) query['dataFim'] = params.dataFim;
     if (params.valorMin) query['valorMin'] = params.valorMin;
     if (params.valorMax) query['valorMax'] = params.valorMax;
-    return get<FilaAprovacaoResponse>('/execucao/liquidacoes', query, contexto);
+    return get<FilaAprovacaoResponse>('/execucao/liquidacoes', query, contexto, options);
   },
-  consultarTrilhaLiquidacao: (liquidacaoId: string, contexto: GovbrContexto) =>
-    get<TrilhaResponse>(`/execucao/liquidacoes/${liquidacaoId}/trilha`, {}, contexto),
+  consultarTrilhaLiquidacao: (liquidacaoId: string, contexto: GovbrContexto, options?: RequestOptions) =>
+    get<TrilhaResponse>(`/execucao/liquidacoes/${liquidacaoId}/trilha`, {}, contexto, options),
 };
 
 export type SaldoContaResponse = components['schemas']['SaldoContaResponse'];
@@ -136,18 +156,19 @@ export type TrilhaResponse = components['schemas']['TrilhaResponse'];
 export type EventoTrilha = components['schemas']['EventoTrilha'];
 
 export const razaoClient = {
-  consultarSaldo: (contaId: string, contexto: GovbrContexto) =>
-    get<SaldoContaResponse>('/razao/saldo', { contaId }, contexto),
-  consultarBalancete: (exercicio: number, mes: number, contexto: GovbrContexto) =>
-    get<BalanceteResponse>('/razao/balancete', { exercicio, mes }, contexto),
+  consultarSaldo: (contaId: string, contexto: GovbrContexto, options?: RequestOptions) =>
+    get<SaldoContaResponse>('/razao/saldo', { contaId }, contexto, options),
+  consultarBalancete: (exercicio: number, mes: number, contexto: GovbrContexto, options?: RequestOptions) =>
+    get<BalanceteResponse>('/razao/balancete', { exercicio, mes }, contexto, options),
   consultarContas: (
     params: { busca?: string; cursor?: string; limit?: number },
     contexto: GovbrContexto,
+    options?: RequestOptions,
   ) => {
     const query: Record<string, string | number> = {};
     if (params.busca) query['busca'] = params.busca;
     if (params.cursor) query['cursor'] = params.cursor;
     if (params.limit != null) query['limit'] = params.limit;
-    return get<ContasResponse>('/razao/contas', query, contexto);
+    return get<ContasResponse>('/razao/contas', query, contexto, options);
   },
 };
