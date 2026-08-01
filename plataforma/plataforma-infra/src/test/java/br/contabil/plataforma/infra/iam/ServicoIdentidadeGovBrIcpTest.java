@@ -156,6 +156,21 @@ class ServicoIdentidadeGovBrIcpTest {
     }
 
     @Test
+    @DisplayName("RAZ-238: matriz SoD rejeita ADMIN_PLATAFORMA + AUTORIZADOR preventivamente")
+    void rejeitaAdminPlataformaComAutorizador() {
+        IamProperties conflitado =
+                properties(Set.of(IamProperties.Papel.ADMIN_PLATAFORMA, IamProperties.Papel.AUTORIZADOR));
+
+        assertThatExceptionOfType(IllegalStateException.class)
+                .isThrownBy(conflitado::validar)
+                .withMessageContaining("segregacao de funcoes")
+                .withMessageContaining("ADMIN_PLATAFORMA")
+                .withMessageContaining("AUTORIZADOR")
+                .withMessageContaining("***.456.***-**")
+                .withMessageNotContaining(CPF);
+    }
+
+    @Test
     @DisplayName("RAZ-218: LANCADOR ganha CRIAR sobre execucao:liquidacao (mesmo papel que empenha)")
     void lancadorAutorizaLiquidacaoCriar() throws Exception {
         var sessao = servico.autenticar(new CredencialGovBr(jwt("OURO")));

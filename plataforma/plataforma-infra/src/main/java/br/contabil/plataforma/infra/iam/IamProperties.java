@@ -125,6 +125,9 @@ record IamProperties(
             if (papeis.contains(Papel.AUTORIZADOR) && papeis.contains(Papel.PAGADOR)) {
                 throw conflito("AUTORIZADOR", "PAGADOR");
             }
+            if (papeis.contains(Papel.ADMIN_PLATAFORMA) && papeis.contains(Papel.AUTORIZADOR)) {
+                throw conflito("ADMIN_PLATAFORMA", "AUTORIZADOR");
+            }
             if (papeis.contains(Papel.ADMIN_ACESSO) && !Collections.disjoint(papeis, Papel.OPERACIONAIS_FINANCEIROS)) {
                 throw conflito("ADMIN_ACESSO", "papel operacional financeiro");
             }
