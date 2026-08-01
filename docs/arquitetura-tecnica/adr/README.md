@@ -49,8 +49,11 @@
 | [0042](./0042-gate-build-ci-frontend-tsconfig-arquitetura.md) | Gate bloqueante de `npm run build` no job `frontend-test` do CI + `tsconfig.architecture.json` isolado (tipos Node) para o teste de fronteira `application/`, sem afrouxar `tsconfig.app.json` | Aceita |
 | [0043](./0043-frontend-forms-react-hook-form-dominio-hexagonal.md) | Frontend: forms em React Hook Form + fronteiras hexagonais — domínio framework-free (VOs/invariantes do Empenho), schema zod derivado do domínio, hook reutilizável `useFormDeAgregado` e wrappers RHF de `FormSection`/`Select` sem mudar o design system | Aceita |
 | [0044](./0044-trava-lrf-art42-gate-disponibilidade-por-fonte.md) | Trava LRF art. 42: gate transacional (reusa ADR-0023) que recusa contrair obrigação/inscrever RP sem disponibilidade de caixa **por fonte** nos 2 últimos quadrimestres do mandato; `hard` na janela, monitor fora; base DDR (classes 7/8); `ErroContrato` `disponibilidade_art42_insuficiente` | Aceita |
+| [0045](./0045-encerramento-append-only-transicao-condicional.md) | Encerramento de período/exercício por lançamentos de encerramento (append-only, nunca `UPDATE`) + transição `aberto→encerrado` condicional (mesmo padrão anti-corrida do gate de aprovação de pagamento) | Aceita |
+| [0046](./0046-segregacao-encerramento-acao-dedicada.md) | Segregação do encerramento: `Acao.ENCERRAR` dedicada (RBAC+MFA) por papel, sem checagem de autor individual (diferente do gate de aprovação de pagamento) | Aceita |
+| [0047](./0047-dcasp-via-read-models.md) | Demonstrações DCASP geradas a partir de read models do razão, reusando `GerarBalancete`/`BalancetePort` (ADR-0007) | Aceita |
 
-> **Nota:** o número **0019 não foi utilizado** — reservado durante execução paralela de agentes e nunca materializado em arquivo (o **mesmo** padrão-raiz endereçado pelo [ADR-0037](./0037-isolamento-e-guarda-commits-concorrentes-agentes.md)). Não renumerar os ADRs existentes (a numeração é histórica/imutável, mesmo princípio do ADR); o próximo ADR novo continua a partir do 0044.
+> **Nota:** o número **0019 não foi utilizado** — reservado durante execução paralela de agentes e nunca materializado em arquivo (o **mesmo** padrão-raiz endereçado pelo [ADR-0037](./0037-isolamento-e-guarda-commits-concorrentes-agentes.md)). Não renumerar os ADRs existentes (a numeração é histórica/imutável, mesmo princípio do ADR); o próximo ADR novo continua a partir do 0047.
 
 ## Como adicionar/mudar uma decisão
 

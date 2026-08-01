@@ -118,10 +118,14 @@ Operador (com RBAC+MFA) solicita encerrar período/exercício
   confirmação literal direta contra o Planalto.
 - Decreto 10.540/2020 (SIAFIC).
 
-## ADRs a registrar
+## ADRs registrados
 
-- **Encerramento append-only:** o rito zera contas transitórias por **lançamentos de
-  encerramento**, nunca por `UPDATE`; a transição `aberto→encerrado` é condicional (anti-corrida).
-- **Segregação do encerramento** (quem encerra ≠ quem lança?) — decidir.
-- **Geração das demonstrações DCASP** a partir de read models do razão (reusa infra de
-  `GerarBalancete` / [ADR-0007](./arquitetura-tecnica/adr/0007-read-models-cqrs.md)).
+- [**ADR-0045**](./arquitetura-tecnica/adr/0045-encerramento-append-only-transicao-condicional.md)
+  — encerramento append-only (lançamentos de encerramento, nunca `UPDATE`) + transição
+  `aberto→encerrado` condicional (anti-corrida, mesmo padrão do gate de pagamento).
+- [**ADR-0046**](./arquitetura-tecnica/adr/0046-segregacao-encerramento-acao-dedicada.md) —
+  segregação do encerramento via `Acao.ENCERRAR` dedicada (RBAC+MFA), sem checagem de autor
+  individual (diferente do gate de aprovação de pagamento).
+- [**ADR-0047**](./arquitetura-tecnica/adr/0047-dcasp-via-read-models.md) — demonstrações
+  DCASP geradas a partir de read models do razão (reusa infra de `GerarBalancete` /
+  [ADR-0007](./arquitetura-tecnica/adr/0007-read-models-cqrs.md)).
