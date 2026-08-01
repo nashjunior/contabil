@@ -9,6 +9,7 @@ import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
 import br.contabil.plataforma.domain.iam.ControleAcesso;
 import br.contabil.razao.application.ConsultarContas;
 import br.contabil.razao.application.ConsultarSaldo;
+import br.contabil.razao.application.EncerrarPeriodo;
 import br.contabil.razao.application.EstornarFatoContabil;
 import br.contabil.razao.application.GerarBalancete;
 import br.contabil.razao.application.RegistrarFatoContabil;
@@ -18,6 +19,7 @@ import br.contabil.razao.domain.repository.ConsultaSaldoPort;
 import br.contabil.razao.domain.repository.ContadorFatoPort;
 import br.contabil.razao.domain.repository.FatoContabilRepository;
 import br.contabil.razao.domain.repository.PeriodoContabilPort;
+import br.contabil.razao.domain.repository.PeriodoContabilRepository;
 
 /**
  * Wiring dos use cases do razão (ADR-0002 / AGENTS.md).
@@ -80,5 +82,15 @@ public class RazaoConfiguracao {
     @Bean
     public GerarBalancete gerarBalancete(ControleAcesso controleAcesso, BalancetePort balancete) {
         return new GerarBalancete(controleAcesso, balancete);
+    }
+
+    /** RAZ-206: encerramento de período comum (mês 1-12) — ADR-0045/ADR-0046. */
+    @Bean
+    public EncerrarPeriodo encerrarPeriodo(
+            ControleAcesso controleAcesso,
+            PeriodoContabilRepository periodoRepositorio,
+            AuditoriaEscrita auditoria,
+            Clock clock) {
+        return new EncerrarPeriodo(controleAcesso, periodoRepositorio, auditoria, clock);
     }
 }

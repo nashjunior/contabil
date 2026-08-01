@@ -142,7 +142,9 @@ public interface ServicoIdentidade {
         ESTORNAR,
         APROVAR,
         ASSINAR,
-        PUBLICAR
+        PUBLICAR,
+        /** Encerramento de período/exercício contábil (RAZ-206, ADR-0046) — papel dedicado, distinto de CRIAR/ALTERAR/APROVAR. */
+        ENCERRAR
     }
 
     /** Desafio de segundo fator emitido durante a autenticação. */
