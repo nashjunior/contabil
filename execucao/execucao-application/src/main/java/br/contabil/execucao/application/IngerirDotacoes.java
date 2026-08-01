@@ -23,6 +23,7 @@ import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
 import br.contabil.plataforma.domain.auditoria.EventoAuditoria;
 import br.contabil.plataforma.domain.iam.ControleAcesso;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Acao;
+import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Recurso;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
 
@@ -136,7 +137,10 @@ public class IngerirDotacoes {
         Set<DotacaoId> aplicados = Set.copyOf(atualizadas);
         String creditosAplicados = candidatosCredito.stream()
                 .filter(credito -> aplicados.contains(credito.dotacaoId()))
-                .map(credito -> "%s:%s:%s".formatted(credito.dotacaoId().valor(), credito.tipo().codigo(), credito.historico()))
+                .map(credito -> "%s:%s:%s".formatted(
+                        credito.dotacaoId().valor(),
+                        credito.tipo().codigo(),
+                        Cpf.mascararOcorrencias(credito.historico())))
                 .collect(Collectors.joining(";"));
 
         auditoria.append(new EventoAuditoria(

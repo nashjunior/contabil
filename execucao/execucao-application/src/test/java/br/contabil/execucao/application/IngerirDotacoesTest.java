@@ -107,7 +107,10 @@ class IngerirDotacoesTest {
 
         DotacaoId dotacaoExistente = DotacaoId.novo();
         CreditoAdicional credito = new CreditoAdicional(
-                dotacaoExistente, TipoCreditoAdicional.SUPLEMENTAR, Dinheiro.de("5000.00"), "decreto 123/2026");
+                dotacaoExistente,
+                TipoCreditoAdicional.SUPLEMENTAR,
+                Dinheiro.de("5000.00"),
+                "decreto 123/2026 solicitado pelo CPF 12345678901");
 
         IngerirDotacoes.Resultado resultado =
                 useCase.executar(sessao(true), enteId, List.of(fixacaoValida()), List.of(credito));
@@ -119,8 +122,8 @@ class IngerirDotacoesTest {
         ArgumentCaptor<EventoAuditoria> evento = ArgumentCaptor.forClass(EventoAuditoria.class);
         verify(auditoria).append(evento.capture());
         assertThat(evento.getValue().tipo()).isEqualTo("execucao_dotacao_ingerida");
-        // RAZ-218: ator mascarado — a trilha tem guardrail de banco (ck_auditoria_evento_sem_cpf_claro,
-        // Cpf#mascarado) que rejeita CPF em claro no ator; publicar o número cru derruba o INSERT em produção.
+        // RAZ-219: a trilha tem guardrail de banco (ck_auditoria_evento_sem_cpf_claro,
+        // Cpf#mascarado) que rejeita CPF em claro no ator/detalhes; publicar o número cru derruba o INSERT em produção.
         assertThat(evento.getValue().ator()).isEqualTo("***.456.***-**");
         assertThat(evento.getValue().detalhes())
                 .containsEntry("inseridas", "1")
@@ -128,7 +131,9 @@ class IngerirDotacoesTest {
                 .containsEntry("erros", "0")
                 .containsEntry(
                         "creditosAdicionaisAplicados",
-                        "%s:suplementar:decreto 123/2026".formatted(dotacaoExistente.valor()));
+                        "%s:suplementar:decreto 123/2026 solicitado pelo CPF ***.456.***-**"
+                                .formatted(dotacaoExistente.valor()));
+        assertThat(evento.getValue().detalhes().values()).noneMatch(valor -> valor.contains("12345678901"));
     }
 
     @Test
