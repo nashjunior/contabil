@@ -17,9 +17,12 @@
 # minima". Os nomes/tipos de campo abaixo sao os REAIS; a tela minima aceita esses IDs como texto
 # livre (UUID colado), nao como picker — ver README "Gaps".
 #
-# GAP DE COBERTURA: fila de aprovacao (GET /liquidacoes), trilha (GET /liquidacoes/{id}/trilha),
-# aprovacao de liquidacao (POST /liquidacoes/{id}/aprovacao) e lote de pagamento
-# (POST /pagamentos:lote) EXISTEM no controller real mas NAO estao neste contrato/tela — follow-up.
+# GAP DE COBERTURA (RAZ-188): fila de aprovacao (GET /liquidacoes) e trilha
+# (GET /liquidacoes/{id}/trilha) foram adicionadas ao contrato — client.ts (RAZ-14x) ja as
+# consumia sem o contrato estar atualizado, quebrando `npm run build` (tipos fantasma).
+# Ainda EXISTEM no controller real mas NAO estao neste contrato: aprovacao de liquidacao
+# (POST /liquidacoes/{id}/aprovacao), lote de pagamento (POST /pagamentos:lote), consultas de
+# empenhos/liquidacoes/pagamentos "registrados" e dotacoes (GET /execucao/dotacoes) — follow-up.
 #
 # FLUXO DE ASSINATURA GOVBR (RAZ-141/ADR-0039 decisao 5): os 3 endpoints de
 # POST .../assinatura + GET .../oauth/iniciar + GET .../oauth/callback usam
@@ -116,6 +119,52 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErroContratoResponse' }
   /execucao/liquidacoes:
+    get:
+      operationId: consultarFilaAprovacao
+      summary: >-
+        Fila de aprovação de liquidações por statusAprovacao, cursor opaco, PII do credor
+        não exposta (ADR-0029 §1). # java: consulta.ExecucaoConsultaController.fila
+      parameters:
+        - name: statusAprovacao
+          in: query
+          required: false
+          schema: { type: string, enum: [pendente, aprovada, devolvida], default: pendente }
+        - name: cursor
+          in: query
+          required: false
+          schema: { type: string }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer }
+        - name: fonte
+          in: query
+          required: false
+          schema: { type: string }
+        - name: dataInicio
+          in: query
+          required: false
+          schema: { type: string, format: date }
+        - name: dataFim
+          in: query
+          required: false
+          schema: { type: string, format: date }
+        - name: valorMin
+          in: query
+          required: false
+          schema: { type: string }
+        - name: valorMax
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        '200':
+          description: Página da fila de aprovação.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FilaAprovacaoResponse' }
+        '401': { $ref: '#/components/responses/ErroContrato' }
+        '403': { $ref: '#/components/responses/ErroContrato' }
     post:
       operationId: registrarLiquidacao
       summary: Registra uma liquidação vinculada a um empenho. # java: escrita.LiquidacaoController.registrar
@@ -133,6 +182,25 @@ paths:
         '400': { $ref: '#/components/responses/ErroContrato' }
         '401': { $ref: '#/components/responses/ErroContrato' }
         '409': { $ref: '#/components/responses/ErroContrato' }
+  /execucao/liquidacoes/{id}/trilha:
+    get:
+      operationId: consultarTrilhaLiquidacao
+      summary: >-
+        Trilha dedicada da liquidação (empenho → liquidação → decisão), ator mascarado
+        (ADR-0029 §3). # java: consulta.ExecucaoConsultaController.trilha
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Trilha de eventos da liquidação.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TrilhaResponse' }
+        '401': { $ref: '#/components/responses/ErroContrato' }
+        '403': { $ref: '#/components/responses/ErroContrato' }
   /execucao/pagamentos:
     post:
       operationId: registrarPagamento
@@ -170,6 +238,71 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ExecucaoOrcamentariaResponse' }
+        '401': { $ref: '#/components/responses/ErroContrato' }
+        '403': { $ref: '#/components/responses/ErroContrato' }
+  /razao/saldo:
+    get:
+      operationId: consultarSaldo
+      summary: Saldo atual de uma conta contábil do razão. # java: consulta.RazaoConsultaController.saldo
+      parameters:
+        - name: contaId
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Saldo da conta.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SaldoContaResponse' }
+        '401': { $ref: '#/components/responses/ErroContrato' }
+        '403': { $ref: '#/components/responses/ErroContrato' }
+  /razao/balancete:
+    get:
+      operationId: consultarBalancete
+      summary: >-
+        Balancete do período: linhas por conta + totais de movimento (D/C).
+        # java: consulta.RazaoConsultaController.balancete
+      parameters:
+        - name: exercicio
+          in: query
+          required: true
+          schema: { type: integer }
+        - name: mes
+          in: query
+          required: true
+          schema: { type: integer, minimum: 1, maximum: 12 }
+      responses:
+        '200':
+          description: Balancete do período.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BalanceteResponse' }
+        '401': { $ref: '#/components/responses/ErroContrato' }
+        '403': { $ref: '#/components/responses/ErroContrato' }
+  /razao/contas:
+    get:
+      operationId: consultarContas
+      summary: Catálogo/busca de contas do PCASP, cursor opaco. # java: consulta.CatalogoContasController.contas
+      parameters:
+        - name: busca
+          in: query
+          required: false
+          schema: { type: string }
+        - name: cursor
+          in: query
+          required: false
+          schema: { type: string }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Página de contas do catálogo.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContasResponse' }
         '401': { $ref: '#/components/responses/ErroContrato' }
         '403': { $ref: '#/components/responses/ErroContrato' }
   /entes/{enteId}/execucao/empenhos/{id}/assinatura:
@@ -454,3 +587,105 @@ components:
         documentoAssinado: { type: boolean }
         hashSha256: { type: string }
         idTransacao: { type: string, format: uuid }
+    SaldoContaResponse:
+      type: object
+      # java: consulta.SaldoContaResponse
+      required: [contaId, saldo]
+      properties:
+        contaId: { type: string, format: uuid }
+        saldo: { $ref: '#/components/schemas/Dinheiro' }
+    LinhaBalancete:
+      type: object
+      # java: consulta.BalanceteResponse.Linha
+      required:
+        [contaId, codigo, descricao, naturezaSaldo, saldoAnterior, movimentoDebito, movimentoCredito, saldoAtual]
+      properties:
+        contaId: { type: string, format: uuid }
+        codigo: { type: string }
+        descricao: { type: string }
+        naturezaSaldo:
+          type: string
+          description: 'D/C — natureza natural da conta PCASP (ADR-0030 §5), não o sinal do saldo.'
+        saldoAnterior: { $ref: '#/components/schemas/Dinheiro' }
+        movimentoDebito: { $ref: '#/components/schemas/Dinheiro' }
+        movimentoCredito: { $ref: '#/components/schemas/Dinheiro' }
+        saldoAtual: { $ref: '#/components/schemas/Dinheiro' }
+    BalanceteResponse:
+      type: object
+      # java: consulta.BalanceteResponse
+      required: [exercicio, mes, linhas, totalMovimentoDebito, totalMovimentoCredito, confere]
+      properties:
+        exercicio: { type: integer }
+        mes: { type: integer }
+        linhas:
+          type: array
+          items: { $ref: '#/components/schemas/LinhaBalancete' }
+        totalMovimentoDebito: { $ref: '#/components/schemas/Dinheiro' }
+        totalMovimentoCredito: { $ref: '#/components/schemas/Dinheiro' }
+        confere:
+          type: boolean
+          description: 'Σdébitos = Σcréditos do período (razão append-only).'
+    ContaResumo:
+      type: object
+      # java: consulta.CatalogoContasController.ContaResumoResponse
+      required: [id, codigo, descricao, naturezaSaldo, naturezaInformacao, escrituravel]
+      properties:
+        id: { type: string, format: uuid }
+        codigo: { type: string }
+        descricao: { type: string }
+        naturezaSaldo: { type: string }
+        naturezaInformacao: { type: string }
+        escrituravel: { type: boolean }
+        contaPaiId: { type: string, format: uuid, nullable: true }
+    ContasResponse:
+      type: object
+      # java: consulta.CatalogoContasController.ContasResponse
+      required: [itens, proximoCursor]
+      properties:
+        itens:
+          type: array
+          items: { $ref: '#/components/schemas/ContaResumo' }
+        proximoCursor: { type: string, nullable: true }
+    ItemFilaAprovacao:
+      type: object
+      # java: consulta.ExecucaoConsultaController.ItemFilaResponse
+      required:
+        [id, empenhoId, numeroEmpenho, exercicioEmpenho, credorId, valor, dataCompetencia, statusAprovacao]
+      properties:
+        id: { type: string, format: uuid }
+        empenhoId: { type: string, format: uuid }
+        numeroEmpenho: { type: integer, format: int64 }
+        exercicioEmpenho: { type: integer }
+        credorId: { type: string, format: uuid }
+        valor: { $ref: '#/components/schemas/Dinheiro' }
+        dataCompetencia: { type: string, format: date }
+        statusAprovacao: { type: string, enum: [pendente, aprovada, devolvida] }
+    FilaAprovacaoResponse:
+      type: object
+      # java: consulta.ExecucaoConsultaController.FilaAprovacaoResponse
+      required: [itens, proximoCursor]
+      properties:
+        itens:
+          type: array
+          items: { $ref: '#/components/schemas/ItemFilaAprovacao' }
+        proximoCursor: { type: string, nullable: true }
+    EventoTrilha:
+      type: object
+      # java: consulta.ExecucaoConsultaController.EventoTrilhaResponse
+      required: [tipo, ator, quando, detalhes]
+      properties:
+        tipo: { type: string }
+        ator:
+          type: string
+          description: 'Ator mascarado no boundary — nunca CPF em claro (R4, ADR-0029 §3).'
+        quando: { type: string, format: date-time }
+        detalhes: { type: object, additionalProperties: { type: string } }
+    TrilhaResponse:
+      type: object
+      # java: consulta.ExecucaoConsultaController.TrilhaResponse
+      required: [liquidacaoId, eventos]
+      properties:
+        liquidacaoId: { type: string, format: uuid }
+        eventos:
+          type: array
+          items: { $ref: '#/components/schemas/EventoTrilha' }
