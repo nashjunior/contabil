@@ -105,6 +105,19 @@ else
     razao_out="N/A — tabela do razão ainda não existe nesta base (gancho inerte)"
 fi
 
+# --- 5b. gancho do outbox de entrega (órfãos + RLS) — só se a tabela já existir --
+if [ "$(db -Atqc "select to_regclass('outbox_mensagem') is not null;")" = "t" ]; then
+    if outbox_out=$(db -f "$SCRIPT_DIR/verificacoes-outbox.sql" 2>&1); then
+        if printf '%s' "$outbox_out" | grep -q 'FALHA'; then
+            reprova "outbox de entrega com órfão(s) ou RLS não forçada"
+        fi
+    else
+        reprova "erro ao executar verificacoes-outbox.sql"
+    fi
+else
+    outbox_out="N/A — tabela do outbox ainda não existe nesta base (gancho inerte)"
+fi
+
 # --- 6. porta de RTO/RPO contra o alvo do ente ------------------------------
 [ "$rto_med_min" -le "$RTO_ALVO_MIN" ] || reprova "RTO medido ${rto_med_min}min > alvo ${RTO_ALVO_MIN}min"
 [ "$rpo_obs_min" -le "$RPO_ALVO_MIN" ] || reprova "idade do backup ${rpo_obs_min}min > RPO alvo ${RPO_ALVO_MIN}min"
@@ -133,6 +146,11 @@ report="$EVIDENCIA_DIR/f0-restore-${ENTE_SLUG}-${stamp}.md"
     echo "## Razão — partidas dobradas (Σdébito = Σcrédito)"
     echo '```'
     printf '%s\n' "$razao_out"
+    echo '```'
+    echo
+    echo "## Outbox de entrega — órfãos + RLS forçada (RAZ-9/RAZ-70)"
+    echo '```'
+    printf '%s\n' "$outbox_out"
     echo '```'
 } > "$report"
 

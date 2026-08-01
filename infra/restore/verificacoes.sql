@@ -75,7 +75,8 @@ from (
 ) t
 order by ord;
 
--- Nota (RAZ-50): a verificação de órfãos do outbox foi removida — nenhuma migração
--- cria `publicacao_outbox` no schema real; referenciá-la quebrava o oráculo na mesma
--- classe de bug corrigida aqui. Reintroduzir, gated por to_regclass, quando o outbox
--- transacional entrar (análogo ao gancho do razão em verificacoes-razao.sql).
+-- Nota (RAZ-50/RAZ-70/RAZ-173): a verificação de órfãos do outbox foi removida daqui
+-- em RAZ-50 porque nenhuma migração criava `publicacao_outbox` na época. RAZ-70
+-- entregou o outbox real (`outbox_mensagem`/`outbox_dlq`, migração V4); a verificação
+-- foi reintroduzida em infra/restore/verificacoes-outbox.sql, gated por to_regclass
+-- e acionada pelo restore-drill.sh (análogo ao gancho do razão em verificacoes-razao.sql).
