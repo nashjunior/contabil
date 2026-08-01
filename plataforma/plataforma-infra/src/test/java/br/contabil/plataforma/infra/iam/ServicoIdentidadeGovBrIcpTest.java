@@ -155,6 +155,34 @@ class ServicoIdentidadeGovBrIcpTest {
                 .withMessageNotContaining(CPF);
     }
 
+    @Test
+    @DisplayName("RAZ-218: LANCADOR ganha CRIAR sobre execucao:liquidacao (mesmo papel que empenha)")
+    void lancadorAutorizaLiquidacaoCriar() throws Exception {
+        var sessao = servico.autenticar(new CredencialGovBr(jwt("OURO")));
+
+        assertThat(servico.autorizar(sessao, new Recurso("execucao:liquidacao"), Acao.CRIAR)).isTrue();
+    }
+
+    @Test
+    @DisplayName("RAZ-218/ADR-0052: LANCADOR NÃO ganha execucao:dotacao — quem fixa o teto não é quem gasta contra ele")
+    void lancadorNaoAutorizaDotacao() throws Exception {
+        var sessao = servico.autenticar(new CredencialGovBr(jwt("OURO")));
+
+        assertThat(servico.autorizar(sessao, new Recurso("execucao:dotacao"), Acao.CRIAR)).isFalse();
+        assertThat(servico.autorizar(sessao, new Recurso("execucao:dotacao"), Acao.ALTERAR)).isFalse();
+    }
+
+    @Test
+    @DisplayName("RAZ-218/ADR-0052: ADMIN_PLATAFORMA autoriza CRIAR (fixação/LOA) e ALTERAR (crédito adicional) sobre execucao:dotacao")
+    void adminPlataformaAutorizaDotacaoCriarEAlterar() throws Exception {
+        ServicoIdentidade servicoAdmin = servico(properties(Set.of(IamProperties.Papel.ADMIN_PLATAFORMA)));
+        var sessao = servicoAdmin.autenticar(new CredencialGovBr(jwt("OURO")));
+
+        assertThat(servicoAdmin.autorizar(sessao, new Recurso("execucao:dotacao"), Acao.CRIAR)).isTrue();
+        assertThat(servicoAdmin.autorizar(sessao, new Recurso("execucao:dotacao"), Acao.ALTERAR)).isTrue();
+        assertThat(servicoAdmin.autorizar(sessao, new Recurso("execucao:liquidacao"), Acao.CRIAR)).isFalse();
+    }
+
     private ServicoIdentidade servico(IamProperties props) {
         props.validar();
         return new ServicoIdentidadeGovBrIcp(

@@ -152,7 +152,8 @@ record IamProperties(
             return switch (this) {
                 case LANCADOR -> (urn.equals("razao:fato_contabil")
                                 && (acao == ServicoIdentidade.Acao.CRIAR || acao == ServicoIdentidade.Acao.ESTORNAR))
-                        || (urn.equals("execucao:empenho") && acao == ServicoIdentidade.Acao.CRIAR);
+                        || (urn.equals("execucao:empenho") && acao == ServicoIdentidade.Acao.CRIAR)
+                        || (urn.equals("execucao:liquidacao") && acao == ServicoIdentidade.Acao.CRIAR);
                 case AUTORIZADOR -> (urn.equals("razao:fato_contabil")
                                 && (acao == ServicoIdentidade.Acao.APROVAR || acao == ServicoIdentidade.Acao.ASSINAR))
                         || (urn.equals("execucao:empenho") && acao == ServicoIdentidade.Acao.ASSINAR);
@@ -161,7 +162,9 @@ record IamProperties(
                                 || acao == ServicoIdentidade.Acao.APROVAR
                                 || acao == ServicoIdentidade.Acao.ASSINAR);
                 case ADMIN_ACESSO -> urn.equals("plataforma:iam") && acao == ServicoIdentidade.Acao.ALTERAR;
-                case ADMIN_PLATAFORMA -> urn.startsWith("plataforma:");
+                case ADMIN_PLATAFORMA -> urn.startsWith("plataforma:")
+                        || (urn.equals("execucao:dotacao")
+                                && (acao == ServicoIdentidade.Acao.CRIAR || acao == ServicoIdentidade.Acao.ALTERAR));
                 case AUDITOR -> acao == ServicoIdentidade.Acao.LER;
                 case PUBLICADOR -> urn.startsWith("transparencia:") && acao == ServicoIdentidade.Acao.PUBLICAR;
             };
