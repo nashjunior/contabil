@@ -1,9 +1,9 @@
 /**
- * Prova fim-a-fim do esqueleto de rotas do RAZ-221/ADR-0052: login dev -> fila de aprovação
- * (GET /execucao/liquidacoes real) lista o item pendente -> "Ver trilha" navega para a trilha
- * dedicada (GET /execucao/liquidacoes/{id}/trilha real) -> volta para a fila. Cobre só o lado
- * de leitura (esqueleto desta entrega); os formulários de registro (liquidação/pagamento) e a
- * ação de decisão do gate ficam para a issue-filha de implementação de tela (dono: Bruno).
+ * Prova fim-a-fim das rotas de execução (RAZ-221/ADR-0052 + RAZ-230): login dev -> fila de
+ * aprovação (GET /execucao/liquidacoes real) lista o item pendente -> "Ver trilha" navega para
+ * a trilha dedicada (GET /execucao/liquidacoes/{id}/trilha real) -> volta para a fila; e
+ * navegação entre as rotas de registro de liquidação/pagamento, já com formulário real (RAZ-230)
+ * montado em cada uma. A decisão do gate (aprovar/devolver) segue sem interface — RAZ-236.
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -57,7 +57,7 @@ describe('fluxo aprovação — fila de aprovação (gate 4-eyes) + trilha', () 
     expect(await screen.findByRole('heading', { name: /fila de aprovação/i })).toBeInTheDocument();
   });
 
-  it('rotas de registro de liquidação e pagamento estão montadas (esqueleto, sem formulário ainda)', async () => {
+  it('rotas de registro de liquidação e pagamento estão montadas, cada uma com formulário real (RAZ-230)', async () => {
     const user = userEvent.setup();
     renderApp('/execucao/liquidacoes');
 
@@ -66,8 +66,10 @@ describe('fluxo aprovação — fila de aprovação (gate 4-eyes) + trilha', () 
     await user.click(screen.getByRole('button', { name: /entrar/i }));
 
     expect(await screen.findByRole('heading', { name: /registrar liquidação/i })).toBeInTheDocument();
+    expect(await screen.findByRole('form', { name: /registrar liquidação/i })).toBeInTheDocument();
 
     await user.click(screen.getByRole('link', { name: /registrar pagamento/i }));
     expect(await screen.findByRole('heading', { name: /registrar pagamento/i })).toBeInTheDocument();
+    expect(await screen.findByRole('form', { name: /registrar pagamento/i })).toBeInTheDocument();
   });
 });

@@ -78,22 +78,27 @@ para a proveniência exata (arquivo por arquivo) de cada campo.
    credor/unidade gestora (só `ConsultarDotacoes` existe hoje), fora do
    escopo de "1 tela mínima". Nomes e tipos de campo são reais, não
    inventados.
-2. **Esqueleto de rotas fechado pela RAZ-221/ADR-0052 — formulários residuais.**
+2. **Esqueleto de rotas fechado pela RAZ-221/ADR-0052; formulários fechados
+   pela RAZ-230 — resíduo é só a decisão do gate.**
    `/execucao/liquidacoes`, `/execucao/pagamentos`, `/execucao/aprovacoes`
    (fila) e `/execucao/liquidacoes/:id/trilha` já existem e estão no
    `FeatureNav`. O lado de leitura é real e completo (fila via
    `consultarFilaAprovacao`, trilha via `consultarTrilhaLiquidacao`, mesmo
    padrão hook→`application/`→client das demais telas). `execucaoClient`
    ganhou `aprovarLiquidacao` (decisão do gate, antes só existia hardcoded no
-   helper e2e). **Resíduo, não gap de arquitetura:** os formulários de
-   registro de liquidação/pagamento (padrão RHF+zod do `EmpenhoForm`,
-   ADR-0043) e a ação de decisão do gate (aprovar/devolver — irreversível,
-   merece UX própria) ainda não têm interface — issue-filha de implementação
-   de tela, dono Bruno (ver ADR-0052 decisão 3). A suíte E2E (`frontend/e2e/`,
-   RAZ-211) segue cobrindo liquidação/aprovação/pagamento por HTTP direto
-   contra o backend real enquanto os formulários não existem — promover essas
-   chamadas para interação de UI é o próximo passo natural da suíte quando a
-   issue-filha fechar.
+   helper e2e). Os formulários de registro de liquidação/pagamento
+   (`LiquidacaoForm`/`PagamentoForm`, padrão RHF+zod do `EmpenhoForm`,
+   ADR-0043) foram fechados pela RAZ-230, com `EmpenhoPicker`/
+   `LiquidacaoAprovadaPicker` (`Select` em modo síncrono — `GET
+   /execucao/empenhos` não tem `busca` server-side ao contrário de
+   `/dotacoes`, então filtra localmente o exercício corrente; mesma
+   convenção de "1 tela mínima" do item 1). **Resíduo, não gap de
+   arquitetura:** a ação de decisão do gate (aprovar/devolver —
+   irreversível, ADR-0023, precisa de confirmação + motivo obrigatório na
+   devolução + mapeamento de erro 403/409) segue sem interface — a RAZ-230
+   optou por não decidir essa UX sozinha, ver RAZ-236 (review com a Paula).
+   A suíte E2E (`frontend/e2e/`, RAZ-211) segue cobrindo a decisão do gate
+   por HTTP direto contra o backend real enquanto essa interface não existe.
 3. **Consulta completa.** `GET /execucao/orcamentaria` (agregado do período),
    `GET /execucao/dotacoes` (combo do formulário), `GET /execucao/empenhos`
    (lista da tela, **fechado pela RAZ-199**), a fila de aprovação (`GET
