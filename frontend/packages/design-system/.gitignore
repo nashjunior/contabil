@@ -2,3 +2,6 @@ node_modules/
 # Artefatos GERADOS pelo pipeline de tokens (ADR-0031/ADR-0033) — nunca commitar.
 src/tokens/theme.ts
 src/tokens/theme.css
+
+*storybook.log
+storybook-static

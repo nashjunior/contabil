@@ -9,9 +9,10 @@ ADR-0036 (design system como pacote independente `@siafic/design-system`) em
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173 — /entrar (login dev) -> /execucao
-npm test         # vitest (unit + componente, contra MSW)
-npm run build    # tsc -b && vite build (roda ds:build [tokens do pacote] + api:generate antes)
+npm run dev            # http://localhost:5173 — /entrar (login dev) -> /execucao
+npm test               # vitest (unit + componente, contra MSW)
+npm run build          # tsc -b && vite build (roda ds:build [tokens do pacote] + api:generate antes)
+npm run storybook      # Storybook do design-system, http://localhost:6006 (RAZ-130)
 ```
 
 Não há backend Spring Boot rodável neste ambiente de scaffold (multi-módulo
@@ -29,11 +30,12 @@ o design system é um **pacote independente** que o app consome via
 ```
 packages/
   design-system/  @siafic/design-system — FONTE ÚNICA de tokens + componentes do DS
+    .storybook/   config do Storybook (builder Vite, addon-a11y como gate, addon-docs) — RAZ-130
     tokens/       *.tokens.json (DTCG) — fonte, alimentada pelo pipeline Figma (RAZ-100)
     scripts/      build-tokens.mjs (Style Dictionary) + check-contrast.mjs (gate WCAG AA)
     src/
-      tokens/     theme.ts/theme.css — GERADOS (gitignored) pelo pipeline
-      ui/         compound components do DS (ADR-0033), ex.: FormSection
+      tokens/     theme.ts/theme.css — GERADOS (gitignored) pelo pipeline; Tokens.stories.tsx (showcase)
+      ui/         compound components do DS (ADR-0033), ex.: FormSection/Select, cada um com .stories.tsx
       index.ts    ponto de entrada público
 src/                (o app do operador)
   app/            composition root: providers globais, rotas
