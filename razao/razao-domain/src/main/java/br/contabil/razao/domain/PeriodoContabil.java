@@ -74,6 +74,23 @@ public final class PeriodoContabil {
         return new PeriodoContabil(id, enteId, exercicio, mes, StatusPeriodo.ENCERRADO, Optional.of(Instant.now(clock)));
     }
 
+    /**
+     * Transiciona o período de exercício (mês 13) para {@code ENCERRADO} após a inscrição
+     * de Restos a Pagar (RAZ-207). Diferente de {@link #encerrar}, permite mês 13 —
+     * chamado apenas por {@code EncerrarExercicio} depois de gerados todos os fatos de RP.
+     *
+     * @throws EncerramentoConflitanteException o período já não está {@code ABERTO}
+     */
+    public PeriodoContabil encerrarPeriodoExercicio(Clock clock) {
+        if (mes != 13) {
+            throw new PeriodoExercicioExigeApuracaoException(id);
+        }
+        if (status != StatusPeriodo.ABERTO) {
+            throw new EncerramentoConflitanteException(id);
+        }
+        return new PeriodoContabil(id, enteId, exercicio, mes, StatusPeriodo.ENCERRADO, Optional.of(Instant.now(clock)));
+    }
+
     public PeriodoContabilId id() {
         return id;
     }
