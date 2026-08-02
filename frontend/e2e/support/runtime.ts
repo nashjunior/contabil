@@ -18,7 +18,7 @@ export type Runtime = {
   backendBaseUrl: string;
   dotacaoIdPorEnte: Record<string, string>;
   usuarios: Record<
-    'enteALancador' | 'enteAAutorizador' | 'enteBLancador' | 'enteBAutorizador',
+    'enteALancador' | 'enteAAutorizador' | 'enteAPagador' | 'enteBLancador' | 'enteBAutorizador' | 'enteBPagador',
     UsuarioRuntime
   >;
 };
