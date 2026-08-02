@@ -83,6 +83,7 @@ class EncerrarExercicioTest {
 
     private final TenantId enteId = TenantId.de(UUID.randomUUID().toString());
     private final Clock relogio = Clock.fixed(Instant.parse("2026-12-31T23:00:00Z"), ZoneOffset.UTC);
+    private final ContaContabilId contaResultadoDefault = ContaContabilId.novo();
 
     private Sessao sessaoComMfa() {
         return new Sessao(
@@ -110,15 +111,15 @@ class EncerrarExercicioTest {
                 new ControleAcesso(servicoIdentidade),
                 periodoRepositorio,
                 apurarResultadoPatrimonial,
-                Optional.empty(),
+                ente -> contaResultadoDefault,
                 inscreverRP,
                 ente -> List.of(),
                 encerrarContasOrcamentarias,
-                List.of(),
+                ente -> List.of(),
                 encerrarDdr,
                 ente -> List.of(),
                 transporSaldosAbertura,
-                List.of(),
+                ente -> List.of(),
                 transporDdrAbertura,
                 ente -> List.of(),
                 auditoria,
@@ -144,8 +145,10 @@ class EncerrarExercicioTest {
         assertThat(resultado.mes()).isEqualTo(13);
 
         InOrder ordem = inOrder(
-                inscreverRP, encerrarContasOrcamentarias, encerrarDdr, periodoRepositorio, transporSaldosAbertura,
-                transporDdrAbertura);
+                apurarResultadoPatrimonial, inscreverRP, encerrarContasOrcamentarias, encerrarDdr, periodoRepositorio,
+                transporSaldosAbertura, transporDdrAbertura);
+        ordem.verify(apurarResultadoPatrimonial).executar(
+                eq(sessao), eq(enteId), eq(2026), eq(periodoExercicio.id()), any(), eq(contaResultadoDefault));
         ordem.verify(inscreverRP)
                 .executar(eq(sessao), eq(enteId), eq(2026), eq(periodoExercicio.id()), any(), eq(List.of()));
         ordem.verify(encerrarContasOrcamentarias)
@@ -156,8 +159,6 @@ class EncerrarExercicioTest {
         ordem.verify(transporSaldosAbertura).executar(eq(sessao), eq(enteId), eq(2026), eq(List.of()));
         ordem.verify(transporDdrAbertura).executar(eq(sessao), eq(enteId), eq(2026), eq(List.of()));
 
-        verify(apurarResultadoPatrimonial, never()).executar(any(), any(), anyInt(), any(), any(), any());
-
         ArgumentCaptor<EventoAuditoria> evento = ArgumentCaptor.forClass(EventoAuditoria.class);
         verify(auditoria).append(evento.capture());
         assertThat(evento.getValue().tipo()).isEqualTo("razao_exercicio_encerrado");
@@ -165,22 +166,26 @@ class EncerrarExercicioTest {
     }
 
     @Test
-    @DisplayName("RAZ-257: com contaResultadoApurado configurada, apura o resultado patrimonial antes da inscrição de RP")
-    void apuraResultadoPatrimonialQuandoContaConfigurada() {
+    @DisplayName("RAZ-270: resolve a conta de resultado apurado do ente e apura o resultado patrimonial "
+            + "antes da inscrição de RP")
+    void resolveContaResultadoApuradoDoEnteEApuraAntesDaInscricaoDeRp() {
         ContaContabilId contaResultado = ContaContabilId.novo();
         EncerrarExercicio useCaseComApuracao = new EncerrarExercicio(
                 new ControleAcesso(servicoIdentidade),
                 periodoRepositorio,
                 apurarResultadoPatrimonial,
-                Optional.of(contaResultado),
+                ente -> {
+                    assertThat(ente).isEqualTo(enteId);
+                    return contaResultado;
+                },
                 inscreverRP,
                 ente -> List.of(),
                 encerrarContasOrcamentarias,
-                List.of(),
+                ente -> List.of(),
                 encerrarDdr,
                 ente -> List.of(),
                 transporSaldosAbertura,
-                List.of(),
+                ente -> List.of(),
                 transporDdrAbertura,
                 ente -> List.of(),
                 auditoria,
@@ -212,18 +217,18 @@ class EncerrarExercicioTest {
                 new ControleAcesso(servicoIdentidade),
                 periodoRepositorio,
                 apurarResultadoPatrimonial,
-                Optional.empty(),
+                ente -> contaResultadoDefault,
                 inscreverRP,
                 ente -> {
                     assertThat(ente).isEqualTo(enteId);
                     return parametros;
                 },
                 encerrarContasOrcamentarias,
-                List.of(),
+                ente -> List.of(),
                 encerrarDdr,
                 ente -> List.of(),
                 transporSaldosAbertura,
-                List.of(),
+                ente -> List.of(),
                 transporDdrAbertura,
                 ente -> List.of(),
                 auditoria,
@@ -255,18 +260,18 @@ class EncerrarExercicioTest {
                 new ControleAcesso(servicoIdentidade),
                 periodoRepositorio,
                 apurarResultadoPatrimonial,
-                Optional.empty(),
+                ente -> contaResultadoDefault,
                 inscreverRP,
                 ente -> List.of(),
                 encerrarContasOrcamentarias,
-                List.of(),
+                ente -> List.of(),
                 encerrarDdr,
                 ente -> {
                     assertThat(ente).isEqualTo(enteId);
                     return parametrosDdr;
                 },
                 transporSaldosAbertura,
-                List.of(),
+                ente -> List.of(),
                 transporDdrAbertura,
                 ente -> {
                     assertThat(ente).isEqualTo(enteId);
@@ -288,6 +293,55 @@ class EncerrarExercicioTest {
         verify(encerrarDdr).executar(
                 eq(sessao), eq(enteId), eq(2026), eq(periodoExercicio.id()), any(), eq(parametrosDdr));
         verify(transporDdrAbertura).executar(eq(sessao), eq(enteId), eq(2026), eq(parametrosAberturaDdr));
+    }
+
+    @Test
+    @DisplayName("RAZ-270: resolve parâmetros de encerramento orçamentário (classes 5/6) e de transposição "
+            + "de abertura patrimonial do ente e repassa listas reais")
+    void repassaParametrosOrcamentariosEDeAberturaResolvidosPorEnteParaOsColaboradores() {
+        ParametroEncerramentoOrcamentario parametroOrcamentario = new ParametroEncerramentoOrcamentario(
+                ContaContabilId.novo(), ContaContabilId.novo(), Natureza.CREDITO);
+        List<ParametroEncerramentoOrcamentario> parametrosOrcamentarios = List.of(parametroOrcamentario);
+        List<ParametroTransposicaoAbertura> parametrosAbertura =
+                List.of(new ParametroTransposicaoAbertura(ContaContabilId.novo(), ContaContabilId.novo()));
+
+        EncerrarExercicio useCaseComParametros = new EncerrarExercicio(
+                new ControleAcesso(servicoIdentidade),
+                periodoRepositorio,
+                apurarResultadoPatrimonial,
+                ente -> contaResultadoDefault,
+                inscreverRP,
+                ente -> List.of(),
+                encerrarContasOrcamentarias,
+                ente -> {
+                    assertThat(ente).isEqualTo(enteId);
+                    return parametrosOrcamentarios;
+                },
+                encerrarDdr,
+                ente -> List.of(),
+                transporSaldosAbertura,
+                ente -> {
+                    assertThat(ente).isEqualTo(enteId);
+                    return parametrosAbertura;
+                },
+                transporDdrAbertura,
+                ente -> List.of(),
+                auditoria,
+                relogio);
+
+        Sessao sessao = sessaoComMfa();
+        when(servicoIdentidade.autorizar(sessao, RECURSO_PERIODO, Acao.ENCERRAR)).thenReturn(true);
+
+        PeriodoContabil periodoExercicio = PeriodoContabil.reidratar(
+                PeriodoContabilId.novo(), enteId, 2026, 13, StatusPeriodo.ABERTO, Optional.empty());
+        when(periodoRepositorio.buscarPorCompetencia(enteId, 2026, 13)).thenReturn(Optional.of(periodoExercicio));
+        when(periodoRepositorio.encerrar(any())).thenReturn(true);
+
+        useCaseComParametros.executar(sessao, enteId, 2026);
+
+        verify(encerrarContasOrcamentarias).executar(
+                eq(sessao), eq(enteId), eq(2026), eq(periodoExercicio.id()), any(), eq(parametrosOrcamentarios));
+        verify(transporSaldosAbertura).executar(eq(sessao), eq(enteId), eq(2026), eq(parametrosAbertura));
     }
 
     @Test
