@@ -106,6 +106,12 @@ class DdrFatoContabilIntegrationTest {
     @org.springframework.beans.factory.annotation.Autowired
     private DisponibilidadePorFontePort disponibilidadePorFonte;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.transaction.support.TransactionTemplate transactionTemplate;
+
     @TestConfiguration
     static class ServicoIdentidadeDeTeste {
         @Bean
@@ -311,9 +317,16 @@ class DdrFatoContabilIntegrationTest {
             }
         }
 
-        List<DisponibilidadePorFontePort.SaldoPorFonte> saldos =
-                disponibilidadePorFonte.consultarSaldoPorFonte(
-                        new TenantId(UUID.fromString(ENTE)), List.of(contaComprometida));
+        // chamada direta ao port pula o advisor de app.ente_id (que só envolve executar(..)
+        // de application) — sem isto, a RLS de `lancamento` reusa a conexão do pool cujo
+        // app.ente_id já foi setado e resetado por uma transação anterior (testes 1-3), o
+        // que deixa o GUC como '' (não NULL) e estoura "invalid input syntax for type uuid"
+        // em vez de devolver zero linhas (RAZ-271).
+        List<DisponibilidadePorFontePort.SaldoPorFonte> saldos = transactionTemplate.execute(status -> {
+            jdbcTemplate.queryForObject("select set_config('app.ente_id', ?, true)", String.class, ENTE);
+            return disponibilidadePorFonte.consultarSaldoPorFonte(
+                    new TenantId(UUID.fromString(ENTE)), List.of(contaComprometida));
+        });
 
         assertThat(saldos).hasSize(1);
         DisponibilidadePorFontePort.SaldoPorFonte saldo = saldos.get(0);
