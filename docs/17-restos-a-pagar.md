@@ -56,6 +56,14 @@ do art. 42** impede que o gestor, no fim do mandato, deixe RP sem lastro de caix
    - **RPP:** reconhecer **RP Processados a Pagar** — passivo (classe 2) + controle (classe 6.3.x).
    - Segregar por **`AI` (ano de inscrição de RP)** — casa com a informação complementar `AI` da
      MSC ([doc 16 §Preciso](./16-prestacao-de-contas.md#preciso-escopo-f1)).
+   - **DDR (classes 7/8) no encerramento** (IPC 03/STN rev. 2017 §§90-96) — encerra **apenas a
+     disponibilidade utilizada**: `D 8.2.1.1.4.00.00 (DDR Utilizada) / C 7.2.1.1.X.00.00 (Controle da
+     Disponibilidade de Recursos)`, **por fonte/destinação** (§91). As disponibilidades **comprometidas
+     por empenho** (`8.2.1.1.2`) e **por liquidação** (`8.2.1.1.3`) **não** encerram — acompanham a
+     execução dos RP até o pagamento e **transitam para o exercício seguinte**, dando o lastro por fonte
+     aos RP inscritos. Na abertura (§96): `D 8.2.1.1.1.01.00 (Recursos Disponíveis para o Exercício) /
+     C 8.2.1.1.1.02.00 (Recursos de Exercícios Anteriores)` transpõe o **superávit financeiro por
+     fonte** — a base do art. 42 no exercício seguinte.
 3. **Cancelamento de RP** — sempre por **fato novo** (estorno/lançamento), nunca deleção:
    - **RPNP:** cancelamento por **prescrição de vigência** (prazo parametrizável por ente) ou por
      inexistência da obrigação — reverte o controle; quando já patrimonial, gera **VPA (variação
@@ -73,7 +81,11 @@ do art. 42** impede que o gestor, no fim do mandato, deixe RP sem lastro de caix
      não uma segunda taxonomia — mesma regra dos [ADR-0022](./arquitetura-tecnica/adr/0022-lote-pagamento-contrato-api-execucao.md)/[0023](./arquitetura-tecnica/adr/0023-gate-aprovacao-pagamento-segregacao.md)).
    - **Fora da janela:** o cálculo é **informativo/monitor** (alimenta o RREO e alertas), **não
      bloqueia** — o art. 42 só veda no fim de mandato.
-   - A **DDR (classes 7/8)** é o mecanismo contábil que torna o cálculo por fonte derivável do razão.
+   - A **DDR (classes 7/8)** é o mecanismo contábil que torna o cálculo por fonte derivável do razão:
+     a disponibilidade líquida por fonte **não é um cálculo avulso** — é o **saldo das contas
+     `7.2.1`/`8.2.1`** já mantidas pelo razão pela execução (IPC 03/STN §§90-96), do qual o
+     `VerificarDisponibilidadeArt42` deriva diretamente (a `DisponibilidadePorFontePort` recebe as
+     contas DDR relevantes e devolve o saldo devedor líquido por fonte, sem compensação entre fontes).
 5. **Trilha + RBAC+MFA:** inscrição e cancelamento são `MOVIMENTA_RECURSO` ([ADR-0016](./arquitetura-tecnica/adr/0016-controle-acesso-mfa-movimentacao-recurso.md));
    evento de auditoria dedicado (quem, quando, fonte, valor, motivo no cancelamento).
 
@@ -134,8 +146,16 @@ flowchart TD
 
 ## Fontes / a revalidar
 
-- `[REVALIDAR]` **MCASP edição vigente** — contas de controle de RP (classe 6) e DDR (classes 7/8);
-  roteiro de inscrição e de cancelamento (RPP × RPNP); **códigos de conta exatos**.
+- **DDR (classes 7/8) — encerramento e abertura** — confirmado na fonte primária
+  ([IPC 03/STN — Encerramento de Contas Contábeis no PCASP](./15-fechamento-contabil.md#fontes--a-revalidar),
+  rev. 2017, §§90-96, p. 45-47): encerra só a DDR **utilizada** (`D 8.2.1.1.4 / C 7.2.1.1.X` por
+  fonte, §91); **não** encerra as comprometidas/liquidadas (`8.2.1.1.2`/`8.2.1.1.3`), que transitam
+  como lastro dos RP; transpõe o superávit financeiro por fonte na abertura (`D 8.2.1.1.1.01 /
+  C 8.2.1.1.1.02`, §96). Complementa a revalidação do **RAZ-232** (patrimonial cl.3/4 e orçamentário
+  cl.5/6). Consolidado também no [doc 15 §Preciso](./15-fechamento-contabil.md#preciso-escopo-f1).
+- `[REVALIDAR]` **MCASP edição vigente** — **códigos de conta exatos** das contas de controle de RP
+  (classe 6) e o desdobramento `X` da `7.2.1.1.X` por fonte; roteiro de inscrição e de cancelamento
+  (RPP × RPNP).
 - `[REVALIDAR]` **MDF edição vigente (15ª, 2026)** — Demonstrativo dos Restos a Pagar (RREO) e
   Demonstrativo da Disponibilidade de Caixa e dos Restos a Pagar (RGF, art. 42).
 - Lei 4.320/1964 arts. 36, 37, 92 (texto oficial).

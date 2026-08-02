@@ -39,12 +39,23 @@ nunca por `UPDATE`/`DELETE`.
    classes 5/6) — roteiro exato confirmado, ver Fontes/a revalidar. **Ordem:** primeiro
    encerra as contas de restos a pagar inscritos no *exercício anterior* (parte do item 4),
    só depois a execução da despesa/receita do exercício corrente — os empenhos não pagos
-   do exercício corrente viram os novos restos a pagar do item 4.
+   do exercício corrente viram os novos restos a pagar do item 4. O encerramento das classes
+   5/6 **apenas zera as contas de controle**: **não há conta de "resultado orçamentário" no
+   PCASP** — o superávit/déficit orçamentário é **read-model** (Balanço Orçamentário: receita
+   realizada − despesa executada, [ADR-0047](./arquitetura-tecnica/adr/0047-dcasp-via-read-models.md)),
+   **nunca** um fato de razão. Não criar conta de resultado orçamentário (IPC 03/STN rev. 2017).
 4. **Inscrição de restos a pagar** no encerramento — *interface* com a frente
    [**Restos a pagar**](./17-restos-a-pagar.md) (a inscrição de RP processados/não-processados
    acontece no rito de encerramento; a trava do art. 42 gateia o que pode ser inscrito por fonte).
+   Inclui o **encerramento da DDR (classes 7/8)**: encerra só a disponibilidade **utilizada**
+   (`D 8.2.1.1.4 / C 7.2.1.1.X` por fonte, IPC 03/STN rev. 2017 §§90-96); as comprometidas por
+   empenho (`8.2.1.1.2`) e por liquidação (`8.2.1.1.3`) **não** encerram — transitam para o
+   exercício seguinte como lastro dos RP por fonte (ver
+   [doc 17 §Preciso](./17-restos-a-pagar.md#preciso-escopo-f1)).
 5. **Abertura do exercício seguinte**: transposição de saldos das contas patrimoniais
-   (permanentes) para o período inicial do novo exercício.
+   (permanentes) para o período inicial do novo exercício — incluindo, na DDR, o **superávit
+   financeiro por fonte** (`D 8.2.1.1.1.01 / C 8.2.1.1.1.02`, IPC 03/STN rev. 2017 §96), que é a
+   base do art. 42 no novo exercício.
 6. **Demonstrações DCASP** (Lei 4.320 + MCASP): Balanço Orçamentário, Balanço Financeiro,
    Balanço Patrimonial e DVP, deriváveis do razão por período. Hoje só existe **balancete**
    (`GerarBalancete`).
@@ -84,10 +95,12 @@ Operador (com RBAC+MFA) solicita encerrar período/exercício
   -> valida: período aberto, sem fato pendente
   -> [exercício/mês 13] gera lançamentos de encerramento:
         apura resultado patrimonial (VPA/VPD -> superávit/déficit)
-        apura resultado orçamentário (contas de controle)
+        apura resultado orçamentário (contas de controle; sem conta de resultado orçamentário)
+        encerra a DDR utilizada por fonte (D 8.2.1.1.4 / C 7.2.1.1.X)
         (interface) inscreve restos a pagar
   -> marca periodo.status = 'encerrado' (condicional, append-only nos fatos)
   -> [exercício] transpõe saldos permanentes p/ novo exercício
+        + superávit financeiro por fonte na DDR (D 8.2.1.1.1.01 / C 8.2.1.1.1.02)
   -> trilha de auditoria (evento dedicado)
   -> demonstrações DCASP passam a refletir o período encerrado
 ```
@@ -134,6 +147,19 @@ Operador (com RBAC+MFA) solicita encerrar período/exercício
   orçamentária geral) é anterior e complementar ao já mapeado em
   [**Restos a pagar**](./17-restos-a-pagar.md) (contas de controle de RP/DDR por
   fonte/vinculação, foco na trava art. 42).
+- **Encerramento e abertura da DDR (classes 7/8)** — confirmado na mesma fonte primária (IPC 03/STN
+  rev. 2017), §§90-96 (p. 45-47) para o encerramento e §§28-33 para os lançamentos de abertura das
+  classes 1/2. Encerra **apenas a disponibilidade utilizada** (`D 8.2.1.1.4.00.00 (DDR Utilizada) /
+  C 7.2.1.1.X.00.00 (Controle da Disponibilidade de Recursos)`, por fonte/destinação, §91); as
+  comprometidas por empenho (`8.2.1.1.2`) e por liquidação (`8.2.1.1.3`) **não** encerram — transitam
+  para o exercício seguinte, dando lastro aos RP por fonte. A abertura transpõe o **superávit
+  financeiro por fonte** (`D 8.2.1.1.1.01.00 (Recursos Disponíveis para o Exercício) /
+  C 8.2.1.1.1.02.00 (Recursos de Exercícios Anteriores)`, §96), base do art. 42 no exercício
+  seguinte. Complementa a revalidação do RAZ-232 (que cobriu patrimonial cl.3/4 e orçamentário cl.5/6).
+- **Resultado orçamentário não tem conta no PCASP** — o encerramento das classes 5/6 apenas zera as
+  contas de controle; o superávit/déficit orçamentário é read-model (Balanço Orçamentário), nunca
+  fato de razão (IPC 03/STN rev. 2017; consistente com a estrutura DCASP e o
+  [ADR-0047](./arquitetura-tecnica/adr/0047-dcasp-via-read-models.md)).
 - Lei 4.320/1964 arts. 101–106 (texto oficial) — planalto.gov.br ficou intermitente nesta
   pesquisa (mesma limitação já registrada no projeto); art. 104 confirmado literal via
   mirror oficial de órgão público e fontes cruzadas; demais artigos pendentes de
