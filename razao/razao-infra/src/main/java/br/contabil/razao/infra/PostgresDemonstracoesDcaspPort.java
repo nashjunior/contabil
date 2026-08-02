@@ -40,6 +40,8 @@ public class PostgresDemonstracoesDcaspPort implements DemonstracoesDcaspPort {
             c.natureza_informacao = 'patrimonial'
             and (c.codigo like '3%' or c.codigo like '4%')
             """;
+    private static final String EXCLUI_ENCERRAMENTO = "f.tipo_evento <> 'encerramento'";
+    private static final String SEM_FILTRO_EVENTO = "true";
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -95,7 +97,8 @@ public class PostgresDemonstracoesDcaspPort implements DemonstracoesDcaspPort {
                 """
                 p.exercicio in ((select exercicio from parametros), (select exercicio - 1 from parametros))
                 """,
-                filtroContas);
+                filtroContas,
+                EXCLUI_ENCERRAMENTO);
     }
 
     private static String sqlSaldoAteExercicio(String filtroContas) {
@@ -109,10 +112,19 @@ public class PostgresDemonstracoesDcaspPort implements DemonstracoesDcaspPort {
                 """
                 p.exercicio <= (select exercicio from parametros)
                 """,
-                filtroContas);
+                filtroContas,
+                SEM_FILTRO_EVENTO);
     }
 
-    private static String sqlBase(String filtroAtual, String filtroAnterior, String filtroPeriodo, String filtroContas) {
+    /**
+     * {@code filtroEvento} exclui o fato de ENCERRAMENTO do "movimento do exercício"
+     * (RAZ-262): o mês 13 tem o mesmo {@code exercicio} dos meses 1-12 e o fato de
+     * encerramento cancelaria o saldo apurado no ano se entrasse na soma. O saldo
+     * acumulado ({@code saldoAteExercicio}, Balanço Financeiro/Patrimonial) não usa
+     * esse filtro pois deve refletir o efeito do encerramento na conta de PL.
+     */
+    private static String sqlBase(
+            String filtroAtual, String filtroAnterior, String filtroPeriodo, String filtroContas, String filtroEvento) {
         return """
                 with parametros as (
                   select ?::int as exercicio
@@ -142,6 +154,7 @@ public class PostgresDemonstracoesDcaspPort implements DemonstracoesDcaspPort {
                    and (%s)
                    and c.escrituravel = true
                    and (%s)
+                   and (%s)
                  group by c.codigo, c.descricao
                 having coalesce(sum(case when (%s) and l.natureza = c.natureza_saldo then l.valor when (%s) then -l.valor else 0 end), 0) <> 0
                     or coalesce(sum(case when (%s) and l.natureza = c.natureza_saldo then l.valor when (%s) then -l.valor else 0 end), 0) <> 0
@@ -160,6 +173,7 @@ public class PostgresDemonstracoesDcaspPort implements DemonstracoesDcaspPort {
                         filtroAnterior,
                         filtroPeriodo,
                         filtroContas,
+                        filtroEvento,
                         filtroAtual,
                         filtroAtual,
                         filtroAnterior,

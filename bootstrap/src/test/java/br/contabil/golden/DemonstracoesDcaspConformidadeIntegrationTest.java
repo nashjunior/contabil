@@ -98,6 +98,45 @@ class DemonstracoesDcaspConformidadeIntegrationTest {
         assertThat(outroEnteVistoDaSessaoA.dvp().linhas()).isEmpty();
     }
 
+    @Test
+    @DisplayName("RAZ-262: fato de ENCERRAMENTO no mês 13 não zera a DVP do exercício, mas reflete no PL do Balanço Patrimonial")
+    void encerramentoNaoZeraDvpMasAtualizaPatrimonioLiquido() throws SQLException {
+        String ente = criarEnte("55555555555503", "Ente DCASP Encerramento");
+
+        String vpdCodigo = "3.3.1.9001";
+        String vpaCodigo = "4.1.1.9001";
+        String plCodigo = "2.3.7.9001";
+
+        String caixaConta = criarConta(ente, "1.1.1.9001", "Caixa e equivalentes", "patrimonial", "D");
+        String fornecedoresConta = criarConta(ente, "2.1.3.9001", "Fornecedores a pagar", "patrimonial", "C");
+        String vpdConta = criarConta(ente, vpdCodigo, "VPD corrente", "patrimonial", "D");
+        String vpaConta = criarConta(ente, vpaCodigo, "VPA corrente", "patrimonial", "C");
+        String plConta = criarConta(ente, plCodigo, "Patrimônio líquido", "patrimonial", "C");
+
+        String periodoJan = criarPeriodo(ente, 2026, 1);
+        registrarFato(ente, periodoJan, "liquidacao", debito(vpdConta, "300.00"), credito(fornecedoresConta, "300.00"));
+        registrarFato(ente, periodoJan, "receita", debito(caixaConta, "200.00"), credito(vpaConta, "200.00"));
+
+        String periodoEncerramento = criarPeriodo(ente, 2026, 13);
+        registrarFato(ente, periodoEncerramento, "encerramento", credito(vpdConta, "300.00"), debito(plConta, "300.00"));
+        registrarFato(ente, periodoEncerramento, "encerramento", debito(vpaConta, "200.00"), credito(plConta, "200.00"));
+
+        DemonstracoesDcasp demonstracoes = consultarDcasp(ente, ente, 2026);
+
+        assertThat(linha(demonstracoes.dvp().linhas(), vpdCodigo).valores().get("exercicioAtual"))
+                .as("DVP mantém o VPD bruto apurado no ano — o fato de ENCERRAMENTO do mês 13 não entra na soma")
+                .isEqualTo(Dinheiro.de("300.00"));
+        assertThat(linha(demonstracoes.dvp().linhas(), vpaCodigo).valores().get("exercicioAtual"))
+                .as("DVP mantém o VPA bruto apurado no ano — o fato de ENCERRAMENTO do mês 13 não entra na soma")
+                .isEqualTo(Dinheiro.de("200.00"));
+
+        assertThat(linha(demonstracoes.balancoPatrimonial().linhas(), plCodigo)
+                        .valores()
+                        .get("exercicioAtual"))
+                .as("Balanço Patrimonial (saldo acumulado) reflete o efeito do encerramento no PL")
+                .isEqualTo(Dinheiro.de("-100.00"));
+    }
+
     private record DadosDcasp(
             String caixaCodigo,
             String fornecedoresCodigo,
