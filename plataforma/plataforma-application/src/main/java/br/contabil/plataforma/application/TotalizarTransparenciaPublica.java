@@ -8,7 +8,7 @@ import br.contabil.plataforma.domain.transparencia.TotalizacaoTransparenciaPubli
 import br.contabil.plataforma.domain.transparencia.TransparenciaPublicaQuery;
 
 /** Totalização pública da transparência ativa, usando os mesmos filtros do detalhe. */
-public final class TotalizarTransparenciaPublica {
+public class TotalizarTransparenciaPublica {
 
     private final TransparenciaPublicaQuery query;
 

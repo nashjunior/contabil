@@ -8,7 +8,7 @@ import br.contabil.plataforma.domain.transparencia.PaginaTransparenciaPublica;
 import br.contabil.plataforma.domain.transparencia.TransparenciaPublicaQuery;
 
 /** Consulta pública de detalhe da transparência ativa. */
-public final class ConsultarTransparenciaPublica {
+public class ConsultarTransparenciaPublica {
 
     private final TransparenciaPublicaQuery query;
 

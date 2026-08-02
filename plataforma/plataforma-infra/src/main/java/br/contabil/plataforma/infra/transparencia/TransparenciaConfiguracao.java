@@ -4,6 +4,7 @@ import java.time.Clock;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -29,6 +30,7 @@ public class TransparenciaConfiguracao {
     }
 
     @Bean
+    @Primary
     BrokerEntrega brokerEntregaTransparencia(
             JdbcTemplate jdbcTemplate, ObjectMapper objectMapper, Clock clock, MeterRegistry meterRegistry) {
         return new PostgresTransparenciaBrokerEntrega(jdbcTemplate, objectMapper, clock, meterRegistry);
