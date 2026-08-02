@@ -17,6 +17,7 @@ import br.contabil.plataforma.domain.TenantId;
 import br.contabil.razao.domain.ContaContabilId;
 import br.contabil.razao.domain.FatoContabil;
 import br.contabil.razao.domain.FatoContabilId;
+import br.contabil.razao.domain.FonteRecurso;
 import br.contabil.razao.domain.Lancamento;
 import br.contabil.razao.domain.LancamentoId;
 import br.contabil.razao.domain.Natureza;
@@ -48,8 +49,8 @@ public class PostgresFatoContabilRepository implements FatoContabilRepository {
 
     private static final String SQL_INSERT_LANCAMENTO =
             """
-            insert into lancamento (id, ente_id, fato_id, conta_id, natureza, valor)
-            values (?, ?, ?, ?, ?, ?)
+            insert into lancamento (id, ente_id, fato_id, conta_id, natureza, valor, fonte_recurso)
+            values (?, ?, ?, ?, ?, ?, ?)
             """;
 
     private static final String SQL_BUSCAR_FATO =
@@ -58,7 +59,8 @@ public class PostgresFatoContabilRepository implements FatoContabilRepository {
                     + "from fato_contabil where ente_id = ? and id = ?";
 
     private static final String SQL_BUSCAR_LANCAMENTOS =
-            "select id, conta_id, natureza, valor from lancamento where ente_id = ? and fato_id = ?";
+            "select id, conta_id, natureza, valor, fonte_recurso "
+                    + "from lancamento where ente_id = ? and fato_id = ?";
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -93,6 +95,7 @@ public class PostgresFatoContabilRepository implements FatoContabilRepository {
                     ps.setObject(4, lancamento.contaId().valor());
                     ps.setString(5, String.valueOf(lancamento.natureza().codigo()));
                     ps.setBigDecimal(6, lancamento.valor().valor());
+                    ps.setString(7, lancamento.fonteRecurso().map(FonteRecurso::codigo).orElse(null));
                 });
     }
 
@@ -136,11 +139,13 @@ public class PostgresFatoContabilRepository implements FatoContabilRepository {
     }
 
     private static Lancamento mapearLancamento(ResultSet rs) throws SQLException {
+        String fonteRecurso = rs.getString("fonte_recurso");
         return Lancamento.reconstituir(
                 new LancamentoId(rs.getObject("id", UUID.class)),
                 new ContaContabilId(rs.getObject("conta_id", UUID.class)),
                 Natureza.deCodigo(rs.getString("natureza").charAt(0)),
-                new Dinheiro(rs.getBigDecimal("valor")));
+                new Dinheiro(rs.getBigDecimal("valor")),
+                fonteRecurso == null ? null : FonteRecurso.de(fonteRecurso));
     }
 
     private static FatoContabilId fatoContabilId(UUID id) {

@@ -1,7 +1,9 @@
 package br.contabil;
 
 import java.time.Clock;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -12,6 +14,7 @@ import br.contabil.execucao.domain.repository.ExecucaoContabilPort;
 import br.contabil.plataforma.domain.TenantId;
 import br.contabil.razao.domain.ContaContabilId;
 import br.contabil.razao.domain.FatoContabil;
+import br.contabil.razao.domain.FonteRecurso;
 import br.contabil.razao.domain.Lancamento;
 import br.contabil.razao.domain.Natureza;
 import br.contabil.razao.domain.TipoEvento;
@@ -50,7 +53,20 @@ public class ExecucaoContabilPortAdapter implements ExecucaoContabilPort {
     private static final String CODIGO_FORNECEDORES_A_PAGAR = "2.1.3";
     private static final String CODIGO_CAIXA_E_BANCOS = "1.1.1";
 
+    // DDR — classes 7/8 PCASP (Controle/Execução da Disponibilidade por Destinação de Recursos, ADR-0054).
+    // [REVALIDAR] contra MCASP edição vigente antes de produção.
+    private static final String CODIGO_DDR_DISPONIVEL = "8.2.1.1.1";         // DDR a comprometer
+    private static final String CODIGO_DDR_COMPROMETIDA_EMPENHO = "8.2.1.1.2"; // DDR comprometida por empenho
+    private static final String CODIGO_DDR_EM_LIQUIDACAO = "8.2.2.1.2";       // DDR em liquidação
+    private static final String CODIGO_DDR_UTILIZADA = "8.2.3.1.1";           // DDR utilizada (paga)
+
     private static final String SQL_RESOLVER_CONTA = "select id from conta_pcasp where ente_id = ? and codigo = ?";
+    private static final String SQL_FONTE_RECURSO_EMPENHO =
+            "select fonte_recurso from empenho where ente_id = ? and id = ?";
+    private static final String SQL_FONTE_RECURSO_VIA_LIQUIDACAO =
+            "select e.fonte_recurso from empenho e"
+                    + " join liquidacao l on l.ente_id = e.ente_id and l.empenho_id = e.id"
+                    + " where l.ente_id = ? and l.id = ?";
 
     private final JdbcTemplate jdbcTemplate;
     private final PeriodoContabilPort periodoContabil;
@@ -76,9 +92,20 @@ public class ExecucaoContabilPortAdapter implements ExecucaoContabilPort {
         ContaContabilId contaCreditoDisponivel = resolverConta(solicitacao.enteId(), CODIGO_CREDITO_DISPONIVEL);
         ContaContabilId contaEmpenhadoALiquidar = resolverConta(solicitacao.enteId(), CODIGO_CREDITO_EMPENHADO_A_LIQUIDAR);
 
-        List<Lancamento> lancamentos = List.of(
+        List<Lancamento> lancamentos = new ArrayList<>(List.of(
                 Lancamento.de(contaEmpenhadoALiquidar, Natureza.DEBITO, solicitacao.valor()),
-                Lancamento.de(contaCreditoDisponivel, Natureza.CREDITO, solicitacao.valor()));
+                Lancamento.de(contaCreditoDisponivel, Natureza.CREDITO, solicitacao.valor())));
+
+        // DDR (ADR-0054): só quando FR presente e contas de controle classes 7/8 provisionadas
+        if (solicitacao.fonteRecurso() != null) {
+            FonteRecurso fr = FonteRecurso.de(solicitacao.fonteRecurso());
+            resolverContaOpcional(solicitacao.enteId(), CODIGO_DDR_DISPONIVEL).ifPresent(ddrDisponivel ->
+                resolverContaOpcional(solicitacao.enteId(), CODIGO_DDR_COMPROMETIDA_EMPENHO)
+                    .ifPresent(ddrComprometida -> {
+                        lancamentos.add(Lancamento.de(ddrComprometida, Natureza.DEBITO, solicitacao.valor(), fr));
+                        lancamentos.add(Lancamento.de(ddrDisponivel, Natureza.CREDITO, solicitacao.valor(), fr));
+                    }));
+        }
 
         var periodoId = periodoContabil.periodoAbertoPara(solicitacao.enteId(), solicitacao.dataFato());
         long numeroSeq = contadorFato.proximoNumeroSeq(solicitacao.enteId());
@@ -113,11 +140,19 @@ public class ExecucaoContabilPortAdapter implements ExecucaoContabilPort {
         ContaContabilId contaEmpenhadoLiquidadoAPagar =
                 resolverConta(solicitacao.enteId(), CODIGO_EMPENHADO_LIQUIDADO_A_PAGAR);
 
-        List<Lancamento> lancamentos = List.of(
+        List<Lancamento> lancamentos = new ArrayList<>(List.of(
                 Lancamento.de(contaVpd, Natureza.DEBITO, solicitacao.valor()),
                 Lancamento.de(contaFornecedoresAPagar, Natureza.CREDITO, solicitacao.valor()),
                 Lancamento.de(contaEmpenhadoLiquidadoAPagar, Natureza.DEBITO, solicitacao.valor()),
-                Lancamento.de(contaEmpenhadoALiquidar, Natureza.CREDITO, solicitacao.valor()));
+                Lancamento.de(contaEmpenhadoALiquidar, Natureza.CREDITO, solicitacao.valor())));
+
+        // DDR: baixa a comprometida por empenho, registra em liquidação
+        fonteRecursoDoEmpenho(solicitacao.enteId(), solicitacao.empenhoId().valor()).ifPresent(fr ->
+            resolverContaOpcional(solicitacao.enteId(), CODIGO_DDR_COMPROMETIDA_EMPENHO).ifPresent(ddrComprometida ->
+                resolverContaOpcional(solicitacao.enteId(), CODIGO_DDR_EM_LIQUIDACAO).ifPresent(ddrEmLiquidacao -> {
+                    lancamentos.add(Lancamento.de(ddrEmLiquidacao, Natureza.DEBITO, solicitacao.valor(), fr));
+                    lancamentos.add(Lancamento.de(ddrComprometida, Natureza.CREDITO, solicitacao.valor(), fr));
+                })));
 
         var periodoId = periodoContabil.periodoAbertoPara(solicitacao.enteId(), solicitacao.dataCompetencia());
         long numeroSeq = contadorFato.proximoNumeroSeq(solicitacao.enteId());
@@ -150,11 +185,19 @@ public class ExecucaoContabilPortAdapter implements ExecucaoContabilPort {
                 resolverConta(solicitacao.enteId(), CODIGO_EMPENHADO_LIQUIDADO_A_PAGAR);
         ContaContabilId contaEmpenhadoPago = resolverConta(solicitacao.enteId(), CODIGO_EMPENHADO_PAGO);
 
-        List<Lancamento> lancamentos = List.of(
+        List<Lancamento> lancamentos = new ArrayList<>(List.of(
                 Lancamento.de(contaFornecedoresAPagar, Natureza.DEBITO, solicitacao.valor()),
                 Lancamento.de(contaCaixaEBancos, Natureza.CREDITO, solicitacao.valor()),
                 Lancamento.de(contaEmpenhadoPago, Natureza.DEBITO, solicitacao.valor()),
-                Lancamento.de(contaEmpenhadoLiquidadoAPagar, Natureza.CREDITO, solicitacao.valor()));
+                Lancamento.de(contaEmpenhadoLiquidadoAPagar, Natureza.CREDITO, solicitacao.valor())));
+
+        // DDR: baixa "em liquidação", registra como utilizada/paga
+        fonteRecursoViaLiquidacao(solicitacao.enteId(), solicitacao.liquidacaoId().valor()).ifPresent(fr ->
+            resolverContaOpcional(solicitacao.enteId(), CODIGO_DDR_EM_LIQUIDACAO).ifPresent(ddrEmLiquidacao ->
+                resolverContaOpcional(solicitacao.enteId(), CODIGO_DDR_UTILIZADA).ifPresent(ddrUtilizada -> {
+                    lancamentos.add(Lancamento.de(ddrUtilizada, Natureza.DEBITO, solicitacao.valor(), fr));
+                    lancamentos.add(Lancamento.de(ddrEmLiquidacao, Natureza.CREDITO, solicitacao.valor(), fr));
+                })));
 
         var periodoId = periodoContabil.periodoAbertoPara(solicitacao.enteId(), solicitacao.dataCompetencia());
         long numeroSeq = contadorFato.proximoNumeroSeq(solicitacao.enteId());
@@ -181,5 +224,30 @@ public class ExecucaoContabilPortAdapter implements ExecucaoContabilPort {
             throw new ContaPcaspNaoEncontradaException(enteId, codigoPcasp);
         }
         return new ContaContabilId(ids.get(0));
+    }
+
+    // Retorna vazio se a conta DDR não estiver provisionada — ente sem vinculação pula DDR sem erro.
+    private Optional<ContaContabilId> resolverContaOpcional(TenantId enteId, String codigoPcasp) {
+        List<UUID> ids = jdbcTemplate.query(
+                SQL_RESOLVER_CONTA, (rs, rowNum) -> rs.getObject("id", UUID.class), enteId.valor(), codigoPcasp);
+        return ids.isEmpty() ? Optional.empty() : Optional.of(new ContaContabilId(ids.get(0)));
+    }
+
+    private Optional<FonteRecurso> fonteRecursoDoEmpenho(TenantId enteId, UUID empenhoId) {
+        List<String> fontes = jdbcTemplate.query(
+                SQL_FONTE_RECURSO_EMPENHO, (rs, rowNum) -> rs.getString("fonte_recurso"),
+                enteId.valor(), empenhoId);
+        return fontes.isEmpty() || fontes.get(0) == null
+                ? Optional.empty()
+                : Optional.of(FonteRecurso.de(fontes.get(0)));
+    }
+
+    private Optional<FonteRecurso> fonteRecursoViaLiquidacao(TenantId enteId, UUID liquidacaoId) {
+        List<String> fontes = jdbcTemplate.query(
+                SQL_FONTE_RECURSO_VIA_LIQUIDACAO, (rs, rowNum) -> rs.getString("fonte_recurso"),
+                enteId.valor(), liquidacaoId);
+        return fontes.isEmpty() || fontes.get(0) == null
+                ? Optional.empty()
+                : Optional.of(FonteRecurso.de(fontes.get(0)));
     }
 }

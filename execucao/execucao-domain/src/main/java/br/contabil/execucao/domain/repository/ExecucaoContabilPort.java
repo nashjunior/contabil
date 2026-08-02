@@ -38,7 +38,8 @@ public interface ExecucaoContabilPort {
     ReferenciaFatoContabil registrarPagamento(SolicitacaoEscrituracaoPagamento solicitacao);
 
     record SolicitacaoEscrituracaoEmpenho(
-            TenantId enteId, EmpenhoId empenhoId, LocalDate dataFato, Dinheiro valor, String historico) {
+            TenantId enteId, EmpenhoId empenhoId, LocalDate dataFato, Dinheiro valor, String historico,
+            String fonteRecurso) {
 
         public SolicitacaoEscrituracaoEmpenho {
             Validacoes.exigirNaoNulo(enteId, "enteId");
@@ -46,6 +47,7 @@ public interface ExecucaoContabilPort {
             Validacoes.exigirNaoNulo(dataFato, "dataFato");
             Validacoes.exigirNaoNulo(valor, "valor");
             Validacoes.exigirNaoNulo(historico, "histórico");
+            // fonteRecurso nullable: null = ente sem vinculação (sem DDR)
         }
     }
 

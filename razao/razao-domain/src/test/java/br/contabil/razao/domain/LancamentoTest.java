@@ -23,10 +23,11 @@ class LancamentoTest {
     }
 
     @Test
-    @DisplayName("inversão troca a natureza (D<->C) mantendo conta e valor")
+    @DisplayName("inversão troca a natureza (D<->C) mantendo conta, valor e fonte de recursos")
     void inversaoTrocaNatureza() {
         ContaContabilId contaId = ContaContabilId.novo();
-        Lancamento debito = Lancamento.de(contaId, Natureza.DEBITO, Dinheiro.de("100.00"));
+        Lancamento debito =
+                Lancamento.de(contaId, Natureza.DEBITO, Dinheiro.de("100.00"), FonteRecurso.de("1500"));
 
         Lancamento invertido = debito.inverter();
 
@@ -34,5 +35,22 @@ class LancamentoTest {
         assertThat(invertido.contaId()).isEqualTo(contaId);
         assertThat(invertido.valor()).isEqualTo(debito.valor());
         assertThat(invertido.id()).isNotEqualTo(debito.id());
+        assertThat(invertido.fonteRecurso()).contains(FonteRecurso.de("1500"));
+    }
+
+    @Test
+    @DisplayName("fonte de recursos é opcional: ausente pela fábrica de 3 argumentos, presente pela de 4")
+    void fonteDeRecursosOpcional() {
+        ContaContabilId contaId = ContaContabilId.novo();
+
+        Lancamento semFonte = Lancamento.de(contaId, Natureza.DEBITO, Dinheiro.de("50.00"));
+        assertThat(semFonte.fonteRecurso()).isEmpty();
+
+        Lancamento comFonte =
+                Lancamento.de(contaId, Natureza.CREDITO, Dinheiro.de("50.00"), FonteRecurso.de("1500"));
+        assertThat(comFonte.fonteRecurso()).contains(FonteRecurso.de("1500"));
+
+        Lancamento fonteNula = Lancamento.de(contaId, Natureza.CREDITO, Dinheiro.de("50.00"), null);
+        assertThat(fonteNula.fonteRecurso()).isEmpty();
     }
 }

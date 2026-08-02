@@ -95,7 +95,7 @@ public class RegistrarEmpenho {
 
         EmpenhoId empenhoId = EmpenhoId.novo();
         ReferenciaFatoContabil fatoContabilId = escrituracao.registrarEmpenho(
-                new SolicitacaoEscrituracaoEmpenho(enteId, empenhoId, dataFato, valor, historico));
+                new SolicitacaoEscrituracaoEmpenho(enteId, empenhoId, dataFato, valor, historico, fonteRecurso));
         long numeroSequencial = contadorEmpenho.proximoNumero(enteId, exercicio);
 
         Empenho empenho = Empenho.registrar(
