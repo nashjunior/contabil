@@ -1,6 +1,9 @@
 package br.contabil.razao.application;
 
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -11,6 +14,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -19,6 +25,8 @@ import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import br.contabil.plataforma.domain.TenantId;
+import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
+import br.contabil.plataforma.domain.auditoria.EventoAuditoria;
 import br.contabil.plataforma.domain.iam.ControleAcesso;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Acao;
@@ -27,7 +35,6 @@ import br.contabil.plataforma.domain.iam.ServicoIdentidade.MfaRequeridoException
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.SemPermissaoException;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
 import br.contabil.razao.domain.EncerramentoConflitanteException;
-import br.contabil.razao.domain.EncerramentoExercicioPendenteRestosAPagarException;
 import br.contabil.razao.domain.PeriodoContabil;
 import br.contabil.razao.domain.PeriodoContabilId;
 import br.contabil.razao.domain.PeriodoContabilNaoEncontradoException;
@@ -47,9 +54,16 @@ class EncerrarExercicioTest {
     @Mock
     private PeriodoContabilRepository periodoRepositorio;
 
+    @Mock
+    private InscreverRestosAPagar inscreverRP;
+
+    @Mock
+    private AuditoriaEscrita auditoria;
+
     private EncerrarExercicio useCase;
 
     private final TenantId enteId = TenantId.de(UUID.randomUUID().toString());
+    private final Clock relogio = Clock.fixed(Instant.parse("2026-12-31T23:00:00Z"), ZoneOffset.UTC);
 
     private Sessao sessaoComMfa() {
         return new Sessao(
@@ -63,26 +77,39 @@ class EncerrarExercicioTest {
 
     @BeforeEach
     void setUp() {
-        useCase = new EncerrarExercicio(new ControleAcesso(servicoIdentidade), periodoRepositorio);
+        useCase = new EncerrarExercicio(
+                new ControleAcesso(servicoIdentidade),
+                periodoRepositorio,
+                inscreverRP,
+                List.of(),
+                auditoria,
+                relogio);
     }
 
     @Test
-    @DisplayName("mês 13 aberto fica bloqueado por Restos a Pagar antes de qualquer escrita")
-    void bloqueiaAteContratoRestosAPagar() {
+    @DisplayName("mês 13 aberto: inscreve RP, encerra o período e audita o exercício")
+    void encerraMes13ComSucesso() {
         Sessao sessao = sessaoComMfa();
         when(servicoIdentidade.autorizar(sessao, RECURSO_PERIODO, Acao.ENCERRAR)).thenReturn(true);
 
         PeriodoContabil periodoExercicio = PeriodoContabil.reidratar(
                 PeriodoContabilId.novo(), enteId, 2026, 13, StatusPeriodo.ABERTO, Optional.empty());
         when(periodoRepositorio.buscarPorCompetencia(enteId, 2026, 13)).thenReturn(Optional.of(periodoExercicio));
+        when(periodoRepositorio.encerrar(any())).thenReturn(true);
 
-        assertThatThrownBy(() -> useCase.executar(sessao, enteId, 2026))
-                .isInstanceOf(EncerramentoExercicioPendenteRestosAPagarException.class)
-                .satisfies(erro -> assertThat(((EncerramentoExercicioPendenteRestosAPagarException) erro).codigo())
-                        .isEqualTo("encerramento_exercicio_pendente_restos_a_pagar"));
+        PeriodoContabil resultado = useCase.executar(sessao, enteId, 2026);
 
-        verify(periodoRepositorio).buscarPorCompetencia(enteId, 2026, 13);
-        verify(periodoRepositorio, never()).encerrar(any());
+        assertThat(resultado.status()).isEqualTo(StatusPeriodo.ENCERRADO);
+        assertThat(resultado.exercicio()).isEqualTo(2026);
+        assertThat(resultado.mes()).isEqualTo(13);
+
+        verify(inscreverRP).executar(eq(sessao), eq(enteId), eq(2026), eq(periodoExercicio.id()), any(), eq(List.of()));
+        verify(periodoRepositorio).encerrar(any());
+
+        ArgumentCaptor<EventoAuditoria> evento = ArgumentCaptor.forClass(EventoAuditoria.class);
+        verify(auditoria).append(evento.capture());
+        assertThat(evento.getValue().tipo()).isEqualTo("razao_exercicio_encerrado");
+        assertThat(evento.getValue().detalhes()).containsEntry("exercicio", "2026");
     }
 
     @Test
@@ -95,6 +122,7 @@ class EncerrarExercicioTest {
         assertThatThrownBy(() -> useCase.executar(sessao, enteId, 2026))
                 .isInstanceOf(PeriodoContabilNaoEncontradoException.class);
 
+        verify(inscreverRP, never()).executar(any(), any(), anyInt(), any(), any(), any());
         verify(periodoRepositorio, never()).encerrar(any());
     }
 
@@ -116,7 +144,23 @@ class EncerrarExercicioTest {
         assertThatThrownBy(() -> useCase.executar(sessao, enteId, 2026))
                 .isInstanceOf(EncerramentoConflitanteException.class);
 
+        verify(inscreverRP, never()).executar(any(), any(), anyInt(), any(), any(), any());
         verify(periodoRepositorio, never()).encerrar(any());
+    }
+
+    @Test
+    @DisplayName("corrida: encerrar() retorna false levanta EncerramentoConflitanteException")
+    void rejeitaCorrida() {
+        Sessao sessao = sessaoComMfa();
+        when(servicoIdentidade.autorizar(sessao, RECURSO_PERIODO, Acao.ENCERRAR)).thenReturn(true);
+
+        PeriodoContabil periodo = PeriodoContabil.reidratar(
+                PeriodoContabilId.novo(), enteId, 2026, 13, StatusPeriodo.ABERTO, Optional.empty());
+        when(periodoRepositorio.buscarPorCompetencia(enteId, 2026, 13)).thenReturn(Optional.of(periodo));
+        when(periodoRepositorio.encerrar(any())).thenReturn(false);
+
+        assertThatThrownBy(() -> useCase.executar(sessao, enteId, 2026))
+                .isInstanceOf(EncerramentoConflitanteException.class);
     }
 
     @Test
@@ -127,7 +171,7 @@ class EncerrarExercicioTest {
 
         assertThatThrownBy(() -> useCase.executar(sessao, enteId, 2026)).isInstanceOf(SemPermissaoException.class);
 
-        verifyNoInteractions(periodoRepositorio);
+        verifyNoInteractions(periodoRepositorio, inscreverRP, auditoria);
     }
 
     @Test
@@ -138,7 +182,7 @@ class EncerrarExercicioTest {
 
         assertThatThrownBy(() -> useCase.executar(sessao, enteId, 2026)).isInstanceOf(MfaRequeridoException.class);
 
-        verifyNoInteractions(periodoRepositorio);
+        verifyNoInteractions(periodoRepositorio, inscreverRP, auditoria);
     }
 
     @Test
@@ -156,7 +200,7 @@ class EncerrarExercicioTest {
                 .isInstanceOf(SemPermissaoException.class);
 
         verify(servicoIdentidade, never()).autorizar(any(), any(), any());
-        verifyNoInteractions(periodoRepositorio);
+        verifyNoInteractions(periodoRepositorio, inscreverRP, auditoria);
     }
 
     @Test
@@ -164,5 +208,14 @@ class EncerrarExercicioTest {
     void tipoEventoEncerramentoTemCodigoEstavel() {
         assertThat(TipoEvento.ENCERRAMENTO.codigo()).isEqualTo("encerramento");
         assertThat(TipoEvento.deCodigo("encerramento")).isEqualTo(TipoEvento.ENCERRAMENTO);
+    }
+
+    @Test
+    @DisplayName("RAZ-207: tipos de evento de RP têm códigos estáveis no enum")
+    void tiposEventoRpTemCodigosEstaveis() {
+        assertThat(TipoEvento.INSCRICAO_RESTOS_A_PAGAR.codigo()).isEqualTo("inscricao_restos_a_pagar");
+        assertThat(TipoEvento.CANCELAMENTO_RESTOS_A_PAGAR.codigo()).isEqualTo("cancelamento_restos_a_pagar");
+        assertThat(TipoEvento.deCodigo("inscricao_restos_a_pagar")).isEqualTo(TipoEvento.INSCRICAO_RESTOS_A_PAGAR);
+        assertThat(TipoEvento.deCodigo("cancelamento_restos_a_pagar")).isEqualTo(TipoEvento.CANCELAMENTO_RESTOS_A_PAGAR);
     }
 }

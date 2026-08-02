@@ -139,6 +139,40 @@ public final class FatoContabil {
                 invertidos);
     }
 
+    /**
+     * Cancelamento de RP (RAZ-207): novo fato com lançamentos invertidos (D↔C) vinculado ao
+     * fato de inscrição original. Diferente de {@link #estornar}, usa
+     * {@link TipoEvento#CANCELAMENTO_RESTOS_A_PAGAR} para distinguir o evento no razão.
+     *
+     * @param inscricao fato de {@link TipoEvento#INSCRICAO_RESTOS_A_PAGAR} a cancelar
+     */
+    public static FatoContabil cancelarRestosAPagar(
+            FatoContabil inscricao,
+            long numeroSeq,
+            LocalDate dataCompetencia,
+            PeriodoContabilId periodoId,
+            String historico,
+            String origem,
+            Clock clock) {
+        Objects.requireNonNull(inscricao, "fato de inscrição não pode ser nulo");
+        if (inscricao.tipoEvento != TipoEvento.INSCRICAO_RESTOS_A_PAGAR) {
+            throw new CancelamentoRestosAPagarInvalidoException(inscricao.id, inscricao.tipoEvento);
+        }
+        List<Lancamento> invertidos = inscricao.lancamentos.stream().map(Lancamento::inverter).toList();
+        return criar(
+                FatoContabilId.novo(),
+                inscricao.enteId,
+                numeroSeq,
+                dataCompetencia,
+                LocalDateTime.now(clock),
+                periodoId,
+                TipoEvento.CANCELAMENTO_RESTOS_A_PAGAR,
+                historico,
+                origem,
+                inscricao.id,
+                invertidos);
+    }
+
     /** Reconstitui um fato já consolidado, lido do repositório — sem revalidar Σ=Σ. */
     public static FatoContabil reconstituir(
             FatoContabilId id,
