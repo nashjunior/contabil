@@ -20,6 +20,7 @@ import br.contabil.razao.application.EncerrarPeriodo;
 import br.contabil.razao.application.EstornarFatoContabil;
 import br.contabil.razao.application.GerarBalancete;
 import br.contabil.razao.application.GerarDemonstracoesDcasp;
+import br.contabil.razao.application.GerarMatrizSaldosContabeis;
 import br.contabil.razao.application.InscreverRestosAPagar;
 import br.contabil.razao.application.ParametrosEncerramentoDdr;
 import br.contabil.razao.application.ParametrosEncerramentoOrcamentario;
@@ -36,6 +37,7 @@ import br.contabil.razao.domain.repository.ContadorFatoPort;
 import br.contabil.razao.domain.repository.DemonstracoesDcaspPort;
 import br.contabil.razao.domain.repository.DisponibilidadePorFontePort;
 import br.contabil.razao.domain.repository.FatoContabilRepository;
+import br.contabil.razao.domain.repository.MatrizSaldosContabeisPort;
 import br.contabil.razao.domain.repository.PeriodoContabilPort;
 import br.contabil.razao.domain.repository.PeriodoContabilRepository;
 
@@ -107,6 +109,17 @@ public class RazaoConfiguracao {
     public GerarDemonstracoesDcasp gerarDemonstracoesDcasp(
             ControleAcesso controleAcesso, DemonstracoesDcaspPort demonstracoes) {
         return new GerarDemonstracoesDcasp(controleAcesso, demonstracoes);
+    }
+
+    /**
+     * RAZ-269: MSC (Matriz de Saldos Contábeis) — o balancete estendido pela dimensão das
+     * informações complementares (IC), fase 4 do faseamento do ADR-0057. FP/DC não
+     * aparecem na projeção (gap explícito, ver javadoc de {@link MatrizSaldosContabeisPort}).
+     */
+    @Bean
+    public GerarMatrizSaldosContabeis gerarMatrizSaldosContabeis(
+            ControleAcesso controleAcesso, MatrizSaldosContabeisPort matriz) {
+        return new GerarMatrizSaldosContabeis(controleAcesso, matriz);
     }
 
     /** RAZ-206: encerramento de período comum (mês 1-12) — ADR-0045/ADR-0046. */
