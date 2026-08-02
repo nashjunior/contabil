@@ -50,7 +50,37 @@ class LancamentoTest {
                 Lancamento.de(contaId, Natureza.CREDITO, Dinheiro.de("50.00"), FonteRecurso.de("1500"));
         assertThat(comFonte.fonteRecurso()).contains(FonteRecurso.de("1500"));
 
-        Lancamento fonteNula = Lancamento.de(contaId, Natureza.CREDITO, Dinheiro.de("50.00"), null);
+        Lancamento fonteNula = Lancamento.de(contaId, Natureza.CREDITO, Dinheiro.de("50.00"), (FonteRecurso) null);
         assertThat(fonteNula.fonteRecurso()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("carrega as IC de partida (FR/CO/NR/ND/FS/AI) e as preserva na inversão")
+    void carregaInformacoesComplementaresEPreservaNaInversao() {
+        ContaContabilId contaId = ContaContabilId.novo();
+        InformacoesComplementares ic = InformacoesComplementares.de(
+                FonteRecurso.de("1500"),
+                ExecucaoOrcamentaria.de("2"),
+                NaturezaReceita.de("11130111"),
+                NaturezaDespesa.de("33903000"),
+                FuncaoSubfuncao.de("04122"),
+                AnoInscricaoRp.de(2025));
+
+        Lancamento debito = Lancamento.de(contaId, Natureza.DEBITO, Dinheiro.de("100.00"), ic);
+
+        assertThat(debito.informacoesComplementares()).isEqualTo(ic);
+        assertThat(debito.fonteRecurso()).contains(FonteRecurso.de("1500"));
+
+        Lancamento invertido = debito.inverter();
+        assertThat(invertido.natureza()).isEqualTo(Natureza.CREDITO);
+        assertThat(invertido.informacoesComplementares()).isEqualTo(ic);
+    }
+
+    @Test
+    @DisplayName("sem IC, o lançamento carrega o VO 'nenhuma' (nunca nulo)")
+    void semIcCarregaNenhuma() {
+        Lancamento semIc = Lancamento.de(ContaContabilId.novo(), Natureza.DEBITO, Dinheiro.de("10.00"));
+        assertThat(semIc.informacoesComplementares()).isEqualTo(InformacoesComplementares.nenhuma());
+        assertThat(semIc.informacoesComplementares().vazia()).isTrue();
     }
 }

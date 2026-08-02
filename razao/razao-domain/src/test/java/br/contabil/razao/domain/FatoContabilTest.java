@@ -121,4 +121,30 @@ class FatoContabilTest {
         // o próprio estorno também fecha Σ=Σ (é só mais um fato).
         FatoContabil.validarPartidasDobradas(estorno.lancamentos());
     }
+
+    @Test
+    @DisplayName("PO (Poder/Órgão) é fato-wide, opcional, e o estorno o preserva")
+    void poderOrgaoFatoWideEPreservadoNoEstorno() {
+        FatoContabil semPo = FatoContabil.registrar(
+                enteId, 1L, LocalDate.of(2026, Month.JULY, 1), periodoId, TipoEvento.RECEITA,
+                "historico", "origem", lancamentosBalanceados(), relogioFixo);
+        assertThat(semPo.poderOrgao()).isEmpty();
+
+        FatoContabil comPo = FatoContabil.registrar(
+                enteId,
+                2L,
+                LocalDate.of(2026, Month.JULY, 1),
+                periodoId,
+                TipoEvento.RECEITA,
+                "historico",
+                "origem",
+                PoderOrgao.de("01101"),
+                lancamentosBalanceados(),
+                relogioFixo);
+        assertThat(comPo.poderOrgao()).contains(PoderOrgao.de("01101"));
+
+        FatoContabil estorno = FatoContabil.estornar(
+                comPo, 3L, LocalDate.of(2026, Month.JULY, 2), periodoId, "correção", "origem", relogioFixo);
+        assertThat(estorno.poderOrgao()).contains(PoderOrgao.de("01101"));
+    }
 }

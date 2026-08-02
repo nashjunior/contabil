@@ -23,8 +23,10 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -36,14 +38,23 @@ import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
 import br.contabil.razao.application.EstornarFatoContabil;
 import br.contabil.razao.application.RegistrarFatoContabil;
+import br.contabil.razao.domain.AnoInscricaoRp;
 import br.contabil.razao.domain.ContaContabilId;
+import br.contabil.razao.domain.ExecucaoOrcamentaria;
 import br.contabil.razao.domain.FatoContabil;
+import br.contabil.razao.domain.FonteRecurso;
+import br.contabil.razao.domain.FuncaoSubfuncao;
+import br.contabil.razao.domain.InformacoesComplementares;
 import br.contabil.razao.domain.Lancamento;
 import br.contabil.razao.domain.Natureza;
+import br.contabil.razao.domain.NaturezaDespesa;
+import br.contabil.razao.domain.NaturezaReceita;
 import br.contabil.razao.domain.PartidasNaoBalanceadasException;
 import br.contabil.razao.domain.PeriodoContabilId;
 import br.contabil.razao.domain.PeriodoEncerradoException;
+import br.contabil.razao.domain.PoderOrgao;
 import br.contabil.razao.domain.TipoEvento;
+import br.contabil.razao.domain.repository.FatoContabilRepository;
 
 /**
  * RAZ-27: fecha o gap registrado no Javadoc de {@code GoldSetConformidadeContabilTest}
@@ -115,6 +126,15 @@ class RegistrarEstornarFatoContabilIntegrationTest {
 
     @Autowired
     private EstornarFatoContabil estornarFatoContabil;
+
+    @Autowired
+    private FatoContabilRepository fatoContabilRepositorio;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private TransactionTemplate transactionTemplate;
 
     @BeforeAll
     static void migraCriaLoginDeMenorPrivilegioESemeiaPeriodos() throws SQLException {
@@ -232,6 +252,47 @@ class RegistrarEstornarFatoContabilIntegrationTest {
                 .isEqualTo(new PeriodoContabilId(UUID.fromString(PERIODO_FEVEREIRO)));
     }
 
+    @Test
+    void persisteEReconstituiInformacoesComplementaresDaMscNoRazao() throws SQLException {
+        TenantId enteId = TenantId.de(ENTE);
+        UUID contaDebito = criarConta("RAZ267-1");
+        UUID contaCredito = criarConta("RAZ267-2");
+        InformacoesComplementares ic = InformacoesComplementares.de(
+                FonteRecurso.de("1500"),
+                ExecucaoOrcamentaria.de("2"),
+                NaturezaReceita.de("11130111"),
+                NaturezaDespesa.de("33903000"),
+                FuncaoSubfuncao.de("04122"),
+                AnoInscricaoRp.de(2025));
+        PoderOrgao poderOrgao = PoderOrgao.de("01101");
+
+        FatoContabil fato = registrarFatoContabil.executar(
+                sessaoAutenticada(enteId),
+                enteId,
+                LocalDate.of(2026, 1, 25),
+                TipoEvento.RECEITA,
+                "receita com IC MSC persistida (RAZ-267)",
+                "test",
+                poderOrgao,
+                List.of(
+                        Lancamento.de(new ContaContabilId(contaDebito), Natureza.DEBITO, Dinheiro.de("80.00"), ic),
+                        Lancamento.de(new ContaContabilId(contaCredito), Natureza.CREDITO, Dinheiro.de("80.00"))));
+
+        FatoContabil reconstituido = buscarFatoPeloRepositorioSobRls(enteId, fato);
+        Lancamento debito = reconstituido.lancamentos().stream()
+                .filter(lancamento -> lancamento.contaId().valor().equals(contaDebito))
+                .findFirst()
+                .orElseThrow();
+        Lancamento credito = reconstituido.lancamentos().stream()
+                .filter(lancamento -> lancamento.contaId().valor().equals(contaCredito))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(reconstituido.poderOrgao()).contains(poderOrgao);
+        assertThat(debito.informacoesComplementares()).isEqualTo(ic);
+        assertThat(credito.informacoesComplementares()).isEqualTo(InformacoesComplementares.nenhuma());
+    }
+
     // ------------------------------------------------------------------
     // 3. Falhas de dominio propagam como excecao de dominio, nunca
     //    SQLException cru, quando vem do caminho real da aplicacao.
@@ -316,6 +377,14 @@ class RegistrarEstornarFatoContabilIntegrationTest {
                 conn.rollback();
             }
         }
+    }
+
+    private FatoContabil buscarFatoPeloRepositorioSobRls(TenantId enteId, FatoContabil fato) {
+        return transactionTemplate.execute(status -> {
+            jdbcTemplate.queryForObject(
+                    "select set_config('app.ente_id', ?, true)", String.class, enteId.valor().toString());
+            return fatoContabilRepositorio.buscarPorId(enteId, fato.id()).orElseThrow();
+        });
     }
 
     private static Connection adminConnection() throws SQLException {

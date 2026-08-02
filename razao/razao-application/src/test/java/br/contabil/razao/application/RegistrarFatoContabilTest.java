@@ -14,8 +14,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import static org.mockito.ArgumentMatchers.any;
 import org.mockito.ArgumentCaptor;
+import static org.mockito.ArgumentMatchers.any;
 import org.mockito.Mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -41,6 +41,7 @@ import br.contabil.razao.domain.Natureza;
 import br.contabil.razao.domain.PartidasNaoBalanceadasException;
 import br.contabil.razao.domain.PeriodoContabilId;
 import br.contabil.razao.domain.PeriodoEncerradoException;
+import br.contabil.razao.domain.PoderOrgao;
 import br.contabil.razao.domain.TipoEvento;
 import br.contabil.razao.domain.repository.ContadorFatoPort;
 import br.contabil.razao.domain.repository.FatoContabilRepository;
@@ -115,6 +116,29 @@ class RegistrarFatoContabilTest {
                 .containsEntry("tipoEvento", "RECEITA")
                 .containsEntry("origem", "origem")
                 .containsEntry("dataCompetencia", "2026-07-01");
+    }
+
+    @Test
+    @DisplayName("aceita PO fato-wide no registro e preserva no fato persistido")
+    void registraComPoderOrgao() {
+        Sessao sessao = sessao(true);
+        PoderOrgao poderOrgao = PoderOrgao.de("01101");
+        when(servicoIdentidade.autorizar(sessao, RECURSO, Acao.CRIAR)).thenReturn(true);
+        when(periodoContabil.periodoAbertoPara(enteId, dataCompetencia)).thenReturn(periodoId);
+        when(contadorFato.proximoNumeroSeq(enteId)).thenReturn(43L);
+
+        FatoContabil fato = useCase.executar(
+                sessao,
+                enteId,
+                dataCompetencia,
+                TipoEvento.RECEITA,
+                "historico",
+                "origem",
+                poderOrgao,
+                lancamentosBalanceados());
+
+        assertThat(fato.poderOrgao()).contains(poderOrgao);
+        verify(repositorio).inserir(fato);
     }
 
     @Test

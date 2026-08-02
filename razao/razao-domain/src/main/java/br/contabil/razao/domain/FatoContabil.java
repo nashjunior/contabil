@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
@@ -27,6 +28,7 @@ public final class FatoContabil {
     private final TipoEvento tipoEvento;
     private final String historico;
     private final String origem;
+    private final PoderOrgao poderOrgao;
     private final FatoContabilId fatoEstornadoId;
     private final List<Lancamento> lancamentos;
 
@@ -40,6 +42,7 @@ public final class FatoContabil {
             TipoEvento tipoEvento,
             String historico,
             String origem,
+            PoderOrgao poderOrgao,
             FatoContabilId fatoEstornadoId,
             List<Lancamento> lancamentos) {
         this.id = id;
@@ -51,6 +54,7 @@ public final class FatoContabil {
         this.tipoEvento = tipoEvento;
         this.historico = historico;
         this.origem = origem;
+        this.poderOrgao = poderOrgao;
         this.fatoEstornadoId = fatoEstornadoId;
         this.lancamentos = lancamentos;
     }
@@ -95,6 +99,26 @@ public final class FatoContabil {
             String origem,
             List<Lancamento> lancamentos,
             Clock clock) {
+        return registrar(
+                enteId, numeroSeq, dataCompetencia, periodoId, tipoEvento, historico, origem, null, lancamentos, clock);
+    }
+
+    /**
+     * Variante que carrega a IC {@code PO} (Poder/Órgão, unidade emitente) do evento
+     * — fato-wide (ADR-0050/ADR-0057). {@code poderOrgao} {@code null} = fato sem
+     * dimensão organizacional capturada.
+     */
+    public static FatoContabil registrar(
+            TenantId enteId,
+            long numeroSeq,
+            LocalDate dataCompetencia,
+            PeriodoContabilId periodoId,
+            TipoEvento tipoEvento,
+            String historico,
+            String origem,
+            PoderOrgao poderOrgao,
+            List<Lancamento> lancamentos,
+            Clock clock) {
         return criar(
                 FatoContabilId.novo(),
                 enteId,
@@ -105,6 +129,7 @@ public final class FatoContabil {
                 tipoEvento,
                 historico,
                 origem,
+                poderOrgao,
                 null,
                 lancamentos);
     }
@@ -135,6 +160,7 @@ public final class FatoContabil {
                 TipoEvento.ESTORNO,
                 historico,
                 origem,
+                original.poderOrgao,
                 original.id,
                 invertidos);
     }
@@ -169,11 +195,12 @@ public final class FatoContabil {
                 TipoEvento.CANCELAMENTO_RESTOS_A_PAGAR,
                 historico,
                 origem,
+                inscricao.poderOrgao,
                 inscricao.id,
                 invertidos);
     }
 
-    /** Reconstitui um fato já consolidado, lido do repositório — sem revalidar Σ=Σ. */
+    /** Reconstitui um fato já consolidado (sem PO), lido do repositório — sem revalidar Σ=Σ. */
     public static FatoContabil reconstituir(
             FatoContabilId id,
             TenantId enteId,
@@ -186,6 +213,35 @@ public final class FatoContabil {
             String origem,
             FatoContabilId fatoEstornadoId,
             List<Lancamento> lancamentos) {
+        return reconstituir(
+                id,
+                enteId,
+                numeroSeq,
+                dataCompetencia,
+                dataHoraRegistro,
+                periodoId,
+                tipoEvento,
+                historico,
+                origem,
+                null,
+                fatoEstornadoId,
+                lancamentos);
+    }
+
+    /** Reconstitui um fato já consolidado, preservando a IC {@code PO} (Poder/Órgão) — sem revalidar Σ=Σ. */
+    public static FatoContabil reconstituir(
+            FatoContabilId id,
+            TenantId enteId,
+            long numeroSeq,
+            LocalDate dataCompetencia,
+            LocalDateTime dataHoraRegistro,
+            PeriodoContabilId periodoId,
+            TipoEvento tipoEvento,
+            String historico,
+            String origem,
+            PoderOrgao poderOrgao,
+            FatoContabilId fatoEstornadoId,
+            List<Lancamento> lancamentos) {
         return new FatoContabil(
                 Validacoes.exigirNaoNulo(id, "id"),
                 Validacoes.exigirNaoNulo(enteId, "enteId"),
@@ -196,6 +252,7 @@ public final class FatoContabil {
                 Validacoes.exigirNaoNulo(tipoEvento, "tipoEvento"),
                 Validacoes.exigirNaoNulo(historico, "histórico"),
                 Validacoes.exigirNaoNulo(origem, "origem"),
+                poderOrgao,
                 fatoEstornadoId,
                 List.copyOf(lancamentos));
     }
@@ -210,6 +267,7 @@ public final class FatoContabil {
             TipoEvento tipoEvento,
             String historico,
             String origem,
+            PoderOrgao poderOrgao,
             FatoContabilId fatoEstornadoId,
             List<Lancamento> lancamentos) {
         Validacoes.exigirNaoNulo(enteId, "enteId");
@@ -229,6 +287,7 @@ public final class FatoContabil {
                 tipoEvento,
                 historico,
                 origem,
+                poderOrgao,
                 fatoEstornadoId,
                 List.copyOf(lancamentos));
     }
@@ -267,6 +326,11 @@ public final class FatoContabil {
 
     public String origem() {
         return origem;
+    }
+
+    /** A IC {@code PO} (Poder/Órgão, unidade emitente) do fato, quando capturada (vazio caso contrário). */
+    public Optional<PoderOrgao> poderOrgao() {
+        return Optional.ofNullable(poderOrgao);
     }
 
     public FatoContabilId fatoEstornadoId() {

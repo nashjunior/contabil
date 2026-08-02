@@ -15,6 +15,7 @@ import br.contabil.plataforma.domain.iam.ServicoIdentidade.Recurso;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
 import br.contabil.razao.domain.FatoContabil;
 import br.contabil.razao.domain.Lancamento;
+import br.contabil.razao.domain.PoderOrgao;
 import br.contabil.razao.domain.TipoEvento;
 import br.contabil.razao.domain.repository.ContadorFatoPort;
 import br.contabil.razao.domain.repository.FatoContabilRepository;
@@ -67,6 +68,18 @@ public class RegistrarFatoContabil {
             String historico,
             String origem,
             List<Lancamento> lancamentos) {
+        return executar(usuarioAutenticado, enteId, dataCompetencia, tipoEvento, historico, origem, null, lancamentos);
+    }
+
+    public FatoContabil executar(
+            Sessao usuarioAutenticado,
+            TenantId enteId,
+            LocalDate dataCompetencia,
+            TipoEvento tipoEvento,
+            String historico,
+            String origem,
+            PoderOrgao poderOrgao,
+            List<Lancamento> lancamentos) {
         controleAcesso.exigir(usuarioAutenticado, enteId, RECURSO_FATO_CONTABIL, Acao.CRIAR);
         FatoContabil.validarPartidasDobradas(lancamentos);
 
@@ -74,7 +87,16 @@ public class RegistrarFatoContabil {
         long numeroSeq = contadorFato.proximoNumeroSeq(enteId);
 
         FatoContabil fato = FatoContabil.registrar(
-                enteId, numeroSeq, dataCompetencia, periodoId, tipoEvento, historico, origem, lancamentos, clock);
+                enteId,
+                numeroSeq,
+                dataCompetencia,
+                periodoId,
+                tipoEvento,
+                historico,
+                origem,
+                poderOrgao,
+                lancamentos,
+                clock);
 
         repositorio.inserir(fato);
 

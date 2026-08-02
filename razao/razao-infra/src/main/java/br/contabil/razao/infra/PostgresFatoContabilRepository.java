@@ -14,14 +14,21 @@ import org.springframework.stereotype.Repository;
 
 import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
+import br.contabil.razao.domain.AnoInscricaoRp;
 import br.contabil.razao.domain.ContaContabilId;
+import br.contabil.razao.domain.ExecucaoOrcamentaria;
 import br.contabil.razao.domain.FatoContabil;
 import br.contabil.razao.domain.FatoContabilId;
 import br.contabil.razao.domain.FonteRecurso;
+import br.contabil.razao.domain.FuncaoSubfuncao;
+import br.contabil.razao.domain.InformacoesComplementares;
 import br.contabil.razao.domain.Lancamento;
 import br.contabil.razao.domain.LancamentoId;
 import br.contabil.razao.domain.Natureza;
+import br.contabil.razao.domain.NaturezaDespesa;
+import br.contabil.razao.domain.NaturezaReceita;
 import br.contabil.razao.domain.PeriodoContabilId;
+import br.contabil.razao.domain.PoderOrgao;
 import br.contabil.razao.domain.TipoEvento;
 import br.contabil.razao.domain.repository.FatoContabilRepository;
 
@@ -43,23 +50,27 @@ public class PostgresFatoContabilRepository implements FatoContabilRepository {
             """
             insert into fato_contabil
                 (id, ente_id, numero_seq, data_competencia, data_hora_registro, periodo_id,
-                 tipo_evento, historico, origem, fato_estornado_id)
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 tipo_evento, historico, origem, poder_orgao, fato_estornado_id)
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
 
     private static final String SQL_INSERT_LANCAMENTO =
             """
-            insert into lancamento (id, ente_id, fato_id, conta_id, natureza, valor, fonte_recurso)
-            values (?, ?, ?, ?, ?, ?, ?)
+            insert into lancamento
+                (id, ente_id, fato_id, conta_id, natureza, valor, fonte_recurso,
+                 execucao_orcamentaria, natureza_receita, natureza_despesa,
+                 funcao_subfuncao, ano_inscricao_rp)
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
 
     private static final String SQL_BUSCAR_FATO =
             "select id, numero_seq, data_competencia, data_hora_registro, periodo_id, "
-                    + "tipo_evento, historico, origem, fato_estornado_id "
+                    + "tipo_evento, historico, origem, poder_orgao, fato_estornado_id "
                     + "from fato_contabil where ente_id = ? and id = ?";
 
     private static final String SQL_BUSCAR_LANCAMENTOS =
-            "select id, conta_id, natureza, valor, fonte_recurso "
+            "select id, conta_id, natureza, valor, fonte_recurso, execucao_orcamentaria, "
+                    + "natureza_receita, natureza_despesa, funcao_subfuncao, ano_inscricao_rp "
                     + "from lancamento where ente_id = ? and fato_id = ?";
 
     private final JdbcTemplate jdbcTemplate;
@@ -81,6 +92,7 @@ public class PostgresFatoContabilRepository implements FatoContabilRepository {
                 fato.tipoEvento().codigo(),
                 fato.historico(),
                 fato.origem(),
+                fato.poderOrgao().map(PoderOrgao::codigo).orElse(null),
                 fato.fatoEstornadoId() == null ? null : fato.fatoEstornadoId().valor());
 
         List<Lancamento> lancamentos = fato.lancamentos();
@@ -95,7 +107,17 @@ public class PostgresFatoContabilRepository implements FatoContabilRepository {
                     ps.setObject(4, lancamento.contaId().valor());
                     ps.setString(5, String.valueOf(lancamento.natureza().codigo()));
                     ps.setBigDecimal(6, lancamento.valor().valor());
-                    ps.setString(7, lancamento.fonteRecurso().map(FonteRecurso::codigo).orElse(null));
+                    InformacoesComplementares ic = lancamento.informacoesComplementares();
+                    ps.setString(7, ic.fonteRecurso() == null ? null : ic.fonteRecurso().codigo());
+                    ps.setString(8, ic.execucaoOrcamentaria() == null ? null : ic.execucaoOrcamentaria().codigo());
+                    ps.setString(9, ic.naturezaReceita() == null ? null : ic.naturezaReceita().codigo());
+                    ps.setString(10, ic.naturezaDespesa() == null ? null : ic.naturezaDespesa().codigo());
+                    ps.setString(11, ic.funcaoSubfuncao() == null ? null : ic.funcaoSubfuncao().codigo());
+                    if (ic.anoInscricaoRp() == null) {
+                        ps.setObject(12, null);
+                    } else {
+                        ps.setInt(12, ic.anoInscricaoRp().ano());
+                    }
                 });
     }
 
@@ -121,6 +143,7 @@ public class PostgresFatoContabilRepository implements FatoContabilRepository {
                 linha.tipoEvento(),
                 linha.historico(),
                 linha.origem(),
+                linha.poderOrgao(),
                 linha.fatoEstornadoId(),
                 lancamentos));
     }
@@ -135,21 +158,56 @@ public class PostgresFatoContabilRepository implements FatoContabilRepository {
                 TipoEvento.deCodigo(rs.getString("tipo_evento")),
                 rs.getString("historico"),
                 rs.getString("origem"),
+                poderOrgao(rs.getString("poder_orgao")),
                 fatoContabilId(rs.getObject("fato_estornado_id", UUID.class)));
     }
 
     private static Lancamento mapearLancamento(ResultSet rs) throws SQLException {
-        String fonteRecurso = rs.getString("fonte_recurso");
         return Lancamento.reconstituir(
                 new LancamentoId(rs.getObject("id", UUID.class)),
                 new ContaContabilId(rs.getObject("conta_id", UUID.class)),
                 Natureza.deCodigo(rs.getString("natureza").charAt(0)),
                 new Dinheiro(rs.getBigDecimal("valor")),
-                fonteRecurso == null ? null : FonteRecurso.de(fonteRecurso));
+                InformacoesComplementares.de(
+                        fonteRecurso(rs.getString("fonte_recurso")),
+                        execucaoOrcamentaria(rs.getString("execucao_orcamentaria")),
+                        naturezaReceita(rs.getString("natureza_receita")),
+                        naturezaDespesa(rs.getString("natureza_despesa")),
+                        funcaoSubfuncao(rs.getString("funcao_subfuncao")),
+                        anoInscricaoRp(rs)));
     }
 
     private static FatoContabilId fatoContabilId(UUID id) {
         return id == null ? null : new FatoContabilId(id);
+    }
+
+    private static PoderOrgao poderOrgao(String codigo) {
+        return codigo == null ? null : PoderOrgao.de(codigo);
+    }
+
+    private static FonteRecurso fonteRecurso(String codigo) {
+        return codigo == null ? null : FonteRecurso.de(codigo);
+    }
+
+    private static ExecucaoOrcamentaria execucaoOrcamentaria(String codigo) {
+        return codigo == null ? null : ExecucaoOrcamentaria.de(codigo);
+    }
+
+    private static NaturezaReceita naturezaReceita(String codigo) {
+        return codigo == null ? null : NaturezaReceita.de(codigo);
+    }
+
+    private static NaturezaDespesa naturezaDespesa(String codigo) {
+        return codigo == null ? null : NaturezaDespesa.de(codigo);
+    }
+
+    private static FuncaoSubfuncao funcaoSubfuncao(String codigo) {
+        return codigo == null ? null : FuncaoSubfuncao.de(codigo);
+    }
+
+    private static AnoInscricaoRp anoInscricaoRp(ResultSet rs) throws SQLException {
+        int ano = rs.getInt("ano_inscricao_rp");
+        return rs.wasNull() ? null : AnoInscricaoRp.de(ano);
     }
 
     private record LinhaFato(
@@ -161,5 +219,6 @@ public class PostgresFatoContabilRepository implements FatoContabilRepository {
             TipoEvento tipoEvento,
             String historico,
             String origem,
+            PoderOrgao poderOrgao,
             FatoContabilId fatoEstornadoId) {}
 }
