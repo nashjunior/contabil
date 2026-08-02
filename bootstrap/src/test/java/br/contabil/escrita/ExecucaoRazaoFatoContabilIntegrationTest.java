@@ -222,6 +222,8 @@ class ExecucaoRazaoFatoContabilIntegrationTest {
                 fatoEmpenhoId,
                 lancamento(CODIGO_CREDITO_EMPENHADO_A_LIQUIDAR, 'D', "12345.67"),
                 lancamento(CODIGO_CREDITO_DISPONIVEL, 'C', "12345.67"));
+        assertExecucaoOrcamentariaDaConta(fatoEmpenhoId, CODIGO_CREDITO_EMPENHADO_A_LIQUIDAR, "raz-213");
+        assertExecucaoOrcamentariaDaConta(fatoEmpenhoId, CODIGO_CREDITO_DISPONIVEL, "raz-213");
     }
 
     @Test
@@ -250,6 +252,12 @@ class ExecucaoRazaoFatoContabilIntegrationTest {
                 lancamento(CODIGO_FORNECEDORES_A_PAGAR, 'C', "4200.33"),
                 lancamento(CODIGO_EMPENHADO_LIQUIDADO_A_PAGAR, 'D', "4200.33"),
                 lancamento(CODIGO_CREDITO_EMPENHADO_A_LIQUIDAR, 'C', "4200.33"));
+        // RAZ-268: CO resolvida do empenho de origem — presente nas partidas orçamentárias,
+        // ausente nas patrimoniais (VPD/Fornecedores não carregam classificação orçamentária).
+        assertExecucaoOrcamentariaDaConta(fatoLiquidacaoId, CODIGO_EMPENHADO_LIQUIDADO_A_PAGAR, "raz-213");
+        assertExecucaoOrcamentariaDaConta(fatoLiquidacaoId, CODIGO_CREDITO_EMPENHADO_A_LIQUIDAR, "raz-213");
+        assertExecucaoOrcamentariaDaConta(fatoLiquidacaoId, CODIGO_VPD, null);
+        assertExecucaoOrcamentariaDaConta(fatoLiquidacaoId, CODIGO_FORNECEDORES_A_PAGAR, null);
     }
 
     @Test
@@ -291,6 +299,11 @@ class ExecucaoRazaoFatoContabilIntegrationTest {
                 lancamento(CODIGO_CAIXA_E_BANCOS, 'C', "4200.33"),
                 lancamento(CODIGO_EMPENHADO_PAGO, 'D', "4200.33"),
                 lancamento(CODIGO_EMPENHADO_LIQUIDADO_A_PAGAR, 'C', "4200.33"));
+        // RAZ-268: CO resolvida via liquidação -> empenho de origem.
+        assertExecucaoOrcamentariaDaConta(fatoPagamentoId, CODIGO_EMPENHADO_PAGO, "raz-213");
+        assertExecucaoOrcamentariaDaConta(fatoPagamentoId, CODIGO_EMPENHADO_LIQUIDADO_A_PAGAR, "raz-213");
+        assertExecucaoOrcamentariaDaConta(fatoPagamentoId, CODIGO_FORNECEDORES_A_PAGAR, null);
+        assertExecucaoOrcamentariaDaConta(fatoPagamentoId, CODIGO_CAIXA_E_BANCOS, null);
     }
 
     @Test
@@ -390,6 +403,30 @@ class ExecucaoRazaoFatoContabilIntegrationTest {
         assertThat(somaDebito)
                 .as("Sigma debito = Sigma credito no fato %s (trava 1 do razao)", fatoId)
                 .isEqualByComparingTo(somaCredito);
+    }
+
+    /**
+     * RAZ-268: confere a IC {@code CO} (execução orçamentária) persistida na partida da conta
+     * informada — {@code esperado == null} prova que a conta patrimonial/financeira NÃO recebeu
+     * a dimensão (ADR-0050: CO só se aplica às partidas orçamentárias/de controle).
+     */
+    private static void assertExecucaoOrcamentariaDaConta(String fatoId, String codigoPcasp, String esperado)
+            throws SQLException {
+        try (Connection admin = adminConnection();
+                PreparedStatement ps = admin.prepareStatement("""
+                        select l.execucao_orcamentaria
+                          from lancamento l join conta_pcasp cp on cp.id = l.conta_id
+                         where l.fato_id = ?::uuid and cp.codigo = ?
+                        """)) {
+            ps.setString(1, fatoId);
+            ps.setString(2, codigoPcasp);
+            try (ResultSet rs = ps.executeQuery()) {
+                assertThat(rs.next()).as("lançamento na conta %s do fato %s", codigoPcasp, fatoId).isTrue();
+                assertThat(rs.getString("execucao_orcamentaria"))
+                        .as("CO da conta %s no fato %s", codigoPcasp, fatoId)
+                        .isEqualTo(esperado);
+            }
+        }
     }
 
     private static long numeroSeqDoFato(String fatoId) throws SQLException {

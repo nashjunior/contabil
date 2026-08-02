@@ -27,6 +27,13 @@ import br.contabil.plataforma.domain.Validacoes;
  * de referência do módulo consumidor — não {@code UUID} cru. O {@code UUID}
  * de fio fica contido no {@code ExecucaoContabilPortAdapter} (bootstrap),
  * única classe que conhece tanto {@code execucao} quanto {@code razao}.
+ *
+ * <p>{@code fonteRecurso} (FR) e {@code classificacaoOrcamentaria} (CO) são
+ * informações complementares (IC) da MSC capturadas aqui, na origem, e
+ * propagadas ao razão como dimensões de partida (ADR-0050/ADR-0057) — nunca
+ * reconstruídas por heurística depois. A liquidação e o pagamento não
+ * recebem estes campos porque o adapter os resolve a partir do empenho de
+ * origem (mesma classificação do empenho, ADR-0057).
  */
 public interface ExecucaoContabilPort {
 
@@ -39,7 +46,7 @@ public interface ExecucaoContabilPort {
 
     record SolicitacaoEscrituracaoEmpenho(
             TenantId enteId, EmpenhoId empenhoId, LocalDate dataFato, Dinheiro valor, String historico,
-            String fonteRecurso) {
+            String fonteRecurso, String classificacaoOrcamentaria) {
 
         public SolicitacaoEscrituracaoEmpenho {
             Validacoes.exigirNaoNulo(enteId, "enteId");
@@ -47,6 +54,7 @@ public interface ExecucaoContabilPort {
             Validacoes.exigirNaoNulo(dataFato, "dataFato");
             Validacoes.exigirNaoNulo(valor, "valor");
             Validacoes.exigirNaoNulo(historico, "histórico");
+            Validacoes.exigirNaoNulo(classificacaoOrcamentaria, "classificacaoOrcamentaria");
             // fonteRecurso nullable: null = ente sem vinculação (sem DDR)
         }
     }

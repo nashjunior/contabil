@@ -220,12 +220,12 @@ class DdrFatoContabilIntegrationTest {
 
         assertLancamentosExatos(
                 fatoEmpenhoId,
-                // orcamentario
-                lancamento(COD_EMPENHADO_A_LIQUIDAR, 'D', "10000.00", null),
-                lancamento(COD_CREDITO_DISPONIVEL, 'C', "10000.00", null),
-                // DDR controle — com fonte_recurso = "1500"
-                lancamento(COD_DDR_COMPROMETIDA, 'D', "10000.00", FONTE_RECURSO),
-                lancamento(COD_DDR_DISPONIVEL, 'C', "10000.00", FONTE_RECURSO));
+                // orcamentario — CO = "ddr-225" (RAZ-268, classificação orçamentária do empenho)
+                lancamento(COD_EMPENHADO_A_LIQUIDAR, 'D', "10000.00", null, "ddr-225"),
+                lancamento(COD_CREDITO_DISPONIVEL, 'C', "10000.00", null, "ddr-225"),
+                // DDR controle — com fonte_recurso = "1500" e CO = "ddr-225"
+                lancamento(COD_DDR_COMPROMETIDA, 'D', "10000.00", FONTE_RECURSO, "ddr-225"),
+                lancamento(COD_DDR_DISPONIVEL, 'C', "10000.00", FONTE_RECURSO, "ddr-225"));
     }
 
     @Test
@@ -248,15 +248,15 @@ class DdrFatoContabilIntegrationTest {
 
         assertLancamentosExatos(
                 fatoLiquidacaoId,
-                // patrimonial
-                lancamento(COD_VPD, 'D', "3000.00", null),
-                lancamento(COD_FORNECEDORES, 'C', "3000.00", null),
-                // orcamentario
-                lancamento(COD_LIQUIDADO_A_PAGAR, 'D', "3000.00", null),
-                lancamento(COD_EMPENHADO_A_LIQUIDAR, 'C', "3000.00", null),
-                // DDR controle — com fonte_recurso = "1500"
-                lancamento(COD_DDR_EM_LIQUIDACAO, 'D', "3000.00", FONTE_RECURSO),
-                lancamento(COD_DDR_COMPROMETIDA, 'C', "3000.00", FONTE_RECURSO));
+                // patrimonial — sem CO (ADR-0050: não se aplica a VPD/Fornecedores)
+                lancamento(COD_VPD, 'D', "3000.00", null, null),
+                lancamento(COD_FORNECEDORES, 'C', "3000.00", null, null),
+                // orcamentario — CO resolvida via empenho de origem
+                lancamento(COD_LIQUIDADO_A_PAGAR, 'D', "3000.00", null, "ddr-225"),
+                lancamento(COD_EMPENHADO_A_LIQUIDAR, 'C', "3000.00", null, "ddr-225"),
+                // DDR controle — com fonte_recurso = "1500" e CO = "ddr-225"
+                lancamento(COD_DDR_EM_LIQUIDACAO, 'D', "3000.00", FONTE_RECURSO, "ddr-225"),
+                lancamento(COD_DDR_COMPROMETIDA, 'C', "3000.00", FONTE_RECURSO, "ddr-225"));
     }
 
     @Test
@@ -283,15 +283,15 @@ class DdrFatoContabilIntegrationTest {
 
         assertLancamentosExatos(
                 fatoPagamentoId,
-                // patrimonial
-                lancamento(COD_FORNECEDORES, 'D', "3000.00", null),
-                lancamento(COD_CAIXA, 'C', "3000.00", null),
-                // orcamentario
-                lancamento(COD_EMPENHADO_PAGO, 'D', "3000.00", null),
-                lancamento(COD_LIQUIDADO_A_PAGAR, 'C', "3000.00", null),
-                // DDR controle — com fonte_recurso = "1500"
-                lancamento(COD_DDR_UTILIZADA, 'D', "3000.00", FONTE_RECURSO),
-                lancamento(COD_DDR_EM_LIQUIDACAO, 'C', "3000.00", FONTE_RECURSO));
+                // patrimonial — sem CO (ADR-0050: não se aplica a Fornecedores/Caixa)
+                lancamento(COD_FORNECEDORES, 'D', "3000.00", null, null),
+                lancamento(COD_CAIXA, 'C', "3000.00", null, null),
+                // orcamentario — CO resolvida via liquidação -> empenho de origem
+                lancamento(COD_EMPENHADO_PAGO, 'D', "3000.00", null, "ddr-225"),
+                lancamento(COD_LIQUIDADO_A_PAGAR, 'C', "3000.00", null, "ddr-225"),
+                // DDR controle — com fonte_recurso = "1500" e CO = "ddr-225"
+                lancamento(COD_DDR_UTILIZADA, 'D', "3000.00", FONTE_RECURSO, "ddr-225"),
+                lancamento(COD_DDR_EM_LIQUIDACAO, 'C', "3000.00", FONTE_RECURSO, "ddr-225"));
     }
 
     @Test
@@ -327,10 +327,12 @@ class DdrFatoContabilIntegrationTest {
     // infra
     // ------------------------------------------------------------------
 
-    private record LancamentoEsperado(String codigoPcasp, char natureza, BigDecimal valor, String fonteRecurso) {}
+    /** {@code execucaoOrcamentaria} é a IC {@code CO} (RAZ-268) — presente nas orçamentárias/DDR, ausente nas patrimoniais. */
+    private record LancamentoEsperado(
+            String codigoPcasp, char natureza, BigDecimal valor, String fonteRecurso, String execucaoOrcamentaria) {}
 
-    private static LancamentoEsperado lancamento(String cod, char nat, String val, String fr) {
-        return new LancamentoEsperado(cod, nat, new BigDecimal(val), fr);
+    private static LancamentoEsperado lancamento(String cod, char nat, String val, String fr, String co) {
+        return new LancamentoEsperado(cod, nat, new BigDecimal(val), fr, co);
     }
 
     private static void assertLancamentosExatos(String fatoId, LancamentoEsperado... esperados) throws SQLException {
@@ -338,7 +340,7 @@ class DdrFatoContabilIntegrationTest {
         BigDecimal somaD = BigDecimal.ZERO, somaC = BigDecimal.ZERO;
         try (Connection admin = adminConn();
                 PreparedStatement ps = admin.prepareStatement("""
-                        select cp.codigo, l.natureza, l.valor, l.fonte_recurso
+                        select cp.codigo, l.natureza, l.valor, l.fonte_recurso, l.execucao_orcamentaria
                           from lancamento l join conta_pcasp cp on cp.id = l.conta_id
                          where l.fato_id = ?::uuid
                         """)) {
@@ -347,13 +349,15 @@ class DdrFatoContabilIntegrationTest {
                 while (rs.next()) {
                     char nat = rs.getString("natureza").charAt(0);
                     BigDecimal val = rs.getBigDecimal("valor");
-                    encontrados.add(new LancamentoEsperado(rs.getString("codigo"), nat, val, rs.getString("fonte_recurso")));
+                    encontrados.add(new LancamentoEsperado(
+                            rs.getString("codigo"), nat, val, rs.getString("fonte_recurso"),
+                            rs.getString("execucao_orcamentaria")));
                     if (nat == 'D') somaD = somaD.add(val); else somaC = somaC.add(val);
                 }
             }
         }
         assertThat(encontrados)
-                .as("lançamentos do fato %s — conta/natureza/valor/fonte exatos (ADR-0054)", fatoId)
+                .as("lançamentos do fato %s — conta/natureza/valor/fonte/CO exatos (ADR-0054/ADR-0057)", fatoId)
                 .containsExactlyInAnyOrder(esperados);
         assertThat(somaD).as("Σdébito = Σcrédito no fato %s", fatoId).isEqualByComparingTo(somaC);
     }

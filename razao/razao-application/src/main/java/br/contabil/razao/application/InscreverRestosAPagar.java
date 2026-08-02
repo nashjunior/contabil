@@ -12,7 +12,9 @@ import br.contabil.plataforma.domain.TenantId;
 import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
 import br.contabil.plataforma.domain.auditoria.EventoAuditoria;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
+import br.contabil.razao.domain.AnoInscricaoRp;
 import br.contabil.razao.domain.FatoContabil;
+import br.contabil.razao.domain.InformacoesComplementares;
 import br.contabil.razao.domain.Lancamento;
 import br.contabil.razao.domain.Natureza;
 import br.contabil.razao.domain.PeriodoContabilId;
@@ -29,7 +31,8 @@ import br.contabil.razao.domain.repository.FatoContabilRepository;
  * <p>Para cada {@link ParametroInscricaoRP} recebido, lê o saldo devedor líquido
  * por fonte na conta de origem e gera um fato de inscrição (Σdébito=Σcrédito, append-only)
  * que move o saldo para a conta de destino mantendo a {@link br.contabil.razao.domain.FonteRecurso}
- * na partida. Fontes com saldo zero são ignoradas.
+ * e o {@link AnoInscricaoRp} (AI, RAZ-268/ADR-0057) na partida — o exercício encerrado é o
+ * ano de inscrição. Fontes com saldo zero são ignoradas.
  *
  * <p>Não tem RBAC próprio — o encerramento do exercício já é autorizado por
  * {@code EncerrarExercicio} (RBAC+MFA, ADR-0046) antes desta chamada.
@@ -99,17 +102,23 @@ public class InscreverRestosAPagar {
                         ? Natureza.DEBITO
                         : Natureza.CREDITO;
 
+                // AI (ano de inscrição de RP, RAZ-207/ADR-0057): o exercício encerrado É o ano
+                // de inscrição — capturado aqui, na escrituração da inscrição, junto com a FR
+                // já mecanizada (ADR-0054); nunca reconstruído depois por heurística.
+                InformacoesComplementares ic = InformacoesComplementares.de(
+                        saldo.fonte(), null, null, null, null, AnoInscricaoRp.de(exercicio));
+
                 List<Lancamento> lancamentos = List.of(
                         Lancamento.de(
                                 param.contaOrigem(),
                                 naturezaOrigem,
                                 saldo.saldoDevedorLiquido(),
-                                saldo.fonte()),
+                                ic),
                         Lancamento.de(
                                 param.contaDestino(),
                                 param.naturezaDestino(),
                                 saldo.saldoDevedorLiquido(),
-                                saldo.fonte()));
+                                ic));
 
                 long numeroSeq = contadorFato.proximoNumeroSeq(enteId);
 

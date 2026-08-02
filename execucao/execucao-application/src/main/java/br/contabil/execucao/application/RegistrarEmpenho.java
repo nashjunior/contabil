@@ -100,8 +100,8 @@ public class RegistrarEmpenho {
         saldoDotacao.exigirSaldoParaComprometer(valor);
 
         EmpenhoId empenhoId = EmpenhoId.novo();
-        ReferenciaFatoContabil fatoContabilId = escrituracao.registrarEmpenho(
-                new SolicitacaoEscrituracaoEmpenho(enteId, empenhoId, dataFato, valor, historico, fonteRecurso));
+        ReferenciaFatoContabil fatoContabilId = escrituracao.registrarEmpenho(new SolicitacaoEscrituracaoEmpenho(
+                enteId, empenhoId, dataFato, valor, historico, fonteRecurso, classificacaoOrcamentaria));
         long numeroSequencial = contadorEmpenho.proximoNumero(enteId, exercicio);
 
         Empenho empenho = Empenho.registrar(

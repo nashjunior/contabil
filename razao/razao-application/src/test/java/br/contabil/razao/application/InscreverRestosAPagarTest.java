@@ -27,6 +27,7 @@ import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
 import br.contabil.plataforma.domain.auditoria.EventoAuditoria;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
+import br.contabil.razao.domain.AnoInscricaoRp;
 import br.contabil.razao.domain.ContaContabilId;
 import br.contabil.razao.domain.FatoContabil;
 import br.contabil.razao.domain.FonteRecurso;
@@ -110,6 +111,11 @@ class InscreverRestosAPagarTest {
 
         assertThat(lancamentoOrigem.fonteRecurso()).contains(fonteA);
         assertThat(lancamentoDestino.fonteRecurso()).contains(fonteA);
+        assertThat(lancamentoOrigem.informacoesComplementares().anoInscricaoRp())
+                .as("RAZ-268: AI (ano de inscrição de RP) é o exercício encerrado")
+                .isEqualTo(AnoInscricaoRp.de(2026));
+        assertThat(lancamentoDestino.informacoesComplementares().anoInscricaoRp())
+                .isEqualTo(AnoInscricaoRp.de(2026));
 
         verify(repositorio).inserir(fato);
 

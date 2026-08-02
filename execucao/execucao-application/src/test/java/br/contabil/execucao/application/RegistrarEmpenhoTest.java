@@ -145,6 +145,12 @@ class RegistrarEmpenhoTest {
         assertThat(empenho.dotacaoId()).isEqualTo(dotacaoId);
         assertThat(empenho.numeroSequencial()).isEqualTo(7L);
         assertThat(empenho.fatoContabilId()).isEqualTo(fatoContabilId);
+        ArgumentCaptor<SolicitacaoEscrituracaoEmpenho> solicitacao =
+                ArgumentCaptor.forClass(SolicitacaoEscrituracaoEmpenho.class);
+        verify(escrituracao).registrarEmpenho(solicitacao.capture());
+        assertThat(solicitacao.getValue().classificacaoOrcamentaria())
+                .as("RAZ-268: a classificação orçamentária (CO) do empenho propaga para a fronteira execução→razão")
+                .isEqualTo("04.122.0001.2001");
         verify(verificarDisponibilidadeArt42).verificar(enteId, dataFato, "0100000000", Dinheiro.de("1500.00"));
         verify(repositorio).inserir(empenho);
         verify(publicacaoTransparencia).publicar(empenho, sessao);
