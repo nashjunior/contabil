@@ -86,12 +86,22 @@ class EncerrarExercicioTest {
 
     private Sessao sessaoComMfa() {
         return new Sessao(
-                UUID.randomUUID(), new Cpf("12345678901"), enteId, Optional.empty(), true, Instant.parse("2030-01-01T00:00:00Z"));
+                UUID.randomUUID(),
+                new Cpf("12345678901"),
+                enteId,
+                Optional.empty(),
+                true,
+                Instant.parse("2030-01-01T00:00:00Z"));
     }
 
     private Sessao sessaoSemMfa() {
         return new Sessao(
-                UUID.randomUUID(), new Cpf("12345678901"), enteId, Optional.empty(), false, Instant.parse("2030-01-01T00:00:00Z"));
+                UUID.randomUUID(),
+                new Cpf("12345678901"),
+                enteId,
+                Optional.empty(),
+                false,
+                Instant.parse("2030-01-01T00:00:00Z"));
     }
 
     @BeforeEach
@@ -102,7 +112,7 @@ class EncerrarExercicioTest {
                 apurarResultadoPatrimonial,
                 Optional.empty(),
                 inscreverRP,
-                List.of(),
+                ente -> List.of(),
                 encerrarContasOrcamentarias,
                 List.of(),
                 encerrarDdr,
@@ -136,7 +146,8 @@ class EncerrarExercicioTest {
         InOrder ordem = inOrder(
                 inscreverRP, encerrarContasOrcamentarias, encerrarDdr, periodoRepositorio, transporSaldosAbertura,
                 transporDdrAbertura);
-        ordem.verify(inscreverRP).executar(eq(sessao), eq(enteId), eq(2026), eq(periodoExercicio.id()), any(), eq(List.of()));
+        ordem.verify(inscreverRP)
+                .executar(eq(sessao), eq(enteId), eq(2026), eq(periodoExercicio.id()), any(), eq(List.of()));
         ordem.verify(encerrarContasOrcamentarias)
                 .executar(eq(sessao), eq(enteId), eq(2026), eq(periodoExercicio.id()), any(), eq(List.of()));
         ordem.verify(encerrarDdr)
@@ -145,8 +156,6 @@ class EncerrarExercicioTest {
         ordem.verify(transporSaldosAbertura).executar(eq(sessao), eq(enteId), eq(2026), eq(List.of()));
         ordem.verify(transporDdrAbertura).executar(eq(sessao), eq(enteId), eq(2026), eq(List.of()));
 
-        // RAZ-257: sem contaResultadoApurado configurada (setUp usa Optional.empty()), a
-        // apuração patrimonial é pulada — mesma postura defensiva do RAZ-207/RAZ-258/RAZ-244.
         verify(apurarResultadoPatrimonial, never()).executar(any(), any(), anyInt(), any(), any(), any());
 
         ArgumentCaptor<EventoAuditoria> evento = ArgumentCaptor.forClass(EventoAuditoria.class);
@@ -165,7 +174,7 @@ class EncerrarExercicioTest {
                 apurarResultadoPatrimonial,
                 Optional.of(contaResultado),
                 inscreverRP,
-                List.of(),
+                ente -> List.of(),
                 encerrarContasOrcamentarias,
                 List.of(),
                 encerrarDdr,
@@ -190,7 +199,48 @@ class EncerrarExercicioTest {
         InOrder ordem = inOrder(apurarResultadoPatrimonial, inscreverRP);
         ordem.verify(apurarResultadoPatrimonial)
                 .executar(eq(sessao), eq(enteId), eq(2026), eq(periodoExercicio.id()), any(), eq(contaResultado));
-        ordem.verify(inscreverRP).executar(eq(sessao), eq(enteId), eq(2026), eq(periodoExercicio.id()), any(), eq(List.of()));
+        ordem.verify(inscreverRP)
+                .executar(eq(sessao), eq(enteId), eq(2026), eq(periodoExercicio.id()), any(), eq(List.of()));
+    }
+
+    @Test
+    @DisplayName("RAZ-260: resolve parâmetros de RP do ente e repassa lista real ao colaborador")
+    void repassaParametrosResolvidosPorEnteParaInscricaoRp() {
+        List<ParametroInscricaoRP> parametros = List.of(new ParametroInscricaoRP(
+                ContaContabilId.novo(), ContaContabilId.novo(), Natureza.CREDITO));
+        EncerrarExercicio useCaseComParametrosRp = new EncerrarExercicio(
+                new ControleAcesso(servicoIdentidade),
+                periodoRepositorio,
+                apurarResultadoPatrimonial,
+                Optional.empty(),
+                inscreverRP,
+                ente -> {
+                    assertThat(ente).isEqualTo(enteId);
+                    return parametros;
+                },
+                encerrarContasOrcamentarias,
+                List.of(),
+                encerrarDdr,
+                ente -> List.of(),
+                transporSaldosAbertura,
+                List.of(),
+                transporDdrAbertura,
+                ente -> List.of(),
+                auditoria,
+                relogio);
+
+        Sessao sessao = sessaoComMfa();
+        when(servicoIdentidade.autorizar(sessao, RECURSO_PERIODO, Acao.ENCERRAR)).thenReturn(true);
+
+        PeriodoContabil periodoExercicio = PeriodoContabil.reidratar(
+                PeriodoContabilId.novo(), enteId, 2026, 13, StatusPeriodo.ABERTO, Optional.empty());
+        when(periodoRepositorio.buscarPorCompetencia(enteId, 2026, 13)).thenReturn(Optional.of(periodoExercicio));
+        when(periodoRepositorio.encerrar(any())).thenReturn(true);
+
+        useCaseComParametrosRp.executar(sessao, enteId, 2026);
+
+        verify(inscreverRP)
+                .executar(eq(sessao), eq(enteId), eq(2026), eq(periodoExercicio.id()), any(), eq(parametros));
     }
 
     @Test
@@ -207,7 +257,7 @@ class EncerrarExercicioTest {
                 apurarResultadoPatrimonial,
                 Optional.empty(),
                 inscreverRP,
-                List.of(),
+                ente -> List.of(),
                 encerrarContasOrcamentarias,
                 List.of(),
                 encerrarDdr,

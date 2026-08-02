@@ -69,7 +69,7 @@ public class EncerrarExercicio {
     private final ApurarResultadoPatrimonial apurarResultadoPatrimonial;
     private final Optional<ContaContabilId> contaResultadoApurado;
     private final InscreverRestosAPagar inscreverRP;
-    private final List<ParametroInscricaoRP> parametrosRP;
+    private final ParametrosInscricaoRP parametrosRP;
     private final EncerrarContasOrcamentarias encerrarContasOrcamentarias;
     private final List<ParametroEncerramentoOrcamentario> parametrosEncerramentoOrcamentario;
     private final EncerrarDdrPorFonte encerrarDdr;
@@ -87,7 +87,7 @@ public class EncerrarExercicio {
             ApurarResultadoPatrimonial apurarResultadoPatrimonial,
             Optional<ContaContabilId> contaResultadoApurado,
             InscreverRestosAPagar inscreverRP,
-            List<ParametroInscricaoRP> parametrosRP,
+            ParametrosInscricaoRP parametrosRP,
             EncerrarContasOrcamentarias encerrarContasOrcamentarias,
             List<ParametroEncerramentoOrcamentario> parametrosEncerramentoOrcamentario,
             EncerrarDdrPorFonte encerrarDdr,
@@ -104,7 +104,7 @@ public class EncerrarExercicio {
                 Objects.requireNonNull(apurarResultadoPatrimonial, "apurarResultadoPatrimonial");
         this.contaResultadoApurado = Objects.requireNonNull(contaResultadoApurado, "contaResultadoApurado");
         this.inscreverRP = Objects.requireNonNull(inscreverRP, "inscreverRP");
-        this.parametrosRP = List.copyOf(Objects.requireNonNull(parametrosRP, "parametrosRP"));
+        this.parametrosRP = Objects.requireNonNull(parametrosRP, "parametrosRP");
         this.encerrarContasOrcamentarias =
                 Objects.requireNonNull(encerrarContasOrcamentarias, "encerrarContasOrcamentarias");
         this.parametrosEncerramentoOrcamentario = List.copyOf(
@@ -141,8 +141,9 @@ public class EncerrarExercicio {
         }
 
         // Inscrição de Restos a Pagar (RPNP e RPP) por fonte — RAZ-207.
+        List<ParametroInscricaoRP> parametros = parametrosRP.para(enteId);
         inscreverRP.executar(
-                usuarioAutenticado, enteId, exercicio, periodo.id(), dataEncerramento, parametrosRP);
+                usuarioAutenticado, enteId, exercicio, periodo.id(), dataEncerramento, parametros);
 
         // Encerramento das contas de controle orçamentário classes 5/6 — RAZ-258. Roda
         // depois da inscrição de RP (o saldo já transferido às contas de RP não é

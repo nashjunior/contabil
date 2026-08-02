@@ -23,9 +23,9 @@ import br.contabil.razao.application.GerarBalancete;
 import br.contabil.razao.application.GerarDemonstracoesDcasp;
 import br.contabil.razao.application.InscreverRestosAPagar;
 import br.contabil.razao.application.ParametroEncerramentoOrcamentario;
-import br.contabil.razao.application.ParametroInscricaoRP;
 import br.contabil.razao.application.ParametroTransposicaoAbertura;
 import br.contabil.razao.application.ParametrosEncerramentoDdr;
+import br.contabil.razao.application.ParametrosInscricaoRP;
 import br.contabil.razao.application.ParametrosTransposicaoDdrAbertura;
 import br.contabil.razao.application.RegistrarFatoContabil;
 import br.contabil.razao.application.TransporDdrPorFonteAbertura;
@@ -130,6 +130,15 @@ public class RazaoConfiguracao {
             AuditoriaEscrita auditoria,
             Clock clock) {
         return new InscreverRestosAPagar(repositorio, contadorFato, disponibilidadePorFonte, auditoria, clock);
+    }
+
+    /**
+     * RAZ-260: configuração oficial de RP por código PCASP, resolvida por ente porque
+     * {@code conta_pcasp.id} é tenant-scoped.
+     */
+    @Bean
+    public ParametrosInscricaoRP parametrosInscricaoRP(JdbcTemplate jdbcTemplate) {
+        return new ParametrosInscricaoRPOficiais(jdbcTemplate);
     }
 
     /** RAZ-207: cancelamento append-only de inscrição de RP. */
@@ -258,6 +267,7 @@ public class RazaoConfiguracao {
             PeriodoContabilRepository periodoRepositorio,
             ApurarResultadoPatrimonial apurarResultadoPatrimonial,
             InscreverRestosAPagar inscreverRP,
+            ParametrosInscricaoRP parametrosRP,
             EncerrarContasOrcamentarias encerrarContasOrcamentarias,
             EncerrarDdrPorFonte encerrarDdr,
             ParametrosEncerramentoDdr parametrosDdr,
@@ -267,7 +277,6 @@ public class RazaoConfiguracao {
             AuditoriaEscrita auditoria,
             Clock clock) {
         Optional<ContaContabilId> contaResultadoApurado = Optional.empty();
-        List<ParametroInscricaoRP> parametrosRP = List.of();
         List<ParametroEncerramentoOrcamentario> parametrosEncerramentoOrcamentario = List.of();
         List<ParametroTransposicaoAbertura> parametrosAbertura = List.of();
         return new EncerrarExercicio(
