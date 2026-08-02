@@ -4,14 +4,12 @@
  * paginação numerada, só "Carregar mais" acumulando itens da busca corrente.
  */
 import { useEffect, useState } from 'react';
-import { useAuth } from '../../../shared/auth/AuthContext';
-import { FeatureNav } from '../../../shared/components/FeatureNav';
+import { PageLayout } from '../../../shared/components/PageLayout';
 import { useContas } from '../api/useContas';
 import { ContasCatalogoTable } from '../components/ContasCatalogoTable';
 import type { ContaResumo } from '../../../shared/api/client';
 
 export function CatalogoContasPage() {
-  const { sessao, sair } = useAuth();
   const [busca, setBusca] = useState('');
   const [cursor, setCursor] = useState<string | undefined>(undefined);
   const [itens, setItens] = useState<ContaResumo[]>([]);
@@ -28,21 +26,7 @@ export function CatalogoContasPage() {
   }
 
   return (
-    <main style={{ maxWidth: 960, margin: '0 auto', padding: 'var(--spacing-xl)' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 'var(--spacing-lg)' }}>
-        <h1>Catálogo de contas PCASP</h1>
-        {sessao && (
-          <p>
-            {sessao.enteNome ?? sessao.enteId} · CPF {sessao.cpfMascarado}{' '}
-            <button type="button" onClick={sair}>
-              Sair
-            </button>
-          </p>
-        )}
-      </header>
-
-      <FeatureNav />
-
+    <PageLayout titulo="Catálogo de contas PCASP" largura="ampla">
       <section aria-labelledby="busca-contas-titulo">
         <h2 id="busca-contas-titulo">Buscar conta</h2>
         <label>
@@ -72,6 +56,6 @@ export function CatalogoContasPage() {
           </button>
         )}
       </section>
-    </main>
+    </PageLayout>
   );
 }

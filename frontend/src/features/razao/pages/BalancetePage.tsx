@@ -3,35 +3,19 @@
  * o período selecionado e renderiza a Tabela — Balancete (componente RAZ-112).
  */
 import { useState } from 'react';
-import { useAuth } from '../../../shared/auth/AuthContext';
-import { FeatureNav } from '../../../shared/components/FeatureNav';
+import { PageLayout } from '../../../shared/components/PageLayout';
 import { useBalancete } from '../api/useBalancete';
 import { BalanceteTable } from '../components/BalanceteTable';
 
 const AGORA = new Date();
 
 export function BalancetePage() {
-  const { sessao, sair } = useAuth();
   const [exercicio, setExercicio] = useState(AGORA.getFullYear());
   const [mes, setMes] = useState(AGORA.getMonth() + 1);
   const { data, isLoading, isError, error } = useBalancete(exercicio, mes);
 
   return (
-    <main style={{ maxWidth: 960, margin: '0 auto', padding: 'var(--spacing-xl)' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 'var(--spacing-lg)' }}>
-        <h1>Balancete</h1>
-        {sessao && (
-          <p>
-            {sessao.enteNome ?? sessao.enteId} · CPF {sessao.cpfMascarado}{' '}
-            <button type="button" onClick={sair}>
-              Sair
-            </button>
-          </p>
-        )}
-      </header>
-
-      <FeatureNav />
-
+    <PageLayout titulo="Balancete" largura="ampla">
       <section aria-labelledby="periodo-titulo">
         <h2 id="periodo-titulo">Período</h2>
         <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'end' }}>
@@ -72,6 +56,6 @@ export function BalancetePage() {
         )}
         {data && <BalanceteTable balancete={data} />}
       </section>
-    </main>
+    </PageLayout>
   );
 }
