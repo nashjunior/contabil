@@ -139,23 +139,29 @@ para a proveniência exata (arquivo por arquivo) de cada campo.
    não bloqueiam nenhum componente, já que primitivos ficam ocultos da camada
    semântica (ADR-0026). Ver `packages/design-system/tokens/README.md` e
    ADR-0031 (atualização RAZ-125).
-6. **(Fechado pela RAZ-211 para o essencial — resíduo abaixo.)** Prova
-   fim-a-fim contra o backend real: `frontend/e2e/` sobe Postgres real
-   (Testcontainers) + o jar real do backend (JWT RS256 assinado localmente,
-   verificado por `VerificadorJwtGovBr`/RBAC real — não um duplo de teste) +
-   `vite dev` apontando pra ele, e dirige um navegador real (Playwright)
-   por login → registrar empenho → consulta real, cobrindo dinheiro decimal
-   e CPF mascarado no DOM, além de isolamento multi-ente com duas sessões
-   reais em paralelo. `npm run test:e2e` (job `e2e-playwright` no CI). Sem
-   componente de teste (`fluxo-execucao.test.tsx`, MSW) segue existindo à
-   parte — mais rápido para o loop de desenvolvimento, não substituído.
-   Resíduo real, não desta suíte: a RAZ-211 descobriu que a matriz RBAC
-   (`IamProperties.Papel`) não concede a nenhum papel `CRIAR` em
-   `execucao:liquidacao` nem `AUTORIZADOR` para aprovar (só `PAGADOR`, que é
-   mutuamente exclusivo de `AUTORIZADOR`) — bloqueio funcional do backend,
-   não desta suíte, tracked como RAZ-222 (`frontend/e2e/specs/fluxo-execucao.pw.ts`
-   documenta com `test.fail()`). O smoke test contra o gov.br staging real
-   é um gap operacional diferente, fora deste escopo (ver
+6. **(Fechado pela RAZ-211.)** Prova fim-a-fim contra o backend real:
+   `frontend/e2e/` sobe Postgres real (Testcontainers) + o jar real do backend
+   (JWT RS256 assinado localmente, verificado por `VerificadorJwtGovBr`/RBAC
+   real — não um duplo de teste) + `vite dev` apontando pra ele, e dirige um
+   navegador real (Playwright) por login → empenho → liquidação → aprovação
+   (`GateAprovacaoModal`, RAZ-229) → pagamento → consulta, 100% pelas telas
+   reais (`LiquidacaoPage`/`PagamentoPage`/`AprovacaoFilaPage`, RAZ-230),
+   cobrindo dinheiro decimal e CPF mascarado no DOM (inclusive no modal do
+   gate), além de isolamento multi-ente com duas sessões reais em paralelo.
+   Um segundo teste cobre o mesmo fluxo de negócio por HTTP direto (mais
+   rápido, foco só nas regras/RBAC, sem depender de nenhuma tela). `npm run
+   test:e2e` (job `e2e-playwright` no CI). Sem componente de teste
+   (`fluxo-execucao.test.tsx`, MSW) segue existindo à parte — mais rápido
+   para o loop de desenvolvimento, não substituído. A RAZ-211 descobriu (e a
+   RAZ-222 corrigiu) que a matriz RBAC (`IamProperties.Papel`) não concedia a
+   nenhum papel `CRIAR` em `execucao:liquidacao` nem `AUTORIZADOR` para
+   aprovar pagamento — bloqueio funcional do backend, já resolvido. Achado
+   residual (não é um gap, é comportamento correto a respeitar): quem lança
+   uma liquidação nunca a vê no combo de pagamento (`LiquidacaoAprovadaPicker`),
+   mesmo com o papel PAGADOR — `ConsultarFilaAprovacao` exclui o autor da
+   própria consulta incondicionalmente (Regra 9), por isso o pagador precisa
+   ser um ator distinto (`support/fixtures.ts`). O smoke test contra o gov.br
+   staging real é um gap operacional diferente, fora deste escopo (ver
    `docs/operacao/RAZ-126-runbook-oidc-login-govbr.md`).
 7. **(Fechado pela RAZ-199.)** Fronteira de import entre features (ADR-0032)
    agora tem gate real: `oxlint` não expõe um rule set equivalente a
