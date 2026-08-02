@@ -5,35 +5,19 @@
  * `GateAprovacaoModal` (RAZ-229/ADR-0055 — UX revisada com a Paula: confirmação por contexto sem
  * segundo modal, motivo obrigatório na devolução, mapeamento de erro 403/409/428).
  */
-import { useAuth } from '../../../shared/auth/AuthContext';
-import { FeatureNav } from '../../../shared/components/FeatureNav';
+import { PageLayout } from '../../../shared/components/PageLayout';
 import { FilaAprovacaoList } from '../components/FilaAprovacaoList';
 import { useFilaAprovacao } from '../api/useFilaAprovacao';
 
 export function AprovacaoFilaPage() {
-  const { sessao, sair } = useAuth();
   const { data, isLoading } = useFilaAprovacao('pendente');
 
   return (
-    <main style={{ maxWidth: 720, margin: '0 auto', padding: 'var(--spacing-xl)' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 'var(--spacing-lg)' }}>
-        <h1>Fila de aprovação</h1>
-        {sessao && (
-          <p>
-            {sessao.enteNome ?? sessao.enteId} · CPF {sessao.cpfMascarado}{' '}
-            <button type="button" onClick={sair}>
-              Sair
-            </button>
-          </p>
-        )}
-      </header>
-
-      <FeatureNav />
-
+    <PageLayout titulo="Fila de aprovação">
       <section aria-labelledby="fila-titulo">
         <h2 id="fila-titulo">Liquidações pendentes de decisão</h2>
         {isLoading ? <p role="status">Carregando…</p> : <FilaAprovacaoList itens={data?.itens ?? []} />}
       </section>
-    </main>
+    </PageLayout>
   );
 }
