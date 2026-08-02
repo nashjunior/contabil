@@ -10,7 +10,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import br.contabil.execucao.domain.ReferenciaFatoContabil;
+import br.contabil.execucao.domain.repository.DisponibilidadeArt42Port;
 import br.contabil.execucao.domain.repository.ExecucaoContabilPort;
+import br.contabil.plataforma.domain.Dinheiro;
 import br.contabil.plataforma.domain.TenantId;
 import br.contabil.razao.domain.ContaContabilId;
 import br.contabil.razao.domain.FatoContabil;
@@ -19,6 +21,7 @@ import br.contabil.razao.domain.Lancamento;
 import br.contabil.razao.domain.Natureza;
 import br.contabil.razao.domain.TipoEvento;
 import br.contabil.razao.domain.repository.ContadorFatoPort;
+import br.contabil.razao.domain.repository.DisponibilidadePorFontePort;
 import br.contabil.razao.domain.repository.FatoContabilRepository;
 import br.contabil.razao.domain.repository.PeriodoContabilPort;
 
@@ -41,9 +44,14 @@ import br.contabil.razao.domain.repository.PeriodoContabilPort;
  *
  * <p>Roteiro de contabilização (ADR-0021) — códigos PCASP <b>representativos,
  * a revalidar na fonte oficial MCASP/PCASP</b> antes de fechar em produção.
+ *
+ * <p>Também implementa {@link DisponibilidadeArt42Port} (RAZ-243/ADR-0044): mesma
+ * ponte execução↔razão, agora em leitura — resolve a conta DDR "disponível a
+ * comprometer" e delega a apuração por fonte a {@link DisponibilidadePorFontePort}
+ * (razão), sem {@code execucao} depender de tipos do razão.
  */
 @Component
-public class ExecucaoContabilPortAdapter implements ExecucaoContabilPort {
+public class ExecucaoContabilPortAdapter implements ExecucaoContabilPort, DisponibilidadeArt42Port {
 
     private static final String CODIGO_CREDITO_DISPONIVEL = "6.2.2.1.1";
     private static final String CODIGO_CREDITO_EMPENHADO_A_LIQUIDAR = "6.2.2.1.3";
@@ -72,6 +80,7 @@ public class ExecucaoContabilPortAdapter implements ExecucaoContabilPort {
     private final PeriodoContabilPort periodoContabil;
     private final ContadorFatoPort contadorFato;
     private final FatoContabilRepository fatoContabilRepositorio;
+    private final DisponibilidadePorFontePort disponibilidadePorFonte;
     private final Clock clock;
 
     public ExecucaoContabilPortAdapter(
@@ -79,11 +88,13 @@ public class ExecucaoContabilPortAdapter implements ExecucaoContabilPort {
             PeriodoContabilPort periodoContabil,
             ContadorFatoPort contadorFato,
             FatoContabilRepository fatoContabilRepositorio,
+            DisponibilidadePorFontePort disponibilidadePorFonte,
             Clock clock) {
         this.jdbcTemplate = jdbcTemplate;
         this.periodoContabil = periodoContabil;
         this.contadorFato = contadorFato;
         this.fatoContabilRepositorio = fatoContabilRepositorio;
+        this.disponibilidadePorFonte = disponibilidadePorFonte;
         this.clock = clock;
     }
 
@@ -215,6 +226,29 @@ public class ExecucaoContabilPortAdapter implements ExecucaoContabilPort {
 
         fatoContabilRepositorio.inserir(fato);
         return new ReferenciaFatoContabil(fato.id().valor());
+    }
+
+    /**
+     * RAZ-243/ADR-0044: disponibilidade líquida da fonte na conta DDR "disponível a
+     * comprometer" (mesma conta creditada em {@link #registrarEmpenho}). Vazio quando a
+     * conta DDR não está provisionada (sem como apurar — não bloqueia); presente com
+     * {@link Dinheiro#zero()} quando a conta existe mas a fonte não tem saldo apurado
+     * (zero é uma resposta válida, distinta de "sem dado").
+     */
+    @Override
+    public Optional<Dinheiro> saldoDisponivel(TenantId enteId, String fonteRecurso) {
+        Optional<ContaContabilId> contaDisponivel = resolverContaOpcional(enteId, CODIGO_DDR_DISPONIVEL);
+        if (contaDisponivel.isEmpty()) {
+            return Optional.empty();
+        }
+        FonteRecurso fonte = FonteRecurso.de(fonteRecurso);
+        return Optional.of(disponibilidadePorFonte
+                .consultarSaldoPorFonte(enteId, List.of(contaDisponivel.get()))
+                .stream()
+                .filter(saldo -> saldo.fonte().equals(fonte))
+                .map(DisponibilidadePorFontePort.SaldoPorFonte::saldoDevedorLiquido)
+                .findFirst()
+                .orElse(Dinheiro.zero()));
     }
 
     private ContaContabilId resolverConta(TenantId enteId, String codigoPcasp) {

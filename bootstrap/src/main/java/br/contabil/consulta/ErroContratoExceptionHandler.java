@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import br.contabil.assinatura.AssinaturaGovBrOAuthProvedorIndisponivelException;
 import br.contabil.execucao.domain.AutoAprovacaoNaoPermitidaException;
+import br.contabil.execucao.domain.DisponibilidadeArt42InsuficienteException;
 import br.contabil.execucao.domain.EmpenhoAssinaturaConflitanteException;
 import br.contabil.execucao.domain.EmpenhoNaoEncontradoException;
 import br.contabil.execucao.domain.ExecucaoInvalidaException;
@@ -75,14 +76,16 @@ class ErroContratoExceptionHandler {
      * RAZ-105/RAZ-79 §6.1: "conflito de saldo/estado" é {@code 409}, mais específico que o
      * {@code 400} genérico de {@link #execucaoInvalida} — cobre também {@link
      * AutoAprovacaoNaoPermitidaException} (viola a segregação de funções da Regra 9, um conflito de
-     * estado da liquidação, não um payload malformado) e {@link LiquidacaoJaDecididaException}
-     * (dupla decisão sobre a mesma liquidação — ADR-0029 §4, mapeado por tipo, não por string).
+     * estado da liquidação, não um payload malformado), {@link LiquidacaoJaDecididaException}
+     * (dupla decisão sobre a mesma liquidação — ADR-0029 §4, mapeado por tipo, não por string) e
+     * {@link DisponibilidadeArt42InsuficienteException} (gate art. 42 da LRF — RAZ-243/ADR-0044).
      */
     @ExceptionHandler({
         SaldoInsuficienteException.class,
         PagamentoNaoAprovadoException.class,
         AutoAprovacaoNaoPermitidaException.class,
-        LiquidacaoJaDecididaException.class
+        LiquidacaoJaDecididaException.class,
+        DisponibilidadeArt42InsuficienteException.class
     })
     ResponseEntity<ErroResponse> conflitoDeSaldoOuEstado(ExecucaoInvalidaException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(corpo(e.codigo(), e));

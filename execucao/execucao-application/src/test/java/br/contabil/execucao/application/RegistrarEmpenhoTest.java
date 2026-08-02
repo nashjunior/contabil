@@ -4,12 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import br.contabil.execucao.domain.CredorId;
+import br.contabil.execucao.domain.DisponibilidadeArt42InsuficienteException;
 import br.contabil.execucao.domain.DotacaoId;
 import br.contabil.execucao.domain.Empenho;
 import br.contabil.execucao.domain.ExecucaoInvalidaException;
@@ -74,6 +76,9 @@ class RegistrarEmpenhoTest {
     private SolicitacaoDocumentoAssinaturaPort solicitacaoDocumentoAssinatura;
 
     @Mock
+    private VerificarDisponibilidadeArt42 verificarDisponibilidadeArt42;
+
+    @Mock
     private AuditoriaEscrita auditoria;
 
     private RegistrarEmpenho useCase;
@@ -96,6 +101,7 @@ class RegistrarEmpenhoTest {
                 repositorio,
                 publicacaoTransparencia,
                 solicitacaoDocumentoAssinatura,
+                verificarDisponibilidadeArt42,
                 auditoria,
                 relogioFixo);
     }
@@ -139,6 +145,7 @@ class RegistrarEmpenhoTest {
         assertThat(empenho.dotacaoId()).isEqualTo(dotacaoId);
         assertThat(empenho.numeroSequencial()).isEqualTo(7L);
         assertThat(empenho.fatoContabilId()).isEqualTo(fatoContabilId);
+        verify(verificarDisponibilidadeArt42).verificar(enteId, dataFato, "0100000000", Dinheiro.de("1500.00"));
         verify(repositorio).inserir(empenho);
         verify(publicacaoTransparencia).publicar(empenho, sessao);
         verify(solicitacaoDocumentoAssinatura).solicitar(empenho, sessao);
@@ -172,6 +179,36 @@ class RegistrarEmpenhoTest {
                         "0100000000",
                         "empenho inválido"))
                 .isInstanceOf(ExecucaoInvalidaException.class);
+
+        verifyNoInteractions(
+                saldos, escrituracao, contadorEmpenho, repositorio, publicacaoTransparencia,
+                solicitacaoDocumentoAssinatura, verificarDisponibilidadeArt42, auditoria);
+    }
+
+    @Test
+    @DisplayName("gate art. 42 (LRF) recusa antes de consultar saldo, escriturar ou persistir")
+    void rejeitaPorDisponibilidadeArt42AntesDeConsultarSaldo() {
+        Sessao sessao = sessao(true);
+        when(servicoIdentidade.autorizar(sessao, RECURSO, Acao.CRIAR)).thenReturn(true);
+        doThrow(new DisponibilidadeArt42InsuficienteException("0100000000", Dinheiro.de("300.00"), Dinheiro.zero()))
+                .when(verificarDisponibilidadeArt42)
+                .verificar(enteId, dataFato, "0100000000", Dinheiro.de("300.00"));
+
+        assertThatThrownBy(() -> useCase.executar(
+                        sessao,
+                        enteId,
+                        dotacaoId,
+                        TipoEmpenho.ORDINARIO,
+                        credorId,
+                        unidadeGestoraId,
+                        null,
+                        Dinheiro.de("300.00"),
+                        dataFato,
+                        2026,
+                        "04.122.0001.2001",
+                        "0100000000",
+                        "empenho sem lastro no fim do mandato"))
+                .isInstanceOf(DisponibilidadeArt42InsuficienteException.class);
 
         verifyNoInteractions(
                 saldos, escrituracao, contadorEmpenho, repositorio, publicacaoTransparencia,
@@ -267,7 +304,7 @@ class RegistrarEmpenhoTest {
 
         verifyNoInteractions(
                 saldos, escrituracao, contadorEmpenho, repositorio, publicacaoTransparencia,
-                solicitacaoDocumentoAssinatura, auditoria);
+                solicitacaoDocumentoAssinatura, verificarDisponibilidadeArt42, auditoria);
     }
 
     @Test
@@ -300,6 +337,6 @@ class RegistrarEmpenhoTest {
         verify(servicoIdentidade, never()).autorizar(any(), any(), any());
         verifyNoInteractions(
                 saldos, escrituracao, contadorEmpenho, repositorio, publicacaoTransparencia,
-                solicitacaoDocumentoAssinatura, auditoria);
+                solicitacaoDocumentoAssinatura, verificarDisponibilidadeArt42, auditoria);
     }
 }

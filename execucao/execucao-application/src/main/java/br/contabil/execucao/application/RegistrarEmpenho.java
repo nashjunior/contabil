@@ -32,9 +32,10 @@ import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
  * Caso de uso: registra um empenho, comprometendo crédito da dotação (Lei
  * 4.320/1964 art. 58-60).
  *
- * <p>Fluxo: RBAC/MFA -> valida valor -> consulta saldo da dotação (art. 59) ->
- * escritura o fato no razão por port -> persiste o empenho já amarrado ao
- * fato. A transação é responsabilidade da borda/infra.
+ * <p>Fluxo: RBAC/MFA -> valida valor -> gate art. 42 da LRF (RAZ-243/ADR-0044,
+ * só bloqueia nos 2 últimos quadrimestres do mandato) -> consulta saldo da
+ * dotação (art. 59) -> escritura o fato no razão por port -> persiste o
+ * empenho já amarrado ao fato. A transação é responsabilidade da borda/infra.
  */
 public class RegistrarEmpenho {
 
@@ -47,6 +48,7 @@ public class RegistrarEmpenho {
     private final EmpenhoRepository repositorio;
     private final PublicacaoTransparenciaExecucaoPort publicacaoTransparencia;
     private final SolicitacaoDocumentoAssinaturaPort solicitacaoDocumentoAssinatura;
+    private final VerificarDisponibilidadeArt42 verificarDisponibilidadeArt42;
     private final AuditoriaEscrita auditoria;
     private final Clock clock;
 
@@ -58,6 +60,7 @@ public class RegistrarEmpenho {
             EmpenhoRepository repositorio,
             PublicacaoTransparenciaExecucaoPort publicacaoTransparencia,
             SolicitacaoDocumentoAssinaturaPort solicitacaoDocumentoAssinatura,
+            VerificarDisponibilidadeArt42 verificarDisponibilidadeArt42,
             AuditoriaEscrita auditoria,
             Clock clock) {
         this.controleAcesso = controleAcesso;
@@ -68,6 +71,8 @@ public class RegistrarEmpenho {
         this.publicacaoTransparencia = Objects.requireNonNull(publicacaoTransparencia, "publicação transparência");
         this.solicitacaoDocumentoAssinatura =
                 Objects.requireNonNull(solicitacaoDocumentoAssinatura, "solicitação documento assinatura");
+        this.verificarDisponibilidadeArt42 =
+                Objects.requireNonNull(verificarDisponibilidadeArt42, "verificação disponibilidade art. 42");
         this.auditoria = auditoria;
         this.clock = clock;
     }
@@ -89,6 +94,7 @@ public class RegistrarEmpenho {
         controleAcesso.exigir(usuarioAutenticado, enteId, RECURSO_EMPENHO, Acao.CRIAR);
 
         Empenho.validarValor(valor, "valor do empenho");
+        verificarDisponibilidadeArt42.verificar(enteId, dataFato, fonteRecurso, valor);
 
         var saldoDotacao = saldos.saldoDotacao(enteId, dotacaoId);
         saldoDotacao.exigirSaldoParaComprometer(valor);

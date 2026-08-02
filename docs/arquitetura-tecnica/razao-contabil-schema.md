@@ -13,11 +13,18 @@ create extension if not exists "uuid-ossp";
 
 -- 1. Ente (raiz multi-tenant)
 create table ente (
-  id          uuid primary key default uuid_generate_v4(),
-  cnpj        varchar(14) not null unique,
-  nome        text not null,
-  esfera      text not null check (esfera in ('uniao','estado','df','municipio')),
-  criado_em   timestamptz not null default clock_timestamp()
+  id              uuid primary key default uuid_generate_v4(),
+  cnpj            varchar(14) not null unique,
+  nome            text not null,
+  esfera          text not null check (esfera in ('uniao','estado','df','municipio')),
+  -- Janela de mandato vigente (nullable, config do ente, ADR-0044) — base do gate
+  -- art.42 (VerificarDisponibilidadeArt42): dois últimos quadrimestres = maio-dez
+  -- do ano de mandato_fim. Sem config, o gate não bloqueia (RAZ-243).
+  mandato_inicio  date,
+  mandato_fim     date,
+  criado_em       timestamptz not null default clock_timestamp(),
+  constraint ck_ente_mandato_datas
+    check (mandato_inicio is null or mandato_fim is null or mandato_fim > mandato_inicio)
 );
 
 -- 2. Plano de contas (PCASP)

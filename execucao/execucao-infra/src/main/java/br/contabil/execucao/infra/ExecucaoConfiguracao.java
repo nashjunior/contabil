@@ -25,7 +25,9 @@ import br.contabil.execucao.application.RegistrarLiquidacao;
 import br.contabil.execucao.application.RegistrarPagamento;
 import br.contabil.execucao.application.SinalizacaoSlaTransparenciaPort;
 import br.contabil.execucao.application.SolicitacaoDocumentoAssinaturaPort;
+import br.contabil.execucao.application.VerificarDisponibilidadeArt42;
 import br.contabil.execucao.domain.repository.ContadorEmpenhoPort;
+import br.contabil.execucao.domain.repository.DisponibilidadeArt42Port;
 import br.contabil.execucao.domain.repository.DotacaoRepository;
 import br.contabil.execucao.domain.repository.DotacoesQuery;
 import br.contabil.execucao.domain.repository.EmpenhoRepository;
@@ -33,6 +35,7 @@ import br.contabil.execucao.domain.repository.EmpenhosRegistradosQuery;
 import br.contabil.execucao.domain.repository.ExecucaoContabilPort;
 import br.contabil.execucao.domain.repository.ExecucaoOrcamentariaPeriodoPort;
 import br.contabil.execucao.domain.repository.FilaAprovacaoQuery;
+import br.contabil.execucao.domain.repository.JanelaMandatoPort;
 import br.contabil.execucao.domain.repository.IdempotenciaPagamentoRepository;
 import br.contabil.execucao.domain.repository.LiquidacaoRepository;
 import br.contabil.execucao.domain.repository.LiquidacoesRegistradasQuery;
@@ -70,6 +73,7 @@ public class ExecucaoConfiguracao {
             EmpenhoRepository repositorio,
             PublicacaoTransparenciaExecucaoPort publicacaoTransparencia,
             SolicitacaoDocumentoAssinaturaPort solicitacaoDocumentoAssinatura,
+            VerificarDisponibilidadeArt42 verificarDisponibilidadeArt42,
             AuditoriaEscrita auditoria,
             Clock clock) {
         return new RegistrarEmpenho(
@@ -80,8 +84,20 @@ public class ExecucaoConfiguracao {
                 repositorio,
                 publicacaoTransparencia,
                 solicitacaoDocumentoAssinatura,
+                verificarDisponibilidadeArt42,
                 auditoria,
                 clock);
+    }
+
+    /**
+     * RAZ-243/ADR-0044: gate art. 42, reusável entre {@link RegistrarEmpenho} e, mais
+     * adiante, {@code InscreverRestosAPagar} (RAZ-207) — por isso é bean próprio, não
+     * lógica inline num único use case.
+     */
+    @Bean
+    public VerificarDisponibilidadeArt42 verificarDisponibilidadeArt42(
+            JanelaMandatoPort janelaMandato, DisponibilidadeArt42Port disponibilidade) {
+        return new VerificarDisponibilidadeArt42(janelaMandato, disponibilidade);
     }
 
     /**
