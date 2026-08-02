@@ -6,6 +6,7 @@ import java.util.Optional;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
 import br.contabil.plataforma.domain.iam.ControleAcesso;
@@ -21,11 +22,11 @@ import br.contabil.razao.application.EstornarFatoContabil;
 import br.contabil.razao.application.GerarBalancete;
 import br.contabil.razao.application.GerarDemonstracoesDcasp;
 import br.contabil.razao.application.InscreverRestosAPagar;
-import br.contabil.razao.application.ParametroEncerramentoDdr;
 import br.contabil.razao.application.ParametroEncerramentoOrcamentario;
 import br.contabil.razao.application.ParametroInscricaoRP;
 import br.contabil.razao.application.ParametroTransposicaoAbertura;
-import br.contabil.razao.application.ParametroTransposicaoDdrAbertura;
+import br.contabil.razao.application.ParametrosEncerramentoDdr;
+import br.contabil.razao.application.ParametrosTransposicaoDdrAbertura;
 import br.contabil.razao.application.RegistrarFatoContabil;
 import br.contabil.razao.application.TransporDdrPorFonteAbertura;
 import br.contabil.razao.application.TransporSaldosAbertura;
@@ -187,6 +188,15 @@ public class RazaoConfiguracao {
     }
 
     /**
+     * RAZ-266: configuração oficial de encerramento da DDR por código PCASP, resolvida
+     * por ente porque {@code conta_pcasp.id} é tenant-scoped.
+     */
+    @Bean
+    public ParametrosEncerramentoDdr parametrosEncerramentoDdr(JdbcTemplate jdbcTemplate) {
+        return new ParametrosEncerramentoDdrOficiais(jdbcTemplate);
+    }
+
+    /**
      * RAZ-259: colaborador interno para a abertura do exercício seguinte — transposição
      * append-only de saldos patrimoniais permanentes em 1º/jan (docs/15 §Preciso item 5,
      * IPC 03/STN item 30).
@@ -219,6 +229,15 @@ public class RazaoConfiguracao {
     }
 
     /**
+     * RAZ-266: configuração oficial de abertura da DDR por código PCASP, resolvida por
+     * ente porque {@code conta_pcasp.id} é tenant-scoped.
+     */
+    @Bean
+    public ParametrosTransposicaoDdrAbertura parametrosTransposicaoDdrAbertura(JdbcTemplate jdbcTemplate) {
+        return new ParametrosTransposicaoDdrAberturaOficiais(jdbcTemplate);
+    }
+
+    /**
      * RAZ-226/RAZ-257/RAZ-258/RAZ-244/RAZ-259: encerramento de exercício (mês 13) com apuração
      * do resultado patrimonial classes 3/4 (RAZ-257), inscrição de RP (RAZ-207), encerramento
      * das contas de controle orçamentário classes 5/6 (RAZ-258), encerramento da DDR
@@ -226,10 +245,12 @@ public class RazaoConfiguracao {
      * superávit financeiro da DDR por fonte (RAZ-259/RAZ-244).
      *
      * <p>{@code contaResultadoApurado} segue {@link Optional#empty()} e
-     * {@code parametrosRP}/{@code parametrosEncerramentoOrcamentario}/{@code parametrosDdr}/
-     * {@code parametrosAbertura}/{@code parametrosAberturaDdr} seguem vazios até os códigos
-     * PCASP concretos do ente serem revalidados e configurados (mesma postura defensiva do
-     * RAZ-207 — nenhuma conta é encerrada/aberta sem parâmetro explícito).
+     * {@code parametrosRP}/{@code parametrosEncerramentoOrcamentario}/{@code parametrosAbertura}
+     * seguem vazios até os códigos PCASP concretos do ente serem revalidados e configurados
+     * (mesma postura defensiva do RAZ-207 — nenhuma conta é encerrada/aberta sem parâmetro
+     * explícito). Os parâmetros da DDR ({@code parametrosDdr}/{@code parametrosAberturaDdr})
+     * já são oficiais e resolvidos por ente via {@link ParametrosEncerramentoDdr}/
+     * {@link ParametrosTransposicaoDdrAbertura} (RAZ-266).
      */
     @Bean
     public EncerrarExercicio encerrarExercicio(
@@ -239,16 +260,16 @@ public class RazaoConfiguracao {
             InscreverRestosAPagar inscreverRP,
             EncerrarContasOrcamentarias encerrarContasOrcamentarias,
             EncerrarDdrPorFonte encerrarDdr,
+            ParametrosEncerramentoDdr parametrosDdr,
             TransporSaldosAbertura transporSaldosAbertura,
             TransporDdrPorFonteAbertura transporDdrAbertura,
+            ParametrosTransposicaoDdrAbertura parametrosAberturaDdr,
             AuditoriaEscrita auditoria,
             Clock clock) {
         Optional<ContaContabilId> contaResultadoApurado = Optional.empty();
         List<ParametroInscricaoRP> parametrosRP = List.of();
         List<ParametroEncerramentoOrcamentario> parametrosEncerramentoOrcamentario = List.of();
-        List<ParametroEncerramentoDdr> parametrosDdr = List.of();
         List<ParametroTransposicaoAbertura> parametrosAbertura = List.of();
-        List<ParametroTransposicaoDdrAbertura> parametrosAberturaDdr = List.of();
         return new EncerrarExercicio(
                 controleAcesso,
                 periodoRepositorio,

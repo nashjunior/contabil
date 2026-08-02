@@ -50,12 +50,14 @@ import br.contabil.razao.domain.repository.PeriodoContabilRepository;
  * (nenhum é commitado isoladamente) — inclusive se o período mês 1 do exercício seguinte
  * ainda não existir (a abertura propaga {@link br.contabil.razao.domain.PeriodoEncerradoException}).
  *
- * <p>Os códigos PCASP das contas de RP, de encerramento orçamentário, de DDR (encerramento e
- * abertura) e da conta de resultado apurado são injetados via {@link ParametroInscricaoRP}/
- * {@link ParametroEncerramentoOrcamentario}/{@link ParametroEncerramentoDdr}/
- * {@link ParametroTransposicaoAbertura}/{@link ParametroTransposicaoDdrAbertura}/
- * {@code contaResultadoApurado} — o use case é PCASP-agnóstico; {@code [REVALIDAR]} no
- * MCASP edição vigente antes de configurar em produção.
+ * <p>Os códigos PCASP das contas de RP, de encerramento orçamentário e da conta de resultado
+ * apurado são injetados via {@link ParametroInscricaoRP}/{@link ParametroEncerramentoOrcamentario}/
+ * {@link ParametroTransposicaoAbertura}/{@code contaResultadoApurado} — o use case é
+ * PCASP-agnóstico; {@code [REVALIDAR]} no MCASP edição vigente antes de configurar em
+ * produção. Os parâmetros da DDR ({@link ParametroEncerramentoDdr}/
+ * {@link ParametroTransposicaoDdrAbertura}) são resolvidos <b>por ente</b> em tempo de
+ * execução via {@link ParametrosEncerramentoDdr}/{@link ParametrosTransposicaoDdrAbertura}
+ * (RAZ-266, mesmo padrão do RAZ-260 para RP) — {@code conta_pcasp} é tenant-scoped.
  */
 public class EncerrarExercicio {
 
@@ -71,11 +73,11 @@ public class EncerrarExercicio {
     private final EncerrarContasOrcamentarias encerrarContasOrcamentarias;
     private final List<ParametroEncerramentoOrcamentario> parametrosEncerramentoOrcamentario;
     private final EncerrarDdrPorFonte encerrarDdr;
-    private final List<ParametroEncerramentoDdr> parametrosDdr;
+    private final ParametrosEncerramentoDdr parametrosDdr;
     private final TransporSaldosAbertura transporSaldosAbertura;
     private final List<ParametroTransposicaoAbertura> parametrosAbertura;
     private final TransporDdrPorFonteAbertura transporDdrAbertura;
-    private final List<ParametroTransposicaoDdrAbertura> parametrosAberturaDdr;
+    private final ParametrosTransposicaoDdrAbertura parametrosAberturaDdr;
     private final AuditoriaEscrita auditoria;
     private final Clock clock;
 
@@ -89,11 +91,11 @@ public class EncerrarExercicio {
             EncerrarContasOrcamentarias encerrarContasOrcamentarias,
             List<ParametroEncerramentoOrcamentario> parametrosEncerramentoOrcamentario,
             EncerrarDdrPorFonte encerrarDdr,
-            List<ParametroEncerramentoDdr> parametrosDdr,
+            ParametrosEncerramentoDdr parametrosDdr,
             TransporSaldosAbertura transporSaldosAbertura,
             List<ParametroTransposicaoAbertura> parametrosAbertura,
             TransporDdrPorFonteAbertura transporDdrAbertura,
-            List<ParametroTransposicaoDdrAbertura> parametrosAberturaDdr,
+            ParametrosTransposicaoDdrAbertura parametrosAberturaDdr,
             AuditoriaEscrita auditoria,
             Clock clock) {
         this.controleAcesso = Objects.requireNonNull(controleAcesso, "controleAcesso");
@@ -108,12 +110,11 @@ public class EncerrarExercicio {
         this.parametrosEncerramentoOrcamentario = List.copyOf(
                 Objects.requireNonNull(parametrosEncerramentoOrcamentario, "parametrosEncerramentoOrcamentario"));
         this.encerrarDdr = Objects.requireNonNull(encerrarDdr, "encerrarDdr");
-        this.parametrosDdr = List.copyOf(Objects.requireNonNull(parametrosDdr, "parametrosDdr"));
+        this.parametrosDdr = Objects.requireNonNull(parametrosDdr, "parametrosDdr");
         this.transporSaldosAbertura = Objects.requireNonNull(transporSaldosAbertura, "transporSaldosAbertura");
         this.parametrosAbertura = List.copyOf(Objects.requireNonNull(parametrosAbertura, "parametrosAbertura"));
         this.transporDdrAbertura = Objects.requireNonNull(transporDdrAbertura, "transporDdrAbertura");
-        this.parametrosAberturaDdr =
-                List.copyOf(Objects.requireNonNull(parametrosAberturaDdr, "parametrosAberturaDdr"));
+        this.parametrosAberturaDdr = Objects.requireNonNull(parametrosAberturaDdr, "parametrosAberturaDdr");
         this.auditoria = Objects.requireNonNull(auditoria, "auditoria");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
@@ -156,9 +157,11 @@ public class EncerrarExercicio {
 
         // Encerramento da DDR utilizada por fonte — RAZ-244 (IPC 03/STN §91). Contas
         // independentes das orçamentárias/RP acima (classes 7/8), sem ordem obrigatória
-        // entre si.
+        // entre si. RAZ-266: parâmetros oficiais resolvidos por ente (conta_pcasp é
+        // tenant-scoped).
+        List<ParametroEncerramentoDdr> parametrosDdrDoEnte = parametrosDdr.para(enteId);
         encerrarDdr.executar(
-                usuarioAutenticado, enteId, exercicio, periodo.id(), dataEncerramento, parametrosDdr);
+                usuarioAutenticado, enteId, exercicio, periodo.id(), dataEncerramento, parametrosDdrDoEnte);
 
         PeriodoContabil encerrado = periodo.encerrarPeriodoExercicio(clock);
 
@@ -176,8 +179,10 @@ public class EncerrarExercicio {
 
         // Abertura da DDR: transposição do superávit financeiro por fonte — RAZ-244
         // (docs/15 §Preciso item 5, IPC 03/STN §96) — base do gate art. 42 no exercício
-        // seguinte. Mesma janela transacional do item acima.
-        transporDdrAbertura.executar(usuarioAutenticado, enteId, exercicio, parametrosAberturaDdr);
+        // seguinte. Mesma janela transacional do item acima. RAZ-266: parâmetros oficiais
+        // resolvidos por ente.
+        List<ParametroTransposicaoDdrAbertura> parametrosAberturaDdrDoEnte = parametrosAberturaDdr.para(enteId);
+        transporDdrAbertura.executar(usuarioAutenticado, enteId, exercicio, parametrosAberturaDdrDoEnte);
 
         auditoria.append(new EventoAuditoria(
                 enteId,

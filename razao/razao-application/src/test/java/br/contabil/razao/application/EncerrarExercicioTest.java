@@ -38,6 +38,7 @@ import br.contabil.plataforma.domain.iam.ServicoIdentidade.SemPermissaoException
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
 import br.contabil.razao.domain.ContaContabilId;
 import br.contabil.razao.domain.EncerramentoConflitanteException;
+import br.contabil.razao.domain.Natureza;
 import br.contabil.razao.domain.PeriodoContabil;
 import br.contabil.razao.domain.PeriodoContabilId;
 import br.contabil.razao.domain.PeriodoContabilNaoEncontradoException;
@@ -105,11 +106,11 @@ class EncerrarExercicioTest {
                 encerrarContasOrcamentarias,
                 List.of(),
                 encerrarDdr,
-                List.of(),
+                ente -> List.of(),
                 transporSaldosAbertura,
                 List.of(),
                 transporDdrAbertura,
-                List.of(),
+                ente -> List.of(),
                 auditoria,
                 relogio);
     }
@@ -168,11 +169,11 @@ class EncerrarExercicioTest {
                 encerrarContasOrcamentarias,
                 List.of(),
                 encerrarDdr,
-                List.of(),
+                ente -> List.of(),
                 transporSaldosAbertura,
                 List.of(),
                 transporDdrAbertura,
-                List.of(),
+                ente -> List.of(),
                 auditoria,
                 relogio);
 
@@ -190,6 +191,53 @@ class EncerrarExercicioTest {
         ordem.verify(apurarResultadoPatrimonial)
                 .executar(eq(sessao), eq(enteId), eq(2026), eq(periodoExercicio.id()), any(), eq(contaResultado));
         ordem.verify(inscreverRP).executar(eq(sessao), eq(enteId), eq(2026), eq(periodoExercicio.id()), any(), eq(List.of()));
+    }
+
+    @Test
+    @DisplayName("RAZ-266: resolve parâmetros de DDR (encerramento e abertura) do ente e repassa listas reais")
+    void repassaParametrosDdrResolvidosPorEnteParaEncerramentoEAbertura() {
+        List<ParametroEncerramentoDdr> parametrosDdr = List.of(new ParametroEncerramentoDdr(
+                ContaContabilId.novo(), ContaContabilId.novo(), Natureza.CREDITO));
+        List<ParametroTransposicaoDdrAbertura> parametrosAberturaDdr = List.of(new ParametroTransposicaoDdrAbertura(
+                ContaContabilId.novo(), ContaContabilId.novo(), Natureza.CREDITO));
+
+        EncerrarExercicio useCaseComParametrosDdr = new EncerrarExercicio(
+                new ControleAcesso(servicoIdentidade),
+                periodoRepositorio,
+                apurarResultadoPatrimonial,
+                Optional.empty(),
+                inscreverRP,
+                List.of(),
+                encerrarContasOrcamentarias,
+                List.of(),
+                encerrarDdr,
+                ente -> {
+                    assertThat(ente).isEqualTo(enteId);
+                    return parametrosDdr;
+                },
+                transporSaldosAbertura,
+                List.of(),
+                transporDdrAbertura,
+                ente -> {
+                    assertThat(ente).isEqualTo(enteId);
+                    return parametrosAberturaDdr;
+                },
+                auditoria,
+                relogio);
+
+        Sessao sessao = sessaoComMfa();
+        when(servicoIdentidade.autorizar(sessao, RECURSO_PERIODO, Acao.ENCERRAR)).thenReturn(true);
+
+        PeriodoContabil periodoExercicio = PeriodoContabil.reidratar(
+                PeriodoContabilId.novo(), enteId, 2026, 13, StatusPeriodo.ABERTO, Optional.empty());
+        when(periodoRepositorio.buscarPorCompetencia(enteId, 2026, 13)).thenReturn(Optional.of(periodoExercicio));
+        when(periodoRepositorio.encerrar(any())).thenReturn(true);
+
+        useCaseComParametrosDdr.executar(sessao, enteId, 2026);
+
+        verify(encerrarDdr).executar(
+                eq(sessao), eq(enteId), eq(2026), eq(periodoExercicio.id()), any(), eq(parametrosDdr));
+        verify(transporDdrAbertura).executar(eq(sessao), eq(enteId), eq(2026), eq(parametrosAberturaDdr));
     }
 
     @Test
