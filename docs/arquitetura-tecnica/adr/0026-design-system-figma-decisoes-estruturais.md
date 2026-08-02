@@ -45,6 +45,16 @@ Diferente das atualizações anteriores (componente novo por ausência em `searc
 
 Não muda nenhuma das 3 decisões originais nem as atualizações anteriores — só estende o inventário e registra a proposta de IA como decisão estrutural em aberto. Detalhe completo (componentes, estados, encaixe, a11y) em [design-system-tokens-componentes.md §5](../design-system-tokens-componentes.md#5-shell-do-app--cabeçalho-e-navegação-raz-233).
 
+## Atualização (RAZ-261) — proposta ratificada parcialmente
+
+Revisão de arquitetura de frontend (Rafael) sobre a proposta em aberto acima. **Ratificado:** os 7 links planos de `FeatureNav.tsx` viram categorias primárias por área de domínio, reduzindo a superfície de nav de primeiro nível — implementado em `FeatureNav.tsx` (commit `aa8b874`, merge `fa09543`). **Não ratificado, com justificativa:**
+
+- **"Início" ficou de fora.** Não existe rota `/` própria pro dashboard (RAZ-234) em `AppRoutes.tsx` real ainda — nav não aponta pra tela que não existe (mesma disciplina de honestidade sobre gap já usada nos banners de Alerta/Aviso de Gap). Fica pra quando a RAZ-234 ganhar rota própria.
+- **"Dotação"/"Assinatura" ficaram de fora** pelo mesmo motivo: `AppRoutes.tsx` não tem rota pra essas telas (confirmado, mesmo gap já apontado em design-system-tokens-componentes.md §5.5).
+- **Liquidação/pagamento/trilha NÃO viraram ações de linha dentro da lista de empenhos.** Essa parte da proposta exigiria editar `ExecucaoPage.tsx`/`FilaAprovacaoList`-equivalente pro fluxo de execução — fora do único ponto de encaixe da RAZ-261 (só `FeatureNav.tsx`/`PageLayout.tsx`, nenhuma das 8 páginas tocada). Em vez disso, viraram nível **secundário** da área ativa (nova navegação de 2 camadas: 3 botões primários — Execução/Aprovações/Consultas — e, pra área ativa com mais de 1 destino, uma navegação secundária com os itens reais). Nenhum dos 7 destinos originais foi removido; a redução de superfície visual (3 botões em vez de 7 links) foi obtida sem tocar nenhuma tela. Se o produto quiser mesmo mover essas ações pra dentro da lista de empenhos, é RAZ nova com escopo em `ExecucaoPage.tsx`.
+
+Resultado prático: **3 áreas primárias hoje** (Execução/Aprovações/Consultas), não as 6 do Figma — as outras 3 nascem quando a rota real existir, não antes. Detalhe da implementação (por que `Link` em vez de `NavLink`, mapa área→rotas) no próprio `FeatureNav.tsx`.
+
 ---
 
 [← ADRs](./README.md) · [design-system-tokens-componentes](../design-system-tokens-componentes.md) · [fluxo-execucao-operador-contrato-api](../fluxo-execucao-operador-contrato-api.md) · [ADR-0023](./0023-gate-aprovacao-pagamento-segregacao.md)
