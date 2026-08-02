@@ -1,12 +1,14 @@
 package br.contabil.razao.infra;
 
 import java.time.Clock;
+import java.util.List;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
 import br.contabil.plataforma.domain.iam.ControleAcesso;
+import br.contabil.razao.application.CancelarRestoAPagar;
 import br.contabil.razao.application.ConsultarContas;
 import br.contabil.razao.application.ConsultarSaldo;
 import br.contabil.razao.application.EncerrarExercicio;
@@ -14,12 +16,15 @@ import br.contabil.razao.application.EncerrarPeriodo;
 import br.contabil.razao.application.EstornarFatoContabil;
 import br.contabil.razao.application.GerarBalancete;
 import br.contabil.razao.application.GerarDemonstracoesDcasp;
+import br.contabil.razao.application.InscreverRestosAPagar;
+import br.contabil.razao.application.ParametroInscricaoRP;
 import br.contabil.razao.application.RegistrarFatoContabil;
 import br.contabil.razao.domain.repository.BalancetePort;
 import br.contabil.razao.domain.repository.CatalogoContasPort;
 import br.contabil.razao.domain.repository.ConsultaSaldoPort;
 import br.contabil.razao.domain.repository.ContadorFatoPort;
 import br.contabil.razao.domain.repository.DemonstracoesDcaspPort;
+import br.contabil.razao.domain.repository.DisponibilidadePorFontePort;
 import br.contabil.razao.domain.repository.FatoContabilRepository;
 import br.contabil.razao.domain.repository.PeriodoContabilPort;
 import br.contabil.razao.domain.repository.PeriodoContabilRepository;
@@ -104,11 +109,39 @@ public class RazaoConfiguracao {
         return new EncerrarPeriodo(controleAcesso, periodoRepositorio, auditoria, clock);
     }
 
-    /** RAZ-226: boundary do encerramento de exercício (mês 13) — bloqueado até revalidar MCASP/RP. */
+    /** RAZ-207: colaborador interno para inscrição append-only de Restos a Pagar no encerramento. */
+    @Bean
+    public InscreverRestosAPagar inscreverRestosAPagar(
+            FatoContabilRepository repositorio,
+            ContadorFatoPort contadorFato,
+            DisponibilidadePorFontePort disponibilidadePorFonte,
+            AuditoriaEscrita auditoria,
+            Clock clock) {
+        return new InscreverRestosAPagar(repositorio, contadorFato, disponibilidadePorFonte, auditoria, clock);
+    }
+
+    /** RAZ-207: cancelamento append-only de inscrição de RP. */
+    @Bean
+    public CancelarRestoAPagar cancelarRestoAPagar(
+            ControleAcesso controleAcesso,
+            FatoContabilRepository repositorio,
+            ContadorFatoPort contadorFato,
+            PeriodoContabilPort periodoContabil,
+            AuditoriaEscrita auditoria,
+            Clock clock) {
+        return new CancelarRestoAPagar(
+                controleAcesso, repositorio, contadorFato, periodoContabil, auditoria, clock);
+    }
+
+    /** RAZ-226: encerramento de exercício (mês 13) com inscrição de RP entregue por RAZ-207. */
     @Bean
     public EncerrarExercicio encerrarExercicio(
             ControleAcesso controleAcesso,
-            PeriodoContabilRepository periodoRepositorio) {
-        return new EncerrarExercicio(controleAcesso, periodoRepositorio);
+            PeriodoContabilRepository periodoRepositorio,
+            InscreverRestosAPagar inscreverRP,
+            AuditoriaEscrita auditoria,
+            Clock clock) {
+        List<ParametroInscricaoRP> parametrosRP = List.of();
+        return new EncerrarExercicio(controleAcesso, periodoRepositorio, inscreverRP, parametrosRP, auditoria, clock);
     }
 }

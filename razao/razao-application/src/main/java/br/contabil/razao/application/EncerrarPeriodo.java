@@ -11,9 +11,9 @@ import br.contabil.plataforma.domain.iam.ControleAcesso;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Acao;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Recurso;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
+import br.contabil.razao.domain.EncerramentoConflitanteException;
 import br.contabil.razao.domain.PeriodoContabil;
 import br.contabil.razao.domain.PeriodoContabilNaoEncontradoException;
-import br.contabil.razao.domain.EncerramentoConflitanteException;
 import br.contabil.razao.domain.repository.PeriodoContabilRepository;
 
 /**
@@ -23,8 +23,8 @@ import br.contabil.razao.domain.repository.PeriodoContabilRepository;
  * checagem de autor individual). A
  * transição {@code aberto -> encerrado} é condicional no repositório
  * (ADR-0045); mês 13 é recusado por {@link PeriodoContabil#encerrar} —
- * encerramento de exercício exige apuração de resultado, escopo de
- * {@code EncerrarExercicio} (ainda não implementado).
+ * encerramento de exercício exige apuração de resultado via
+ * {@code EncerrarExercicio}.
  *
  * <p><b>Fora deste incremento:</b> a validação de "ausência de pendência que
  * impeça" (docs/15 §Preciso item 1) não está implementada — nenhuma fonte
