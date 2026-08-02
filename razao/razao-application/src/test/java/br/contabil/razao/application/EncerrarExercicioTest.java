@@ -13,11 +13,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
-import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -34,6 +36,7 @@ import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.MfaRequeridoException;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.SemPermissaoException;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
+import br.contabil.razao.domain.ContaContabilId;
 import br.contabil.razao.domain.EncerramentoConflitanteException;
 import br.contabil.razao.domain.PeriodoContabil;
 import br.contabil.razao.domain.PeriodoContabilId;
@@ -55,7 +58,22 @@ class EncerrarExercicioTest {
     private PeriodoContabilRepository periodoRepositorio;
 
     @Mock
+    private ApurarResultadoPatrimonial apurarResultadoPatrimonial;
+
+    @Mock
     private InscreverRestosAPagar inscreverRP;
+
+    @Mock
+    private EncerrarContasOrcamentarias encerrarContasOrcamentarias;
+
+    @Mock
+    private EncerrarDdrPorFonte encerrarDdr;
+
+    @Mock
+    private TransporSaldosAbertura transporSaldosAbertura;
+
+    @Mock
+    private TransporDdrPorFonteAbertura transporDdrAbertura;
 
     @Mock
     private AuditoriaEscrita auditoria;
@@ -80,14 +98,25 @@ class EncerrarExercicioTest {
         useCase = new EncerrarExercicio(
                 new ControleAcesso(servicoIdentidade),
                 periodoRepositorio,
+                apurarResultadoPatrimonial,
+                Optional.empty(),
                 inscreverRP,
+                List.of(),
+                encerrarContasOrcamentarias,
+                List.of(),
+                encerrarDdr,
+                List.of(),
+                transporSaldosAbertura,
+                List.of(),
+                transporDdrAbertura,
                 List.of(),
                 auditoria,
                 relogio);
     }
 
     @Test
-    @DisplayName("mês 13 aberto: inscreve RP, encerra o período e audita o exercício")
+    @DisplayName("mês 13 aberto: inscreve RP, encerra as contas orçamentárias, encerra a DDR por fonte, "
+            + "encerra o período, abre o exercício seguinte e audita o exercício")
     void encerraMes13ComSucesso() {
         Sessao sessao = sessaoComMfa();
         when(servicoIdentidade.autorizar(sessao, RECURSO_PERIODO, Acao.ENCERRAR)).thenReturn(true);
@@ -103,13 +132,64 @@ class EncerrarExercicioTest {
         assertThat(resultado.exercicio()).isEqualTo(2026);
         assertThat(resultado.mes()).isEqualTo(13);
 
-        verify(inscreverRP).executar(eq(sessao), eq(enteId), eq(2026), eq(periodoExercicio.id()), any(), eq(List.of()));
-        verify(periodoRepositorio).encerrar(any());
+        InOrder ordem = inOrder(
+                inscreverRP, encerrarContasOrcamentarias, encerrarDdr, periodoRepositorio, transporSaldosAbertura,
+                transporDdrAbertura);
+        ordem.verify(inscreverRP).executar(eq(sessao), eq(enteId), eq(2026), eq(periodoExercicio.id()), any(), eq(List.of()));
+        ordem.verify(encerrarContasOrcamentarias)
+                .executar(eq(sessao), eq(enteId), eq(2026), eq(periodoExercicio.id()), any(), eq(List.of()));
+        ordem.verify(encerrarDdr)
+                .executar(eq(sessao), eq(enteId), eq(2026), eq(periodoExercicio.id()), any(), eq(List.of()));
+        ordem.verify(periodoRepositorio).encerrar(any());
+        ordem.verify(transporSaldosAbertura).executar(eq(sessao), eq(enteId), eq(2026), eq(List.of()));
+        ordem.verify(transporDdrAbertura).executar(eq(sessao), eq(enteId), eq(2026), eq(List.of()));
+
+        // RAZ-257: sem contaResultadoApurado configurada (setUp usa Optional.empty()), a
+        // apuração patrimonial é pulada — mesma postura defensiva do RAZ-207/RAZ-258/RAZ-244.
+        verify(apurarResultadoPatrimonial, never()).executar(any(), any(), anyInt(), any(), any(), any());
 
         ArgumentCaptor<EventoAuditoria> evento = ArgumentCaptor.forClass(EventoAuditoria.class);
         verify(auditoria).append(evento.capture());
         assertThat(evento.getValue().tipo()).isEqualTo("razao_exercicio_encerrado");
         assertThat(evento.getValue().detalhes()).containsEntry("exercicio", "2026");
+    }
+
+    @Test
+    @DisplayName("RAZ-257: com contaResultadoApurado configurada, apura o resultado patrimonial antes da inscrição de RP")
+    void apuraResultadoPatrimonialQuandoContaConfigurada() {
+        ContaContabilId contaResultado = ContaContabilId.novo();
+        EncerrarExercicio useCaseComApuracao = new EncerrarExercicio(
+                new ControleAcesso(servicoIdentidade),
+                periodoRepositorio,
+                apurarResultadoPatrimonial,
+                Optional.of(contaResultado),
+                inscreverRP,
+                List.of(),
+                encerrarContasOrcamentarias,
+                List.of(),
+                encerrarDdr,
+                List.of(),
+                transporSaldosAbertura,
+                List.of(),
+                transporDdrAbertura,
+                List.of(),
+                auditoria,
+                relogio);
+
+        Sessao sessao = sessaoComMfa();
+        when(servicoIdentidade.autorizar(sessao, RECURSO_PERIODO, Acao.ENCERRAR)).thenReturn(true);
+
+        PeriodoContabil periodoExercicio = PeriodoContabil.reidratar(
+                PeriodoContabilId.novo(), enteId, 2026, 13, StatusPeriodo.ABERTO, Optional.empty());
+        when(periodoRepositorio.buscarPorCompetencia(enteId, 2026, 13)).thenReturn(Optional.of(periodoExercicio));
+        when(periodoRepositorio.encerrar(any())).thenReturn(true);
+
+        useCaseComApuracao.executar(sessao, enteId, 2026);
+
+        InOrder ordem = inOrder(apurarResultadoPatrimonial, inscreverRP);
+        ordem.verify(apurarResultadoPatrimonial)
+                .executar(eq(sessao), eq(enteId), eq(2026), eq(periodoExercicio.id()), any(), eq(contaResultado));
+        ordem.verify(inscreverRP).executar(eq(sessao), eq(enteId), eq(2026), eq(periodoExercicio.id()), any(), eq(List.of()));
     }
 
     @Test
@@ -123,6 +203,9 @@ class EncerrarExercicioTest {
                 .isInstanceOf(PeriodoContabilNaoEncontradoException.class);
 
         verify(inscreverRP, never()).executar(any(), any(), anyInt(), any(), any(), any());
+        verifyNoInteractions(
+                apurarResultadoPatrimonial, encerrarContasOrcamentarias, encerrarDdr, transporSaldosAbertura,
+                transporDdrAbertura);
         verify(periodoRepositorio, never()).encerrar(any());
     }
 
@@ -145,6 +228,9 @@ class EncerrarExercicioTest {
                 .isInstanceOf(EncerramentoConflitanteException.class);
 
         verify(inscreverRP, never()).executar(any(), any(), anyInt(), any(), any(), any());
+        verifyNoInteractions(
+                apurarResultadoPatrimonial, encerrarContasOrcamentarias, encerrarDdr, transporSaldosAbertura,
+                transporDdrAbertura);
         verify(periodoRepositorio, never()).encerrar(any());
     }
 
@@ -161,6 +247,8 @@ class EncerrarExercicioTest {
 
         assertThatThrownBy(() -> useCase.executar(sessao, enteId, 2026))
                 .isInstanceOf(EncerramentoConflitanteException.class);
+
+        verifyNoInteractions(transporSaldosAbertura, transporDdrAbertura);
     }
 
     @Test
@@ -171,7 +259,9 @@ class EncerrarExercicioTest {
 
         assertThatThrownBy(() -> useCase.executar(sessao, enteId, 2026)).isInstanceOf(SemPermissaoException.class);
 
-        verifyNoInteractions(periodoRepositorio, inscreverRP, auditoria);
+        verifyNoInteractions(
+                periodoRepositorio, apurarResultadoPatrimonial, inscreverRP, encerrarContasOrcamentarias,
+                encerrarDdr, transporSaldosAbertura, transporDdrAbertura, auditoria);
     }
 
     @Test
@@ -182,7 +272,9 @@ class EncerrarExercicioTest {
 
         assertThatThrownBy(() -> useCase.executar(sessao, enteId, 2026)).isInstanceOf(MfaRequeridoException.class);
 
-        verifyNoInteractions(periodoRepositorio, inscreverRP, auditoria);
+        verifyNoInteractions(
+                periodoRepositorio, apurarResultadoPatrimonial, inscreverRP, encerrarContasOrcamentarias,
+                encerrarDdr, transporSaldosAbertura, transporDdrAbertura, auditoria);
     }
 
     @Test
@@ -200,7 +292,9 @@ class EncerrarExercicioTest {
                 .isInstanceOf(SemPermissaoException.class);
 
         verify(servicoIdentidade, never()).autorizar(any(), any(), any());
-        verifyNoInteractions(periodoRepositorio, inscreverRP, auditoria);
+        verifyNoInteractions(
+                periodoRepositorio, apurarResultadoPatrimonial, inscreverRP, encerrarContasOrcamentarias,
+                encerrarDdr, transporSaldosAbertura, transporDdrAbertura, auditoria);
     }
 
     @Test
@@ -217,5 +311,19 @@ class EncerrarExercicioTest {
         assertThat(TipoEvento.CANCELAMENTO_RESTOS_A_PAGAR.codigo()).isEqualTo("cancelamento_restos_a_pagar");
         assertThat(TipoEvento.deCodigo("inscricao_restos_a_pagar")).isEqualTo(TipoEvento.INSCRICAO_RESTOS_A_PAGAR);
         assertThat(TipoEvento.deCodigo("cancelamento_restos_a_pagar")).isEqualTo(TipoEvento.CANCELAMENTO_RESTOS_A_PAGAR);
+    }
+
+    @Test
+    @DisplayName("RAZ-244: tipo de evento de encerramento da DDR tem código estável no enum")
+    void tipoEventoEncerramentoDdrTemCodigoEstavel() {
+        assertThat(TipoEvento.ENCERRAMENTO_DDR.codigo()).isEqualTo("encerramento_ddr");
+        assertThat(TipoEvento.deCodigo("encerramento_ddr")).isEqualTo(TipoEvento.ENCERRAMENTO_DDR);
+    }
+
+    @Test
+    @DisplayName("RAZ-259: tipo de evento de abertura tem código estável no enum")
+    void tipoEventoAberturaTemCodigoEstavel() {
+        assertThat(TipoEvento.ABERTURA.codigo()).isEqualTo("abertura");
+        assertThat(TipoEvento.deCodigo("abertura")).isEqualTo(TipoEvento.ABERTURA);
     }
 }

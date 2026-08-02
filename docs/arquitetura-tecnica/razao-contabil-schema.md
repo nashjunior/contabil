@@ -64,7 +64,10 @@ create table fato_contabil (
   data_competencia     date not null,                               -- fato gerador (Lei 4.320 art. 35)
   data_hora_registro   timestamptz not null default clock_timestamp(),  -- relógio do SERVIDOR (anti-backdating)
   periodo_id           uuid not null,
-  tipo_evento          text not null check (tipo_evento in ('empenho','liquidacao','pagamento','receita','estorno','abertura')),
+  tipo_evento          text not null check (tipo_evento in (
+                         'empenho','liquidacao','pagamento','receita','estorno','abertura',
+                         'encerramento','inscricao_restos_a_pagar','cancelamento_restos_a_pagar',
+                         'encerramento_ddr')),  -- V15: fecha o gap dos tipos de encerramento (RAZ-207/258/244)
   historico            text not null,
   origem               text not null,                               -- módulo/integração de origem
   fato_estornado_id    uuid,                                        -- vínculo do estorno ao original
@@ -263,7 +266,7 @@ Cada trava tem um **teste de integração** que tenta violá-la e **espera rejei
 | `numero_seq` duplicado / com buraco | Violação de unique / detecção |
 | Chamar `proximo_numero_seq()` como ente A tentando numerar para o ente B | Ignorado — sempre incrementa o contador do `app.ente_id` da sessão, nunca um ente arbitrário |
 | Persistir `valor` com mais de 2 casas ou negativo | Violação de check |
-| Persistir `tipo_evento` fora do domínio (`empenho\|liquidacao\|pagamento\|receita\|estorno\|abertura`) | Violação de check |
+| Persistir `tipo_evento` fora do domínio (`empenho\|liquidacao\|pagamento\|receita\|estorno\|abertura\|encerramento\|inscricao_restos_a_pagar\|cancelamento_restos_a_pagar\|encerramento_ddr`) | Violação de check |
 
 ## Notas e pontos abertos
 

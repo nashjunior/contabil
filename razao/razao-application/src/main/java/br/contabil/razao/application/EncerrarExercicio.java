@@ -6,6 +6,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 import br.contabil.plataforma.domain.TenantId;
 import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
@@ -14,6 +15,7 @@ import br.contabil.plataforma.domain.iam.ControleAcesso;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Acao;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Recurso;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Sessao;
+import br.contabil.razao.domain.ContaContabilId;
 import br.contabil.razao.domain.EncerramentoConflitanteException;
 import br.contabil.razao.domain.PeriodoContabil;
 import br.contabil.razao.domain.PeriodoContabilNaoEncontradoException;
@@ -21,18 +23,39 @@ import br.contabil.razao.domain.StatusPeriodo;
 import br.contabil.razao.domain.repository.PeriodoContabilRepository;
 
 /**
- * Caso de uso: encerra o exercício contábil (mês 13) — RAZ-207/RAZ-226.
+ * Caso de uso: encerra o exercício contábil (mês 13) e abre o seguinte —
+ * RAZ-207/RAZ-226/RAZ-257/RAZ-258/RAZ-244/RAZ-259.
  *
  * <p>Fluxo: (1) RBAC+MFA (ADR-0046) antes de qualquer I/O; (2) carrega o período mês 13 e
- * verifica que está {@code ABERTO}; (3) inscreve os Restos a Pagar (RPNP e RPP) por fonte
- * via {@link InscreverRestosAPagar} — os fatos são gerados aqui, Σdébito=Σcrédito,
- * append-only, um por fonte com saldo positivo (docs/17-restos-a-pagar.md §Preciso); (4)
- * transiciona o período para {@code ENCERRADO} com guarda de concorrência (ADR-0045); (5)
- * registra evento de auditoria do encerramento.
+ * verifica que está {@code ABERTO}; (3) apura o resultado patrimonial (VPA/VPD classes 3/4
+ * contra a conta de PL) via {@link ApurarResultadoPatrimonial} (RAZ-257, docs/15 §Preciso
+ * item 2, IPC 03/STN itens 19-34) — contas independentes das demais abaixo, sem ordem
+ * obrigatória entre si; (4) inscreve os Restos a Pagar (RPNP e RPP) por fonte via
+ * {@link InscreverRestosAPagar} — os fatos são gerados aqui, Σdébito=Σcrédito, append-only,
+ * um por fonte com saldo positivo (docs/17-restos-a-pagar.md §Preciso); (5) encerra as
+ * contas de controle orçamentário PCASP classes 5/6 via {@link EncerrarContasOrcamentarias}
+ * — <b>depois</b> da inscrição de RP, para que os saldos já transferidos às contas de RP
+ * não sejam também zerados aqui (docs/15 §Preciso item 3: RP do exercício corrente vira
+ * lastro do próximo exercício, não é encerrado); (6) encerra a DDR **utilizada** por fonte
+ * via {@link EncerrarDdrPorFonte} (RAZ-244, docs/15 §Preciso item 4, IPC 03/STN §91) — as
+ * comprometidas/liquidadas não encerram, transitam como lastro dos RP; (7) transiciona o
+ * período para {@code ENCERRADO} com guarda de concorrência (ADR-0045); (8) abre o
+ * exercício seguinte via {@link TransporSaldosAbertura} (RAZ-259, docs/15 §Preciso item 5,
+ * IPC 03/STN item 30) — transposição append-only de saldos patrimoniais permanentes em
+ * 1º/jan, incluindo {@code 2.3.7.1.1.01.00 → 2.3.7.1.1.02.00}; (9) transpõe o superávit
+ * financeiro da DDR por fonte via {@link TransporDdrPorFonteAbertura} (RAZ-244, docs/15
+ * §Preciso item 5, IPC 03/STN §96) — base do gate art. 42 no exercício seguinte; (10)
+ * registra evento de auditoria do encerramento. Todo o rito é all-or-nothing: qualquer
+ * falha em (3)-(9) propaga e a transação da borda desfaz os fatos já gerados nesta chamada
+ * (nenhum é commitado isoladamente) — inclusive se o período mês 1 do exercício seguinte
+ * ainda não existir (a abertura propaga {@link br.contabil.razao.domain.PeriodoEncerradoException}).
  *
- * <p>Os códigos PCASP das contas de RP são injetados via {@link ParametroInscricaoRP} — o
- * use case é PCASP-agnóstico; {@code [REVALIDAR]} no MCASP edição vigente antes de
- * configurar em produção.
+ * <p>Os códigos PCASP das contas de RP, de encerramento orçamentário, de DDR (encerramento e
+ * abertura) e da conta de resultado apurado são injetados via {@link ParametroInscricaoRP}/
+ * {@link ParametroEncerramentoOrcamentario}/{@link ParametroEncerramentoDdr}/
+ * {@link ParametroTransposicaoAbertura}/{@link ParametroTransposicaoDdrAbertura}/
+ * {@code contaResultadoApurado} — o use case é PCASP-agnóstico; {@code [REVALIDAR]} no
+ * MCASP edição vigente antes de configurar em produção.
  */
 public class EncerrarExercicio {
 
@@ -41,22 +64,56 @@ public class EncerrarExercicio {
 
     private final ControleAcesso controleAcesso;
     private final PeriodoContabilRepository periodoRepositorio;
+    private final ApurarResultadoPatrimonial apurarResultadoPatrimonial;
+    private final Optional<ContaContabilId> contaResultadoApurado;
     private final InscreverRestosAPagar inscreverRP;
     private final List<ParametroInscricaoRP> parametrosRP;
+    private final EncerrarContasOrcamentarias encerrarContasOrcamentarias;
+    private final List<ParametroEncerramentoOrcamentario> parametrosEncerramentoOrcamentario;
+    private final EncerrarDdrPorFonte encerrarDdr;
+    private final List<ParametroEncerramentoDdr> parametrosDdr;
+    private final TransporSaldosAbertura transporSaldosAbertura;
+    private final List<ParametroTransposicaoAbertura> parametrosAbertura;
+    private final TransporDdrPorFonteAbertura transporDdrAbertura;
+    private final List<ParametroTransposicaoDdrAbertura> parametrosAberturaDdr;
     private final AuditoriaEscrita auditoria;
     private final Clock clock;
 
     public EncerrarExercicio(
             ControleAcesso controleAcesso,
             PeriodoContabilRepository periodoRepositorio,
+            ApurarResultadoPatrimonial apurarResultadoPatrimonial,
+            Optional<ContaContabilId> contaResultadoApurado,
             InscreverRestosAPagar inscreverRP,
             List<ParametroInscricaoRP> parametrosRP,
+            EncerrarContasOrcamentarias encerrarContasOrcamentarias,
+            List<ParametroEncerramentoOrcamentario> parametrosEncerramentoOrcamentario,
+            EncerrarDdrPorFonte encerrarDdr,
+            List<ParametroEncerramentoDdr> parametrosDdr,
+            TransporSaldosAbertura transporSaldosAbertura,
+            List<ParametroTransposicaoAbertura> parametrosAbertura,
+            TransporDdrPorFonteAbertura transporDdrAbertura,
+            List<ParametroTransposicaoDdrAbertura> parametrosAberturaDdr,
             AuditoriaEscrita auditoria,
             Clock clock) {
         this.controleAcesso = Objects.requireNonNull(controleAcesso, "controleAcesso");
         this.periodoRepositorio = Objects.requireNonNull(periodoRepositorio, "periodoRepositorio");
+        this.apurarResultadoPatrimonial =
+                Objects.requireNonNull(apurarResultadoPatrimonial, "apurarResultadoPatrimonial");
+        this.contaResultadoApurado = Objects.requireNonNull(contaResultadoApurado, "contaResultadoApurado");
         this.inscreverRP = Objects.requireNonNull(inscreverRP, "inscreverRP");
         this.parametrosRP = List.copyOf(Objects.requireNonNull(parametrosRP, "parametrosRP"));
+        this.encerrarContasOrcamentarias =
+                Objects.requireNonNull(encerrarContasOrcamentarias, "encerrarContasOrcamentarias");
+        this.parametrosEncerramentoOrcamentario = List.copyOf(
+                Objects.requireNonNull(parametrosEncerramentoOrcamentario, "parametrosEncerramentoOrcamentario"));
+        this.encerrarDdr = Objects.requireNonNull(encerrarDdr, "encerrarDdr");
+        this.parametrosDdr = List.copyOf(Objects.requireNonNull(parametrosDdr, "parametrosDdr"));
+        this.transporSaldosAbertura = Objects.requireNonNull(transporSaldosAbertura, "transporSaldosAbertura");
+        this.parametrosAbertura = List.copyOf(Objects.requireNonNull(parametrosAbertura, "parametrosAbertura"));
+        this.transporDdrAbertura = Objects.requireNonNull(transporDdrAbertura, "transporDdrAbertura");
+        this.parametrosAberturaDdr =
+                List.copyOf(Objects.requireNonNull(parametrosAberturaDdr, "parametrosAberturaDdr"));
         this.auditoria = Objects.requireNonNull(auditoria, "auditoria");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
@@ -73,10 +130,35 @@ public class EncerrarExercicio {
             throw new EncerramentoConflitanteException(periodo.id());
         }
 
-        // Inscrição de Restos a Pagar (RPNP e RPP) por fonte — RAZ-207.
         LocalDate dataEncerramento = LocalDate.of(exercicio, 12, 31);
+
+        // Apuração do resultado patrimonial (VPA/VPD contra a conta de PL) — RAZ-257.
+        // Contas independentes das demais abaixo (classes 3/4), sem ordem obrigatória.
+        if (contaResultadoApurado.isPresent()) {
+            apurarResultadoPatrimonial.executar(
+                    usuarioAutenticado, enteId, exercicio, periodo.id(), dataEncerramento, contaResultadoApurado.get());
+        }
+
+        // Inscrição de Restos a Pagar (RPNP e RPP) por fonte — RAZ-207.
         inscreverRP.executar(
                 usuarioAutenticado, enteId, exercicio, periodo.id(), dataEncerramento, parametrosRP);
+
+        // Encerramento das contas de controle orçamentário classes 5/6 — RAZ-258. Roda
+        // depois da inscrição de RP (o saldo já transferido às contas de RP não é
+        // reencerrado aqui).
+        encerrarContasOrcamentarias.executar(
+                usuarioAutenticado,
+                enteId,
+                exercicio,
+                periodo.id(),
+                dataEncerramento,
+                parametrosEncerramentoOrcamentario);
+
+        // Encerramento da DDR utilizada por fonte — RAZ-244 (IPC 03/STN §91). Contas
+        // independentes das orçamentárias/RP acima (classes 7/8), sem ordem obrigatória
+        // entre si.
+        encerrarDdr.executar(
+                usuarioAutenticado, enteId, exercicio, periodo.id(), dataEncerramento, parametrosDdr);
 
         PeriodoContabil encerrado = periodo.encerrarPeriodoExercicio(clock);
 
@@ -84,6 +166,18 @@ public class EncerrarExercicio {
         if (!transicionou) {
             throw new EncerramentoConflitanteException(periodo.id());
         }
+
+        // Abertura do exercício seguinte — RAZ-259 (docs/15 §Preciso item 5, IPC 03/STN
+        // item 30): transposição append-only de saldos patrimoniais permanentes em 1º/jan
+        // (ex.: 2.3.7.1.1.01.00 → 2.3.7.1.1.02.00). Roda depois da transição condicional do
+        // período — só abre o exercício seguinte se este encerramento realmente venceu a
+        // corrida — e ainda dentro da mesma transação (ADR-0045: tudo ou nada).
+        transporSaldosAbertura.executar(usuarioAutenticado, enteId, exercicio, parametrosAbertura);
+
+        // Abertura da DDR: transposição do superávit financeiro por fonte — RAZ-244
+        // (docs/15 §Preciso item 5, IPC 03/STN §96) — base do gate art. 42 no exercício
+        // seguinte. Mesma janela transacional do item acima.
+        transporDdrAbertura.executar(usuarioAutenticado, enteId, exercicio, parametrosAberturaDdr);
 
         auditoria.append(new EventoAuditoria(
                 enteId,

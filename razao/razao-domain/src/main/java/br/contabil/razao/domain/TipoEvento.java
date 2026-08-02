@@ -14,7 +14,8 @@ public enum TipoEvento {
     ENCERRAMENTO("encerramento"),
     ABERTURA("abertura"),
     INSCRICAO_RESTOS_A_PAGAR("inscricao_restos_a_pagar"),
-    CANCELAMENTO_RESTOS_A_PAGAR("cancelamento_restos_a_pagar");
+    CANCELAMENTO_RESTOS_A_PAGAR("cancelamento_restos_a_pagar"),
+    ENCERRAMENTO_DDR("encerramento_ddr");
 
     private final String codigo;
 
