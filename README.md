@@ -30,6 +30,8 @@ Variáveis de ambiente de banco:
 | `GOVBR_IAM_AUDIENCE` | audience esperada no JWT gov.br |
 | `GOVBR_IAM_PUBLIC_KEY_PEM` | chave pública PEM para validar JWT gov.br RS256 |
 | `GOVBR_IAM_ISSUER` | issuer gov.br esperado; default staging |
+| `SIAFIC_DEV_IDP_ENABLED` | liga o IdP de dev local (`POST /sessao/dev-idp/token`, RAZ-228/ADR-0052); default `false` — **nunca ligar em staging/produção** |
+| `SIAFIC_DEV_IDP_PRIVATE_KEY_PEM` | chave PRIVADA de dev (PKCS8 PEM) para assinar os JWTs do IdP de dev — par da mesma `GOVBR_IAM_PUBLIC_KEY_PEM` acima; só existe neste processo, nunca no navegador |
 | `SERVER_PORT` | porta HTTP; default `8080` |
 
 O runtime e o Flyway devem usar usuários distintos. O runtime não deve ser dono
@@ -42,6 +44,22 @@ assinado (`RS256`), aceita certificado ICP-Brasil apenas quando o fingerprint
 SHA-256 foi provisionado e rejeita combinações de papéis conflitantes
 (`LANCADOR` + `AUTORIZADOR`, `AUTORIZADOR` + `PAGADOR`, `ADMIN_ACESSO` +
 operação financeira).
+
+**IdP de dev local** (`POST /sessao/dev-idp/token`, RAZ-228/ADR-0052 item 1):
+substitui, para o formulário "Modo desenvolvimento" do SPA, a string opaca que o
+backend real rejeitava por um JWT RS256 de verdade — reaproveita a mesma
+mecânica já provada pela suíte e2e (`frontend/e2e/support/jwt.ts`), agora
+alcançável por HTTP. **Nunca ativo por acidente**: exige as DUAS flags ao mesmo
+tempo, `SIAFIC_DEV_IDP_ENABLED=true` **e** `IAM_ENABLED=true` com o par de
+chaves de dev completo (`GOVBR_IAM_ISSUER`/`GOVBR_IAM_AUDIENCE`/
+`GOVBR_IAM_PUBLIC_KEY_PEM` — mesmas env vars do e2e — mais
+`SIAFIC_DEV_IDP_PRIVATE_KEY_PEM`, a metade privada do mesmo par). Sem as duas
+flags, a rota nem existe (`404`, fail-closed por ausência, não por checagem em
+runtime); com as duas ligadas mas o par de chaves incompleto ou desparelhado
+com a chave pública configurada, o processo recusa subir. Em staging/produção,
+onde `GOVBR_IAM_*` aponta para a chave pública real do gov.br, uma ativação
+acidental da flag falharia de qualquer forma ao validar o par de chaves — a
+flag reduz ainda mais o raio do acidente. Nunca ligar em staging/produção.
 
 Postgres local rápido:
 
