@@ -1,6 +1,7 @@
 package br.contabil.escrita;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -76,6 +77,66 @@ class DotacaoControllerTest {
         assertThat(fixacoes.getValue().get(0).unidadeGestoraId().valor()).isEqualTo(unidadeGestora);
         assertThat(fixacoes.getValue().get(0).valorAutorizado().valor().toPlainString()).isEqualTo("150000.00");
         assertThat(creditos.getValue().get(0).tipo()).isEqualTo(TipoCreditoAdicional.SUPLEMENTAR);
+    }
+
+    @Test
+    void itemNuloOuMalformadoViraErroDoLoteEmVezDeDerrubarComQuinhentos() {
+        UUID ente = UUID.randomUUID();
+        UUID unidadeGestora = UUID.randomUUID();
+        DotacaoId inserida = DotacaoId.novo();
+        Sessao sessao = sessao(ente);
+        DotacaoController controller = new DotacaoController(ingerirDotacoes);
+
+        // ArrayList (não List.of) porque o lote precisa aceitar o item nulo que o Jackson produz
+        // para `{"fixacoes": [null]}` — é justamente o caso que antes virava NPE/500.
+        List<DotacaoController.FixacaoDotacaoRequest> fixacoes = new ArrayList<>();
+        fixacoes.add(null);
+        fixacoes.add(new DotacaoController.FixacaoDotacaoRequest(
+                2026, "12.361.0021.2044", "0100000000", unidadeGestora, "nao-e-numero"));
+        fixacoes.add(new DotacaoController.FixacaoDotacaoRequest(
+                2026, "12.361.0021.2044", "0100000000", unidadeGestora, "150000.00"));
+        DotacaoController.LoteDotacaoRequest request = new DotacaoController.LoteDotacaoRequest(
+                fixacoes,
+                List.of(new DotacaoController.CreditoAdicionalRequest(
+                        UUID.randomUUID(), "tipo-inexistente", "10000.00", "Decreto 2026/0087")));
+
+        when(ingerirDotacoes.executar(eq(sessao), eq(new TenantId(ente)), any(), any()))
+                .thenReturn(new IngerirDotacoes.Resultado(List.of(inserida), List.of(), List.of()));
+
+        ResponseEntity<DotacaoController.LoteDotacaoResponse> resposta = controller.ingerir(ente, request, sessao);
+
+        assertThat(resposta.getStatusCode().value()).isEqualTo(207);
+        assertThat(resposta.getBody().dotacoesInseridas()).containsExactly(inserida.valor());
+        assertThat(resposta.getBody().erros())
+                .extracting(DotacaoController.ItemComErro::referencia)
+                .containsExactly("fixacao[0]", "fixacao[1]", "credito[0]");
+
+        // Só o item bom chega ao caso de uso — os rejeitados não abortam os demais (ADR-0013).
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<IngerirDotacoes.SolicitacaoFixacaoDotacao>> capturadas =
+                ArgumentCaptor.forClass(List.class);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<CreditoAdicional>> creditos = ArgumentCaptor.forClass(List.class);
+        verify(ingerirDotacoes).executar(eq(sessao), eq(new TenantId(ente)), capturadas.capture(), creditos.capture());
+        assertThat(capturadas.getValue()).hasSize(1);
+        assertThat(capturadas.getValue().get(0).valorAutorizado().valor().toPlainString()).isEqualTo("150000.00");
+        assertThat(creditos.getValue()).isEmpty();
+    }
+
+    @Test
+    void listaAusenteNoCorpoNaoQuebraOLote() {
+        UUID ente = UUID.randomUUID();
+        Sessao sessao = sessao(ente);
+        DotacaoController controller = new DotacaoController(ingerirDotacoes);
+
+        when(ingerirDotacoes.executar(eq(sessao), eq(new TenantId(ente)), any(), any()))
+                .thenReturn(new IngerirDotacoes.Resultado(List.of(), List.of(), List.of()));
+
+        ResponseEntity<DotacaoController.LoteDotacaoResponse> resposta =
+                controller.ingerir(ente, new DotacaoController.LoteDotacaoRequest(null, null), sessao);
+
+        assertThat(resposta.getStatusCode().value()).isEqualTo(207);
+        assertThat(resposta.getBody().erros()).isEmpty();
     }
 
     private static Sessao sessao(UUID ente) {

@@ -1,5 +1,7 @@
 package br.contabil.razao.infra;
 
+import java.util.Objects;
+
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
@@ -36,7 +38,8 @@ public class PostgresContadorFatoPort implements ContadorFatoPort {
     @Override
     public long proximoNumeroSeq(TenantId enteId) {
         Validacoes.exigirNaoNulo(enteId, "enteId");
-        Long numero = jdbcTemplate.queryForObject(SQL_PROXIMO_NUMERO_SEQ, Long.class);
-        return numero;
+        return Objects.requireNonNull(
+                jdbcTemplate.queryForObject(SQL_PROXIMO_NUMERO_SEQ, Long.class),
+                "proximo_numero_seq retornou null");
     }
 }
