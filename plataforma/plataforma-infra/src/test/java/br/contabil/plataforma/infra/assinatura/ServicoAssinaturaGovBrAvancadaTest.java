@@ -1,9 +1,28 @@
 package br.contabil.plataforma.infra.assinatura;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.net.URI;
+import java.security.cert.X509Certificate;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.UUID;
+
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -15,29 +34,11 @@ import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.CertificadoInv
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.DocumentoAssinado;
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.DocumentoParaAssinar;
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.NivelAssinatura;
-import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.NivelInsuficienteException;
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.ReferenciaDocumento;
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.ResultadoVerificacao;
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.Signatario;
 import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
 import br.contabil.plataforma.domain.auditoria.EventoAuditoria;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.net.URI;
-import java.security.cert.X509Certificate;
-import java.time.Clock;
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.util.List;
-import java.util.UUID;
-import org.apache.pdfbox.Loader;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
-import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 
 class ServicoAssinaturaGovBrAvancadaTest {
 
@@ -96,7 +97,7 @@ class ServicoAssinaturaGovBrAvancadaTest {
     @Test
     @DisplayName("caminho feliz: assina, checa revogação, registra na trilha e devolve o manifesto")
     void assinaComSucesso() throws Exception {
-        when(provedor.assinarPkcs7(any())).thenReturn(PKCS7_FALSO);
+        when(provedor.assinarPkcs7(any(), any())).thenReturn(PKCS7_FALSO);
         when(verificadorRevogacao.verificar(certificadoFake))
                 .thenReturn(new VerificadorRevogacaoCertificado.ResultadoRevogacao(false, "válido"));
 
@@ -139,7 +140,7 @@ class ServicoAssinaturaGovBrAvancadaTest {
     @DisplayName("manifesto e metadado PAdES mascaram CPF quando o nome disponível é o próprio CPF")
     void mascaraCpfNoManifestoENoNomeDaAssinatura() throws Exception {
         Signatario signatarioSemNome = new Signatario("11122233344", "11122233344");
-        when(provedor.assinarPkcs7(any())).thenReturn(PKCS7_FALSO);
+        when(provedor.assinarPkcs7(any(), any())).thenReturn(PKCS7_FALSO);
         when(verificadorRevogacao.verificar(certificadoFake))
                 .thenReturn(new VerificadorRevogacaoCertificado.ResultadoRevogacao(false, "válido"));
 
@@ -147,7 +148,7 @@ class ServicoAssinaturaGovBrAvancadaTest {
                 servico.assinar(DOCUMENTO, NivelAssinatura.AVANCADA_GOVBR, List.of(signatarioSemNome));
 
         assertThat(resultado.manifesto())
-                .contains("signatario=***.222.***-** (CPF ***.222.***-**)")
+                .contains("***.222.***-** (CPF ***.222.***-**)")
                 .doesNotContain("11122233344");
         try (PDDocument documentoAssinado = Loader.loadPDF(pdfPublicado)) {
             assertThat(documentoAssinado.getLastSignatureDictionary().getName())
@@ -157,11 +158,20 @@ class ServicoAssinaturaGovBrAvancadaTest {
     }
 
     @Test
-    @DisplayName("nível diferente de AVANCADA_GOVBR é rejeitado (F0 só tem esse provedor)")
-    void rejeitaNivelNaoSuportado() {
-        assertThatExceptionOfType(NivelInsuficienteException.class)
-                .isThrownBy(() -> servico.assinar(DOCUMENTO, NivelAssinatura.QUALIFICADA_ICP_BRASIL, List.of(SIGNATARIO)));
-        verify(trilha, never()).append(any());
+    @DisplayName("assinatura qualificada ICP-Brasil reutiliza PAdES/PKCS#7 com nível propagado ao provedor")
+    void assinaComNivelQualificadoIcpBrasil() {
+        when(provedor.assinarPkcs7(any(), eq(NivelAssinatura.QUALIFICADA_ICP_BRASIL))).thenReturn(PKCS7_FALSO);
+        when(verificadorRevogacao.verificar(certificadoFake))
+                .thenReturn(new VerificadorRevogacaoCertificado.ResultadoRevogacao(false, "válido"));
+
+        DocumentoAssinado resultado =
+                servico.assinar(DOCUMENTO, NivelAssinatura.QUALIFICADA_ICP_BRASIL, List.of(SIGNATARIO));
+
+        assertThat(resultado.manifesto())
+                .contains("nivel=QUALIFICADA_ICP_BRASIL")
+                .contains("***.222.***-**")
+                .doesNotContain(SIGNATARIO.cpf());
+        verify(provedor, times(1)).assinarPkcs7(any(), eq(NivelAssinatura.QUALIFICADA_ICP_BRASIL));
     }
 
     @Test
@@ -172,17 +182,34 @@ class ServicoAssinaturaGovBrAvancadaTest {
     }
 
     @Test
-    @DisplayName("workflow multi-assinatura ainda não é suportado (F1)")
-    void rejeitaMultiplosSignatarios() {
-        assertThatThrownBy(() -> servico.assinar(
-                        DOCUMENTO, NivelAssinatura.AVANCADA_GOVBR, List.of(SIGNATARIO, new Signatario("55566677788", "Outro"))))
-                .isInstanceOf(UnsupportedOperationException.class);
+    @DisplayName("workflow multi-assinatura aplica uma assinatura incremental por signatário")
+    void assinaMultiplosSignatarios() throws Exception {
+        Signatario outro = new Signatario("55566677788", "Outro Signatario");
+        when(provedor.assinarPkcs7(any(), eq(NivelAssinatura.QUALIFICADA_ICP_BRASIL))).thenReturn(PKCS7_FALSO);
+        when(verificadorRevogacao.verificar(certificadoFake))
+                .thenReturn(new VerificadorRevogacaoCertificado.ResultadoRevogacao(false, "válido"));
+
+        DocumentoAssinado resultado =
+                servico.assinar(DOCUMENTO, NivelAssinatura.QUALIFICADA_ICP_BRASIL, List.of(SIGNATARIO, outro));
+
+        assertThat(resultado.manifesto())
+                .contains("Fulana de Tal")
+                .contains("***.222.***-**")
+                .contains("Outro Signatario")
+                .contains("***.666.***-**")
+                .doesNotContain(SIGNATARIO.cpf())
+                .doesNotContain(outro.cpf());
+        verify(provedor, times(2)).assinarPkcs7(any(), eq(NivelAssinatura.QUALIFICADA_ICP_BRASIL));
+        verify(trilha, times(2)).append(any());
+        try (PDDocument documentoAssinado = Loader.loadPDF(pdfPublicado)) {
+            assertThat(documentoAssinado.getSignatureDictionaries()).hasSize(2);
+        }
     }
 
     @Test
     @DisplayName("conta gov.br não elegível (Bronze/CPF com situação) vira CertificadoInvalidoException e vai para a trilha")
     void rejeitaContaNaoElegivel() {
-        when(provedor.assinarPkcs7(any()))
+        when(provedor.assinarPkcs7(any(), any()))
                 .thenThrow(new ProvedorAssinaturaGovBr.ContaGovBrNaoElegivelException(
                         "conta Bronze para CPF 11122233344"));
 
@@ -202,7 +229,7 @@ class ServicoAssinaturaGovBrAvancadaTest {
     @Test
     @DisplayName("falha inesperada do provedor (ex.: rede/HTTP, não a exceção nomeada de inelegibilidade) propaga sem mascarar")
     void falhaInesperadaDoProvedorPropagaSemMascarar() {
-        when(provedor.assinarPkcs7(any()))
+        when(provedor.assinarPkcs7(any(), any()))
                 .thenThrow(new IllegalStateException("Falha de rede ao chamar assinarPKCS7 (gov.br)"));
 
         assertThatThrownBy(() -> servico.assinar(DOCUMENTO, NivelAssinatura.AVANCADA_GOVBR, List.of(SIGNATARIO)))
@@ -215,7 +242,7 @@ class ServicoAssinaturaGovBrAvancadaTest {
     @Test
     @DisplayName("certificado revogado é rejeitado mesmo com PKCS7 assinado com sucesso, e fica registrado")
     void rejeitaCertificadoRevogado() {
-        when(provedor.assinarPkcs7(any())).thenReturn(PKCS7_FALSO);
+        when(provedor.assinarPkcs7(any(), any())).thenReturn(PKCS7_FALSO);
         when(verificadorRevogacao.verificar(certificadoFake))
                 .thenReturn(new VerificadorRevogacaoCertificado.ResultadoRevogacao(true, "OCSP: revogado"));
 
@@ -229,11 +256,11 @@ class ServicoAssinaturaGovBrAvancadaTest {
     }
 
     @Test
-    @DisplayName("verificar(): F0 é checagem estrutural mínima, não a validação completa via ITI (F1)")
+    @DisplayName("verificar(): checagem local mínima, com relatório VALIDAR/ITI como evidência operacional")
     void verificarEhMinimoNoF0() {
         ResultadoVerificacao resultado = servico.verificar(ORIGEM);
         assertThat(resultado.valido()).isTrue();
-        assertThat(resultado.detalhe()).contains("F1");
+        assertThat(resultado.detalhe()).contains("VALIDAR/ITI");
     }
 
     @Test

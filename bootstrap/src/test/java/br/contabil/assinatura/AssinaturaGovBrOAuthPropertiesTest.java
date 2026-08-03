@@ -1,12 +1,14 @@
 package br.contabil.assinatura;
 
-import static org.assertj.core.api.Assertions.assertThatCode;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import java.net.URI;
 import java.time.Duration;
 import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.Test;
+
+import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.NivelAssinatura;
 
 class AssinaturaGovBrOAuthPropertiesTest {
 
@@ -101,6 +103,52 @@ class AssinaturaGovBrOAuthPropertiesTest {
                 .hasMessageContaining("https");
     }
 
+    @Test
+    void signESignatureSessionSaoMutuamenteExclusivos() {
+        var properties = propriedades(
+                URI.create("https://cas.staging.iti.br/oauth2.0/authorize"),
+                URI.create("https://cas.staging.iti.br/oauth2.0/accessToken"),
+                URI.create("https://siafic.exemplo.gov.br/assinatura/oauth/callback"),
+                URI.create("https://app.exemplo.gov.br/execucao/assinatura/retorno"),
+                List.of("sign", "signature_session"));
+
+        assertThatThrownBy(properties::exigirConfiguracaoCompleta)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("sign e signature_session");
+    }
+
+    @Test
+    void escopoIcpBrasilDeterministicoSuportaQualificada() {
+        var properties = propriedades(
+                URI.create("https://cas.staging.iti.br/oauth2.0/authorize"),
+                URI.create("https://cas.staging.iti.br/oauth2.0/accessToken"),
+                URI.create("https://siafic.exemplo.gov.br/assinatura/oauth/callback"),
+                URI.create("https://app.exemplo.gov.br/execucao/assinatura/retorno"),
+                List.of("signature_session", "icp_brasil"));
+
+        assertThatCode(properties::exigirConfiguracaoCompleta).doesNotThrowAnyException();
+        org.assertj.core.api.Assertions.assertThat(properties.suportaNivel(NivelAssinatura.QUALIFICADA_ICP_BRASIL))
+                .isTrue();
+        org.assertj.core.api.Assertions.assertThat(properties.suportaNivel(NivelAssinatura.AVANCADA_GOVBR))
+                .isFalse();
+    }
+
+    @Test
+    void escopoGovBrEIcpBrasilNaoContaComoQualificadaDeterministica() {
+        var properties = propriedades(
+                URI.create("https://cas.staging.iti.br/oauth2.0/authorize"),
+                URI.create("https://cas.staging.iti.br/oauth2.0/accessToken"),
+                URI.create("https://siafic.exemplo.gov.br/assinatura/oauth/callback"),
+                URI.create("https://app.exemplo.gov.br/execucao/assinatura/retorno"),
+                List.of("signature_session", "govbr", "icp_brasil"));
+
+        assertThatCode(properties::exigirConfiguracaoCompleta).doesNotThrowAnyException();
+        org.assertj.core.api.Assertions.assertThat(properties.suportaNivel(NivelAssinatura.QUALIFICADA_ICP_BRASIL))
+                .isFalse();
+        org.assertj.core.api.Assertions.assertThat(properties.suportaNivel(NivelAssinatura.AVANCADA_GOVBR))
+                .isTrue();
+    }
+
     private static AssinaturaGovBrOAuthProperties propriedades(URI authorizationUri, URI tokenUri, URI redirectUri) {
         return propriedades(
                 authorizationUri,
@@ -118,7 +166,20 @@ class AssinaturaGovBrOAuthPropertiesTest {
                 "segredo",
                 redirectUri,
                 frontendRetornoUri,
-                List.of("sign", "signature_session"),
+                List.of("signature_session"),
+                Duration.ofMinutes(10));
+    }
+
+    private static AssinaturaGovBrOAuthProperties propriedades(
+            URI authorizationUri, URI tokenUri, URI redirectUri, URI frontendRetornoUri, List<String> scopes) {
+        return new AssinaturaGovBrOAuthProperties(
+                authorizationUri,
+                tokenUri,
+                "cliente-siafic",
+                "segredo",
+                redirectUri,
+                frontendRetornoUri,
+                scopes,
                 Duration.ofMinutes(10));
     }
 }

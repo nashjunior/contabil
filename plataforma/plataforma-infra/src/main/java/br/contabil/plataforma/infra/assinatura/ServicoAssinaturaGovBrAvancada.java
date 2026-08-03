@@ -11,16 +11,17 @@ import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura;
-import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.DocumentoParaAssinar;
 import br.contabil.plataforma.domain.auditoria.AuditoriaEscrita;
 import br.contabil.plataforma.domain.auditoria.EventoAuditoria;
 import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
 
 /**
- * {@link ServicoAssinatura} F0: provedor único gov.br avançada
- * (transversais/01-assinatura-eletronica.md §Faseamento). Orquestra: elegibilidade
+ * {@link ServicoAssinatura}: provedor gov.br avançada (F0) e qualificada ICP-Brasil
+ * via escopo OAuth {@code icp_brasil} (F1; transversais/01-assinatura-eletronica.md
+ * §Faseamento). Orquestra: elegibilidade
  * (delegada ao 403 do próprio provedor — ver {@link ProvedorAssinaturaGovBr}), preparo
  * do placeholder PAdES + hash SHA-256 sobre o byte-range (ver
  * {@link PreparadorAssinaturaPades}), assinatura, checagem de revogação (item 6),
@@ -28,8 +29,8 @@ import br.contabil.plataforma.domain.iam.ServicoIdentidade.Cpf;
  *
  * <p><b>Fora do F0 desta classe</b> (ver package-info): fluxo interativo OAuth2
  * de autorização do signatário; leitura/gravação real do documento no object
- * store (ADR-0009) — recebidos como colaboradores injetados; workflow
- * multi-assinatura e validação completa via ITI (F1).
+ * store (ADR-0009) — recebidos como colaboradores injetados; chamada interativa ao
+ * VALIDAR/ITI para relatório de conformidade.
  */
 public final class ServicoAssinaturaGovBrAvancada implements ServicoAssinatura {
 
@@ -40,6 +41,7 @@ public final class ServicoAssinaturaGovBrAvancada implements ServicoAssinatura {
     private final BiFunction<byte[], ReferenciaDocumento, ReferenciaDocumento> publicadorDocumentoAssinado;
     private final Consumer<DocumentoParaAssinar> validadorTenant;
     private final Function<byte[], X509Certificate> extratorCertificado;
+    private final Predicate<NivelAssinatura> nivelSuportado;
     private final PreparadorAssinaturaPades preparadorPades = new PreparadorAssinaturaPades();
     private final Clock clock;
 
@@ -59,6 +61,7 @@ public final class ServicoAssinaturaGovBrAvancada implements ServicoAssinatura {
                 publicadorDocumentoAssinado,
                 validadorTenant,
                 new ExtratorCertificadoPkcs7(),
+                nivel -> nivel == NivelAssinatura.AVANCADA_GOVBR,
                 clock);
     }
 
@@ -71,7 +74,28 @@ public final class ServicoAssinaturaGovBrAvancada implements ServicoAssinatura {
             Function<byte[], X509Certificate> extratorCertificado,
             Clock clock) {
         this(provedor, verificadorRevogacao, trilha, leitorDocumento, publicadorDocumentoAssinado,
-                doc -> {}, extratorCertificado, clock);
+                doc -> {}, extratorCertificado, nivel -> true, clock);
+    }
+
+    public ServicoAssinaturaGovBrAvancada(
+            ProvedorAssinaturaGovBr provedor,
+            VerificadorRevogacaoCertificado verificadorRevogacao,
+            AuditoriaEscrita trilha,
+            Function<ReferenciaDocumento, byte[]> leitorDocumento,
+            BiFunction<byte[], ReferenciaDocumento, ReferenciaDocumento> publicadorDocumentoAssinado,
+            Consumer<DocumentoParaAssinar> validadorTenant,
+            Predicate<NivelAssinatura> nivelSuportado,
+            Clock clock) {
+        this(
+                provedor,
+                verificadorRevogacao,
+                trilha,
+                leitorDocumento,
+                publicadorDocumentoAssinado,
+                validadorTenant,
+                new ExtratorCertificadoPkcs7(),
+                nivelSuportado,
+                clock);
     }
 
     private ServicoAssinaturaGovBrAvancada(
@@ -82,6 +106,7 @@ public final class ServicoAssinaturaGovBrAvancada implements ServicoAssinatura {
             BiFunction<byte[], ReferenciaDocumento, ReferenciaDocumento> publicadorDocumentoAssinado,
             Consumer<DocumentoParaAssinar> validadorTenant,
             Function<byte[], X509Certificate> extratorCertificado,
+            Predicate<NivelAssinatura> nivelSuportado,
             Clock clock) {
         this.provedor = Objects.requireNonNull(provedor, "provedor");
         this.verificadorRevogacao = Objects.requireNonNull(verificadorRevogacao, "verificadorRevogacao");
@@ -91,6 +116,7 @@ public final class ServicoAssinaturaGovBrAvancada implements ServicoAssinatura {
                 Objects.requireNonNull(publicadorDocumentoAssinado, "publicadorDocumentoAssinado");
         this.validadorTenant = Objects.requireNonNull(validadorTenant, "validadorTenant");
         this.extratorCertificado = Objects.requireNonNull(extratorCertificado, "extratorCertificado");
+        this.nivelSuportado = Objects.requireNonNull(nivelSuportado, "nivelSuportado");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
@@ -101,54 +127,25 @@ public final class ServicoAssinaturaGovBrAvancada implements ServicoAssinatura {
         if (signatarios == null || signatarios.isEmpty()) {
             throw new IllegalArgumentException("ao menos um signatário é exigido");
         }
-        if (nivel != NivelAssinatura.AVANCADA_GOVBR) {
+        if (!nivelSuportado.test(nivel)) {
             throw new NivelInsuficienteException(
-                    "provedor F0 só assina no nível AVANCADA_GOVBR; ICP-Brasil qualificada é F1");
+                    "sessão/provedor de assinatura não está configurado para o nível exigido: " + nivel);
         }
-        if (signatarios.size() > 1) {
-            throw new UnsupportedOperationException(
-                    "workflow de múltiplas assinaturas por papel é F1 (transversais/01 item 7)");
-        }
-        Signatario signatario = signatarios.get(0);
 
         validadorTenant.accept(documento);
-        byte[] conteudo = leitorDocumento.apply(documento.origem());
+        byte[] conteudoAtual = leitorDocumento.apply(documento.origem());
         UUID idTransacao = UUID.randomUUID();
         Instant momento = clock.instant();
-
-        // Fase 1 (ISO 32000 §12.8): reserva o placeholder de assinatura (/Sig, /ByteRange)
-        // no PDF e calcula o hash sobre esse byte-range JÁ preparado. É esse hash — não o
-        // do documento bruto — que precisa virar o input de assinarPkcs7: se o provedor
-        // assinasse o hash do PDF sem placeholder, o /ByteRange do dicionário de assinatura
-        // não bateria com o que foi realmente assinado (PAdES inválido).
-        PreparadorAssinaturaPades.PreparoAssinaturaPades preparo =
-                preparadorPades.preparar(conteudo, nomeExposto(signatario), momento);
-        byte[] hash = preparo.hashSha256();
-        String hashBase64 = Base64.getEncoder().encodeToString(hash);
-        ContextoAssinatura contexto =
-                new ContextoAssinatura(documento, signatario, nivel, hashBase64, idTransacao, momento);
-
-        // O bloco abaixo é o que pode falhar antes da fase 2 (provedor, extração do
-        // certificado, checagem de revogação) — QUALQUER RuntimeException daqui precisa
-        // descartar o placeholder (fecha o PDDocument aberto por preparadorPades). Não dá
-        // para confiar só nas exceções nomeadas: um provedor real (ex.: falha de rede/HTTP
-        // inesperado em ProvedorAssinaturaGovBrHttp) lança IllegalStateException, não
-        // ContaGovBrNaoElegivelException, e vazaria o handle se só a nomeada fosse capturada.
-        byte[] pkcs7;
-        try {
-            pkcs7 = assinarEValidarCertificado(contexto, hash);
-        } catch (RuntimeException e) {
-            preparo.descartar();
-            throw e;
+        AssinaturaAplicada ultimaAssinatura = null;
+        for (Signatario signatario : signatarios) {
+            ultimaAssinatura = aplicarAssinatura(documento, signatario, nivel, conteudoAtual, idTransacao, momento);
+            conteudoAtual = ultimaAssinatura.pdfAssinado();
         }
 
-        // Fase 2: só agora, com o PKCS#7 assinado sobre o hash correto, embute o CMS no
-        // placeholder reservado (incremental save) — o PDF final PAdES só existe aqui.
-        byte[] pdfAssinado = preparo.embutir(pkcs7);
-        ReferenciaDocumento referenciaPublicada = publicadorDocumentoAssinado.apply(pdfAssinado, documento.origem());
-        String manifesto = construirManifesto(contexto);
+        ReferenciaDocumento referenciaPublicada = publicadorDocumentoAssinado.apply(conteudoAtual, documento.origem());
+        String manifesto = construirManifesto(documento, nivel, signatarios, ultimaAssinatura.hashBase64(), idTransacao, momento);
 
-        return new DocumentoAssinado(referenciaPublicada, manifesto, hashBase64, idTransacao);
+        return new DocumentoAssinado(referenciaPublicada, manifesto, ultimaAssinatura.hashBase64(), idTransacao);
     }
 
     @Override
@@ -163,11 +160,11 @@ public final class ServicoAssinaturaGovBrAvancada implements ServicoAssinatura {
         if (conteudo == null || conteudo.length == 0) {
             return new ResultadoVerificacao(false, "documento vazio ou inexistente na referência informada");
         }
-        // F0: checagem estrutural mínima (documento legível e não vazio). A
-        // validação completa — integridade + cadeia + revogação via Validador
-        // do ITI (validar.iti.gov.br) — é F1 (transversais/01 item 10).
+        // Checagem local mínima. O relatório de conformidade do VALIDAR/ITI é evidência
+        // operacional externa: o serviço público aceita upload/QR Code, mas não há API
+        // servidor-a-servidor estável no contrato deste adapter.
         return new ResultadoVerificacao(
-                true, "checagem estrutural mínima OK (F0); validação completa via ITI é F1, não implementada");
+                true, "checagem estrutural mínima OK; relatório de conformidade deve ser emitido no VALIDAR/ITI");
     }
 
     // Sequência falível da fase 1 — provedor → extração do certificado → revogação — que
@@ -176,7 +173,7 @@ public final class ServicoAssinaturaGovBrAvancada implements ServicoAssinatura {
     private byte[] assinarEValidarCertificado(ContextoAssinatura contexto, byte[] hash) {
         byte[] pkcs7;
         try {
-            pkcs7 = provedor.assinarPkcs7(hash);
+            pkcs7 = provedor.assinarPkcs7(hash, contexto.nivel());
         } catch (ProvedorAssinaturaGovBr.ContaGovBrNaoElegivelException e) {
             registrarNaTrilha(contexto, true, "conta não elegível: " + e.getMessage());
             throw new CertificadoInvalidoException(e.getMessage());
@@ -217,16 +214,63 @@ public final class ServicoAssinaturaGovBrAvancada implements ServicoAssinatura {
                         "detalhe", Cpf.mascararOcorrencias(detalhe))));
     }
 
-    private static String construirManifesto(ContextoAssinatura contexto) {
-        return "signatario=%s (CPF %s); tipo=%s; nivel=%s; momento=%s; hash_sha256=%s; id_transacao=%s"
+    private AssinaturaAplicada aplicarAssinatura(
+            DocumentoParaAssinar documento,
+            Signatario signatario,
+            NivelAssinatura nivel,
+            byte[] conteudo,
+            UUID idTransacao,
+            Instant momento) {
+        // Fase 1 (ISO 32000 §12.8): reserva o placeholder de assinatura (/Sig, /ByteRange)
+        // no PDF e calcula o hash sobre esse byte-range JÁ preparado. É esse hash — não o
+        // do documento bruto — que precisa virar o input de assinarPkcs7: se o provedor
+        // assinasse o hash do PDF sem placeholder, o /ByteRange do dicionário de assinatura
+        // não bateria com o que foi realmente assinado (PAdES inválido).
+        PreparadorAssinaturaPades.PreparoAssinaturaPades preparo =
+                preparadorPades.preparar(conteudo, nomeExposto(signatario), momento);
+        byte[] hash = preparo.hashSha256();
+        String hashBase64 = Base64.getEncoder().encodeToString(hash);
+        ContextoAssinatura contexto =
+                new ContextoAssinatura(documento, signatario, nivel, hashBase64, idTransacao, momento);
+
+        // O bloco abaixo é o que pode falhar antes da fase 2 (provedor, extração do
+        // certificado, checagem de revogação) — QUALQUER RuntimeException daqui precisa
+        // descartar o placeholder (fecha o PDDocument aberto por preparadorPades). Não dá
+        // para confiar só nas exceções nomeadas: um provedor real (ex.: falha de rede/HTTP
+        // inesperado em ProvedorAssinaturaGovBrHttp) lança IllegalStateException, não
+        // ContaGovBrNaoElegivelException, e vazaria o handle se só a nomeada fosse capturada.
+        byte[] pkcs7;
+        try {
+            pkcs7 = assinarEValidarCertificado(contexto, hash);
+        } catch (RuntimeException e) {
+            preparo.descartar();
+            throw e;
+        }
+
+        // Fase 2: só agora, com o PKCS#7 assinado sobre o hash correto, embute o CMS no
+        // placeholder reservado (incremental save) — o PDF final PAdES só existe aqui.
+        return new AssinaturaAplicada(preparo.embutir(pkcs7), hashBase64);
+    }
+
+    private static String construirManifesto(
+            DocumentoParaAssinar documento,
+            NivelAssinatura nivel,
+            List<Signatario> signatarios,
+            String hashBase64,
+            UUID idTransacao,
+            Instant momento) {
+        String nomes = signatarios.stream()
+                .map(signatario -> "%s (CPF %s)".formatted(nomeExposto(signatario), cpfMascarado(signatario.cpf())))
+                .toList()
+                .toString();
+        return "signatarios=%s; tipo=%s; nivel=%s; momento=%s; hash_sha256=%s; id_transacao=%s"
                 .formatted(
-                        nomeExposto(contexto.signatario()),
-                        cpfMascarado(contexto.signatario().cpf()),
-                        contexto.documento().tipoDocumento(),
-                        contexto.nivel(),
-                        contexto.momento(),
-                        contexto.hashBase64(),
-                        contexto.idTransacao());
+                        nomes,
+                        documento.tipoDocumento(),
+                        nivel,
+                        momento,
+                        hashBase64,
+                        idTransacao);
     }
 
     private static String nomeExposto(Signatario signatario) {
@@ -248,4 +292,6 @@ public final class ServicoAssinaturaGovBrAvancada implements ServicoAssinatura {
             String hashBase64,
             UUID idTransacao,
             Instant momento) {}
+
+    private record AssinaturaAplicada(byte[] pdfAssinado, String hashBase64) {}
 }

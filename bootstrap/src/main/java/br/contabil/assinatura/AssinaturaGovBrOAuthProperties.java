@@ -4,7 +4,10 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
+
+import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.NivelAssinatura;
 
 @ConfigurationProperties(prefix = "siafic.assinatura.govbr.oauth")
 record AssinaturaGovBrOAuthProperties(
@@ -20,7 +23,7 @@ record AssinaturaGovBrOAuthProperties(
     private static final URI AUTHORIZATION_URI_PADRAO = URI.create("https://cas.staging.iti.br/oauth2.0/authorize");
     private static final URI TOKEN_URI_PADRAO = URI.create("https://cas.staging.iti.br/oauth2.0/accessToken");
     private static final Duration STATE_TTL_PADRAO = Duration.ofMinutes(10);
-    private static final List<String> SCOPES_PADRAO = List.of("sign", "signature_session");
+    private static final List<String> SCOPES_PADRAO = List.of("signature_session");
 
     AssinaturaGovBrOAuthProperties {
         authorizationUri = authorizationUri == null ? AUTHORIZATION_URI_PADRAO : authorizationUri;
@@ -43,10 +46,29 @@ record AssinaturaGovBrOAuthProperties(
         exigirAbsoluta(frontendRetornoUri, "frontend-retorno-uri");
         exigirTexto(clientId, "client-id");
         exigirTexto(clientSecret, "client-secret");
+        exigirEscoposConsistentes();
     }
 
     String scopesComoParametro() {
         return String.join(" ", scopes);
+    }
+
+    boolean suportaNivel(NivelAssinatura nivel) {
+        return switch (nivel) {
+            case AVANCADA_GOVBR -> !scopes.contains("icp_brasil") || scopes.contains("govbr");
+            case QUALIFICADA_ICP_BRASIL -> scopes.contains("icp_brasil") && !scopes.contains("govbr");
+        };
+    }
+
+    private void exigirEscoposConsistentes() {
+        if (scopes.contains("sign") && scopes.contains("signature_session")) {
+            throw new IllegalStateException(
+                    "siafic.assinatura.govbr.oauth.scopes não pode conter sign e signature_session juntos");
+        }
+        if (!scopes.contains("sign") && !scopes.contains("signature_session")) {
+            throw new IllegalStateException(
+                    "siafic.assinatura.govbr.oauth.scopes deve conter sign ou signature_session");
+        }
     }
 
     private static void exigirAbsoluta(URI uri, String nome) {

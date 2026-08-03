@@ -22,7 +22,7 @@
  *       ({@code AuditoriaEscrita}, RAZ-8).</li>
  * </ul>
  *
- * <h2>Lacunas conhecidas — não implementadas nesta issue</h2>
+ * <h2>Lacunas conhecidas</h2>
  * <ul>
  *   <li><b>Leitura/gravação do documento no object store</b> (ADR-0009) —
  *       resolvida: recebidas como colaboradores injetados ({@code Function}/
@@ -36,9 +36,12 @@
  *       foi removido (RAZ-28).</li>
  *   <li><b>Âncoras de confiança ICP-Brasil</b> — {@code VerificadorRevogacaoCertificadoPkix}
  *       não empacota o bundle de CA raiz/intermediária; é config/implantação.</li>
- *   <li><b>F1 explicitamente fora de escopo</b>: ICP-Brasil qualificada, workflow
- *       multi-assinatura, validação completa via Validador do ITI, PAdES-LTV +
- *       carimbo de tempo.</li>
+ *   <li><b>F1 parcialmente implementado</b>: {@code QUALIFICADA_ICP_BRASIL} usa o
+ *       mesmo {@code assinarPKCS7} quando a sessão OAuth foi aberta com escopo
+ *       determinístico {@code icp_brasil}; multi-assinatura aplica uma assinatura
+ *       incremental por signatário. Permanecem como trabalho operacional/de
+ *       integração: relatório de conformidade no VALIDAR/ITI, PAdES-LTV e carimbo
+ *       de tempo ACT.</li>
  * </ul>
  *
  * <p>O fluxo OAuth2 interativo do signatário (authorization_code + PKCE) fica na

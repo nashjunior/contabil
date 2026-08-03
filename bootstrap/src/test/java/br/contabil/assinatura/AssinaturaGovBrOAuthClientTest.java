@@ -1,10 +1,5 @@
 package br.contabil.assinatura;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sun.net.httpserver.HttpServer;
-import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
@@ -20,9 +15,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sun.net.httpserver.HttpServer;
+
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 
 class AssinaturaGovBrOAuthClientTest {
 
@@ -59,7 +61,7 @@ class AssinaturaGovBrOAuthClientTest {
                 "segredo",
                 URI.create("http://localhost:8080/assinatura/oauth/callback"),
                 URI.create("http://localhost:5173/execucao/assinatura/retorno"),
-                List.of("sign", "signature_session"),
+                List.of("signature_session"),
                 Duration.ofMinutes(10));
         var client = new AssinaturaGovBrOAuthClient(
                 HttpClient.newHttpClient(),

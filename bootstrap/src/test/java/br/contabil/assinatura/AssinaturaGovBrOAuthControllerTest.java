@@ -60,7 +60,7 @@ class AssinaturaGovBrOAuthControllerTest {
         assertThat(query.getFirst("client_id")).isEqualTo("cliente-siafic");
         assertThat(query.getFirst("redirect_uri")).isEqualTo("http://localhost:8080/assinatura/oauth/callback");
         assertThat(URLDecoder.decode(query.getFirst("scope"), StandardCharsets.UTF_8))
-                .isEqualTo("sign signature_session");
+                .isEqualTo("signature_session");
         assertThat(query.getFirst("state")).isNotBlank();
         assertThat(query.getFirst("code_challenge")).isNotBlank();
         assertThat(query.getFirst("code_challenge_method")).isEqualTo("S256");
@@ -276,7 +276,7 @@ class AssinaturaGovBrOAuthControllerTest {
                 "segredo",
                 URI.create("http://localhost:8080/assinatura/oauth/callback"),
                 frontendRetornoUri,
-                List.of("sign", "signature_session"),
+                List.of("signature_session"),
                 Duration.ofMinutes(10));
         var repositorio = new RepositorioSessaoAssinaturaGovBr(new SecureRandom(), CLOCK, properties);
         var cliente = new ClienteFake();

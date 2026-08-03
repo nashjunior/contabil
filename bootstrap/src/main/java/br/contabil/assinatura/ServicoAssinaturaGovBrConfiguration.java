@@ -1,5 +1,21 @@
 package br.contabil.assinatura;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.nio.file.Path;
+import java.security.cert.TrustAnchor;
+import java.time.Clock;
+import java.util.Set;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura;
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.DocumentoParaAssinar;
 import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.ReferenciaDocumento;
@@ -11,20 +27,6 @@ import br.contabil.plataforma.infra.assinatura.VerificadorRevogacaoCertificado;
 import br.contabil.plataforma.infra.assinatura.VerificadorRevogacaoCertificadoPkix;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.retry.Retry;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.nio.file.Path;
-import java.security.cert.TrustAnchor;
-import java.time.Clock;
-import java.util.Set;
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Supplier;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
 /**
  * Composição final de {@link ServicoAssinaturaGovBrAvancada} (RAZ-24): junta os três
@@ -81,6 +83,7 @@ class ServicoAssinaturaGovBrConfiguration {
             Function<ReferenciaDocumento, byte[]> leitorDocumento,
             BiFunction<byte[], ReferenciaDocumento, ReferenciaDocumento> publicadorDocumentoAssinado,
             Consumer<DocumentoParaAssinar> validadorTenant,
+            AssinaturaGovBrOAuthProperties oauthProperties,
             Clock clock) {
         return new ServicoAssinaturaGovBrAvancada(
                 provedor,
@@ -89,6 +92,7 @@ class ServicoAssinaturaGovBrConfiguration {
                 leitorDocumento,
                 publicadorDocumentoAssinado,
                 validadorTenant,
+                oauthProperties::suportaNivel,
                 clock);
     }
 }

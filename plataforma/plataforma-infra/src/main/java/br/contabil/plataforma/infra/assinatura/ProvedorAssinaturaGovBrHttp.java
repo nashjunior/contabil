@@ -10,6 +10,8 @@ import java.time.Duration;
 import java.util.Base64;
 import java.util.Objects;
 import java.util.function.Supplier;
+
+import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.NivelAssinatura;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.retry.Retry;
@@ -71,10 +73,11 @@ public final class ProvedorAssinaturaGovBrHttp implements ProvedorAssinaturaGovB
     }
 
     @Override
-    public byte[] assinarPkcs7(byte[] hashSha256) {
+    public byte[] assinarPkcs7(byte[] hashSha256, NivelAssinatura nivel) {
         Objects.requireNonNull(hashSha256, "hashSha256");
+        Objects.requireNonNull(nivel, "nivel");
         Supplier<byte[]> chamadaResiliente = Retry.decorateSupplier(
-                retry, CircuitBreaker.decorateSupplier(circuitBreaker, () -> chamarAssinatura(hashSha256)));
+                retry, CircuitBreaker.decorateSupplier(circuitBreaker, () -> chamarAssinatura(hashSha256, nivel)));
         try {
             return chamadaResiliente.get();
         } catch (CallNotPermittedException e) {
@@ -82,7 +85,7 @@ public final class ProvedorAssinaturaGovBrHttp implements ProvedorAssinaturaGovB
         }
     }
 
-    private byte[] chamarAssinatura(byte[] hashSha256) {
+    private byte[] chamarAssinatura(byte[] hashSha256, NivelAssinatura nivel) {
         String hashBase64 = Base64.getEncoder().encodeToString(hashSha256);
         String corpo = "{\"hashBase64\":\"" + hashBase64 + "\"}";
 
@@ -105,8 +108,8 @@ public final class ProvedorAssinaturaGovBrHttp implements ProvedorAssinaturaGovB
 
         if (resposta.statusCode() == 403) {
             throw new ContaGovBrNaoElegivelException(
-                    "gov.br recusou a assinatura (403): conta sem nível suficiente (Prata/Ouro) "
-                            + "ou CPF com situação que impede o uso — corpo: "
+                    "gov.br recusou a assinatura " + nivel + " (403): conta sem nível/certificado suficiente "
+                            + "ou CPF com situação que impede o uso; corpo: "
                             + new String(resposta.body(), java.nio.charset.StandardCharsets.UTF_8));
         }
         if (resposta.statusCode() != 200) {

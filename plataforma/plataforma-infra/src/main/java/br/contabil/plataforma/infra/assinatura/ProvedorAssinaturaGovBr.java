@@ -1,8 +1,12 @@
 package br.contabil.plataforma.infra.assinatura;
 
+import br.contabil.plataforma.domain.assinatura.ServicoAssinatura.NivelAssinatura;
+
 /**
  * Abstração de provedor (ADR-0008) para a API de Assinatura Eletrônica gov.br —
- * avançada em F0. Representa uma sessão já autenticada (o token OAuth2 obtido
+ * avançada em F0 e qualificada ICP-Brasil em F1. Representa uma sessão já autenticada
+ * no nível necessário (o token OAuth2 obtido com escopo {@code sign} ou
+ * {@code signature_session}, e opcionalmente {@code icp_brasil}, obtido
  * pelo fluxo interativo de autorização do signatário é responsabilidade de
  * quem constrói/injeta a implementação — RAZ-11 não inclui o fluxo web de
  * autorização, ver package-info).
@@ -25,7 +29,11 @@ public interface ProvedorAssinaturaGovBr {
      * @throws ContaGovBrNaoElegivelException conta Bronze ou CPF com situação que impede a
      *     assinatura (a API gov.br responde 403 nesses casos)
      */
-    byte[] assinarPkcs7(byte[] hashSha256);
+    default byte[] assinarPkcs7(byte[] hashSha256) {
+        return assinarPkcs7(hashSha256, NivelAssinatura.AVANCADA_GOVBR);
+    }
+
+    byte[] assinarPkcs7(byte[] hashSha256, NivelAssinatura nivel);
 
     /**
      * Erro {@code 403} da API gov.br quando a conta não tem o nível (Prata/Ouro)
