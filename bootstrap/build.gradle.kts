@@ -20,6 +20,7 @@ dependencies {
     implementation(project(":plataforma:plataforma-infra"))
     implementation(project(":razao:razao-infra"))
     implementation(project(":execucao:execucao-infra"))
+    implementation(project(":prestacao-contas:prestacao-contas-infra"))
 
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")

@@ -18,6 +18,9 @@ dependencies {
     testImplementation(project(":plataforma:plataforma-domain"))
     testImplementation(project(":plataforma:plataforma-application"))
     testImplementation(project(":plataforma:plataforma-infra"))
+    testImplementation(project(":prestacao-contas:prestacao-contas-domain"))
+    testImplementation(project(":prestacao-contas:prestacao-contas-application"))
+    testImplementation(project(":prestacao-contas:prestacao-contas-infra"))
 
     testImplementation(libs.archunit.junit5)
 }

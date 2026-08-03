@@ -97,6 +97,65 @@ siafic:
       require-ssl: ${DB_REQUIRE_SSL:true}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:}
+  prestacao-contas:
+    sim-tce-ce:
+      tabela-308:
+        tabela: "308"
+        prefixo-arquivo: "BA"
+        extensao-arquivo: "BAL"
+        delimitador: ","
+        quantidade-campos: 25
+        campos:
+          - nome: tipo_registro
+            origem: tabela.codigo
+          - nome: exercicio
+            origem: competencia.exercicio
+          - nome: mes
+            origem: competencia.mes
+          - nome: unidade_orcamentaria
+            origem: uo.codigo
+          - nome: unidade_prestacao_contas
+            origem: upc.codigo
+          - nome: unidade_gestora
+            origem: ug.codigo
+          - nome: conta_pcasp
+            origem: conta.codigo
+          - nome: descricao_conta
+            origem: conta.descricao
+          - nome: natureza_saldo
+            origem: conta.natureza_saldo
+          - nome: saldo_anterior
+            origem: saldo.anterior
+          - nome: movimento_debito
+            origem: movimento.debito
+          - nome: movimento_credito
+            origem: movimento.credito
+          - nome: saldo_atual
+            origem: saldo.atual
+          - nome: campo_14
+            valor-fixo: ""
+          - nome: campo_15
+            valor-fixo: ""
+          - nome: campo_16
+            valor-fixo: ""
+          - nome: campo_17
+            valor-fixo: ""
+          - nome: campo_18
+            valor-fixo: ""
+          - nome: campo_19
+            valor-fixo: ""
+          - nome: campo_20
+            valor-fixo: ""
+          - nome: campo_21
+            valor-fixo: ""
+          - nome: campo_22
+            valor-fixo: ""
+          - nome: campo_23
+            valor-fixo: ""
+          - nome: campo_24
+            valor-fixo: ""
+          - nome: campo_25
+            valor-fixo: ""
   assinatura:
     govbr:
       resilience:

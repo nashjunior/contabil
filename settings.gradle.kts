@@ -38,5 +38,10 @@ include("execucao:execucao-domain")
 include("execucao:execucao-application")
 include("execucao:execucao-infra")
 
+// Contexto: prestação de contas (saídas MSC/SICONFI e TCE-CE/SIM sobre o razão).
+include("prestacao-contas:prestacao-contas-domain")
+include("prestacao-contas:prestacao-contas-application")
+include("prestacao-contas:prestacao-contas-infra")
+
 // Guardrails: testes de arquitetura (ArchUnit) que FALHAM o build (RAZ-2, arquitetura-tecnica §8).
 include("guardrails:architecture-tests")
