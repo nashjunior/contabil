@@ -53,7 +53,7 @@ evidência de operação em ente-piloto (RAZ-38).
 | Fechamento de período / apuração do resultado | ⏳ | Fluxo [8 · Fechamento de período](./04-fluxos.md#8-fechamento-de-período) |
 | Transparência ativa + dados abertos (CSV/JSON) `[OBRIGATÓRIO]` | 🟡 | [transversais/03 · Transparência](./transversais/03-transparencia.md) |
 | Prestação de contas: MSC (Portaria 642) + remessa TCE + RREO/RGF/DCA | ⏳ | Fluxo [10 · Consolidação nacional](./04-fluxos.md#10-consolidação-nacional-siconfi) — bloqueante de controle externo |
-| Assinatura qualificada ICP-Brasil (M1) | ⏳ | [transversais/01 · Assinatura](./transversais/01-assinatura-eletronica.md) — encanamento pronto (PAdES/OCSP/CRL); falta o caminho qualificado |
+| Assinatura qualificada ICP-Brasil (M1) | 🟡 | [transversais/01 · Assinatura](./transversais/01-assinatura-eletronica.md) — caminho qualificado via escopo `icp_brasil` e multiassinatura incremental implementados (RAZ-208); **conformidade VALIDAR/ITI definida como evidência operacional** ([ADR-0058](./arquitetura-tecnica/adr/0058-conformidade-validar-iti-evidencia-operacional.md) + [runbook RAZ-249](./operacao/RAZ-249-runbook-evidencia-validar-iti.md), 1ª evidência com ENTE-PILOTO/OWNER); faltam carimbo ACT e PAdES-LTV |
 | Login OIDC gov.br (asserção Bearer) | 🟡 | [ADR-0035](./arquitetura-tecnica/adr/0035-bff-login-oidc-govbr.md) — backend entregue (RAZ-128); frontend ainda usa login de dev |
 | Governança LGPD (base legal, retenção, direitos) — M1 | ⏳ | [transversais/04 · LGPD](./transversais/04-lgpd.md) |
 | Acessibilidade eMAG no back-office (não só portal) | ⏳ | [transversais/05 · Acessibilidade](./transversais/05-acessibilidade.md) |
