@@ -10,6 +10,6 @@ public record Ordenacao(String campo, Direcao direcao) {
             throw new IllegalArgumentException("campo de ordenação é obrigatório");
         }
         campo = campo.trim();
-        direcao = Objects.requireNonNull(direcao, "direção de ordenação");
+        Objects.requireNonNull(direcao, "direção de ordenação");
     }
 }
