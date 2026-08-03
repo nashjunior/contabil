@@ -1,6 +1,6 @@
 # Design system SIAFIC — tokens e componentes-núcleo (F1)
 
-[← Arquitetura técnica](./README.md) · [Fluxo do operador + contrato de API](./fluxo-execucao-operador-contrato-api.md) · [ADR-0026](./adr/0026-design-system-figma-decisoes-estruturais.md) · [04-lgpd](../transversais/04-lgpd.md) · [05-acessibilidade](../transversais/05-acessibilidade.md)
+[← Arquitetura técnica](./README.md) · [Fluxo do operador + contrato de API](./fluxo-execucao-operador-contrato-api.md) · [ADR-0026](./adr/0026-design-system-figma-decisoes-estruturais.md) · [ADR-0060](./adr/0060-portal-publico-transparencia-shell-piso-acessibilidade-downloads.md) · [04-lgpd](../transversais/04-lgpd.md) · [05-acessibilidade](../transversais/05-acessibilidade.md)
 
 > Design-system-first (RAZ-100): tokens (cor/tipografia/espaçamento/elevação) + 10 componentes-núcleo em Figma, **sem telas** — a biblioteca contra a qual as telas do RAZ-79 nascem depois. Decisões estruturais (terminologia, escopo, tenant do Figma) estão no [ADR-0026](./adr/0026-design-system-figma-decisoes-estruturais.md); este documento é o mapeamento token→uso e o inventário da biblioteca.
 
@@ -184,6 +184,49 @@ Cobertura (antes de RAZ-112): 91 variáveis (43 primitivas + 35 semânticas + 13
 - **RAZ-234 (Home/Dashboard):** construiu o próprio cabeçalho/nav ad hoc (página 19) antes deste shell existir — duplicação real, mesma composição visual (coincidência forte: convergência independente na mesma IA de 5 grupos). Follow-up recomendado: trocar o cabeçalho/nav hand-rolled da RAZ-234 por instâncias dos componentes 182:289/182:290 quando este shell for aceito, para não ter duas fontes divergentes da mesma casca.
 - **RAZ-235 (Login):** tela de login vive **fora** do shell por natureza (usuário ainda não tem sessão/ente) — nenhuma ação necessária.
 - **Rotas ainda não alcançáveis por nenhuma nav (`AppRoutes.tsx` real, RAZ-234/RAZ-140/RAZ-141):** não existe rota `/` própria para o dashboard (RAZ-234 documenta isso também), nem rota para as telas de Dotação (página 14, RAZ-140) nem Assinatura (página 18, RAZ-141) — `grep` em `frontend/src/features` não achou nenhuma pasta `dotacao`/`assinatura` com página própria. O item "Dotação"/"Assinatura" desta navegação aponta para telas que já existem no Figma mas ainda não têm rota real — mesma disciplina de "a UI é honesta sobre o gap" já usada noutras partes deste documento, não inventado aqui.
+
+---
+
+## 6. Portal público de transparência (RAZ-278)
+
+Wireframe sobre o contrato **real** de RAZ-273/ADR-0059 (`TransparenciaPublicaController`, já em `master`), gate de UX exigido antes de qualquer tela de implementação (ADR-0059 §Escopo F1, ADR-0060). Diferente de tudo desenhado antes neste arquivo: **sem sessão**, ente vem do **path**, público sem cadastro — não é mais uma tela do app interno, é uma superfície nova. Página própria `21 Portal Público — Transparência (RAZ-278)` (fileKey `ObQu8oMQ0cEGbONMXgpuLU`), decisões estruturais em [ADR-0060](./adr/0060-portal-publico-transparencia-shell-piso-acessibilidade-downloads.md).
+
+### 6.1 Componentes novos (shell público — não reusam o shell do back-office, §5)
+
+| Componente | Composição |
+| --- | --- |
+| **Header Institucional (Público)** | Skip link + marca "Portal da Transparência" + nota gov.br/VLibras + breadcrumb. Sem `Seletor de Ente` (o ente já é o path `/transparencia/{enteId}`, não há troca de contexto) e sem a `Navegação Principal — App Shell` do operador (§5) — são shells estruturalmente diferentes, não variantes um do outro. |
+| **Rodapé Institucional (Público)** | Links "Dicionário de dados" / "Dados abertos: JSON · CSV" / "Declaração de acessibilidade"; nota de fonte legal (LRF art. 48/48-A, Decreto 10.540/2020 art. 3º/9º, LAI 12.527/2011 art. 8º). |
+| **Barra de Filtros — Transparência (compartilhada Lista/Totais)** | Chips de `estagio` (Todos/Empenhado/Liquidado/Pago), datas início/fim, nº do empenho, função de governo, ordenar-por (só os 4 campos de `CamposOrdenacaoTransparenciaPublica`), e um grupo "Avançado" para `credorId`/`orgaoId`/`contratoId` — rotulado explicitamente como "cole um identificador", não como busca por nome (a API não indexa por nome). **Um único componente instanciado nas duas visões** (Lista e Totais) — implementa UX-2 estruturalmente, não por convenção de copy. |
+| **Linha de Resultado — Despesa Pública** | Estágio (instância do componente 5, `Badge Estágio` — mesmo componente do back-office, reforça UX-1) · Data · Valor (instância do componente 1, `Valor Monetário`) · Credor · Órgão · Nº empenho · Publicado em. Duas instâncias de exemplo no arquivo: credor PJ (CNPJ íntegro, texto simples) e credor PF (**não** usa o componente 3 `CPF Mascarado/Integral` — esse variant é para elevação auditada de back-office, semântica errada para um CNPJ público; o exemplo PF usa o texto já mascarado `***.456.***-**` diretamente, coerente com o payload que a API já entrega mascarado). |
+| **Linha de Totalização — Estágio** | Estágio (`Badge Estágio`) · quantidade · valor (instância do componente 1, `Ênfase=Forte`) · "Ver documentos deste estágio ›". Reflete `TotalizacaoTransparenciaPublica.Linha(estagio, valor, quantidade)` — só 3 linhas possíveis + total geral, nenhuma quebra por órgão/função inventada. |
+
+### 6.2 Telas
+
+| Tela | Cobre |
+| --- | --- |
+| **Tela 1 — Lista de despesas** | `GET /despesas` (JSON, paginação keyset). Aba "Lista" ativa; contagem/posição em região `aria-live="polite"` (UX-4, paginação keyset não tem número de página pra anunciar); "Carregar mais" em vez de paginação numérica; rodapé com duas affordances de download distintas (ver 6.3). |
+| **Tela 1b — Totais** | `GET /despesas/totalizacoes`, mesma barra de filtros da Tela 1 (UX-2) — aba "Totais". Clique numa linha aplica o `estagio` daquela linha à Lista preservando os demais filtros (drill-down totalização→documento). |
+| **Tela 2 — Drill-down do documento** | Detalhe de um item (`ItemResponse`/payload sanitizado): estágio, valor, data, credor (com o padrão PJ/PF do 6.1), órgão, contrato, histórico. Links "Ver todas as despesas deste credor/órgão" usam o `credorId`/`orgaoId` **já carregado no registro** (não uma busca livre — a API não oferece isso). |
+| **Tela 3 — Dicionário de dados** | Renderização legível de `GET /dicionario-dados` (o mesmo markdown da API, não um texto à parte) — UX-5. Inclui o campo `função` com uma descrição de produto e uma nota explícita de que o texto-fonte do endpoint ainda não o documenta (gap real, não fabricado no copy da API). |
+| **Tela 4 — Baixar base completa** | `GET /despesas/bulk` (manifesto: formato/versão/contagem aproximada/última atualização + link CDN). Alerta (`Nível=Atenção`, componente 11) deixa explícito que o arquivo **não é filtrado** pelos critérios da Tela 1 — confirmado no código: o nome do arquivo CDN é função de `enteId`+`versao`, não dos parâmetros de filtro (ADR-0059 D4). |
+| **Documentation** | Frame próprio (convenção já usada nas demais páginas) com os gaps reais encontrados e as decisões de escopo — ver 6.4. |
+
+### 6.3 Duas affordances de download, deliberadamente distintas
+
+"Exportar CSV desta consulta" (Tela 1, `GET /despesas?formato=csv`, aplica o filtro **e** a paginação corrente — o mesmo `FiltroTransparenciaPublica` da visão JSON) não é a mesma coisa que "Baixar base completa" (Tela 4, `GET /despesas/bulk`, arquivo versionado por CDN que cobre **todos** os registros do ente, filtros da consulta não se aplicam a ele). As duas telas rotulam isso sem ambiguidade para o cidadão não esperar um CSV filtrado que a rota de bulk não entrega.
+
+### 6.4 Gaps reais encontrados (não fabricados na tela — frame `Documentation`)
+
+1. **Nome de exibição do ente não é exposto pelo contrato** — só `enteId` (UUID) no path. Header/breadcrumb mostram `Ente {enteId}` literal; decisão de como resolver (registro estático no frontend, endpoint novo, ou branding genérico) fica para Rafael/backend.
+2. **Campo `função`** é aceito como filtro pela API mas não está descrito no texto-fonte do dicionário de dados (`DICIONARIO_DADOS` em `TransparenciaPublicaController`) — a Tela 3 usa uma descrição de produto e sinaliza a lacuna como follow-up de backend, não reescreve a API por conta própria.
+3. **`credorId`/`orgaoId`/`contratoId` são identificadores opacos** — não há endpoint de busca por nome. O grupo "Avançado" da barra de filtros é para quem já tem o ID (tipicamente chegou via link de drill-down da Tela 2), não uma busca amigável.
+
+### 6.5 Piso de acessibilidade — decisão desta issue (ver [ADR-0060](./adr/0060-portal-publico-transparencia-shell-piso-acessibilidade-downloads.md))
+
+[05-acessibilidade.md](../transversais/05-acessibilidade.md) já registrava o **Design System gov.br** como piso recomendado para "o portal do cidadão" — decisão que o [ADR-0026](./adr/0026-design-system-figma-decisoes-estruturais.md) tinha adiado deliberadamente por não haver, até esta issue, um portal do cidadão para aplicá-la. Verificado ao vivo via `get_libraries` (fileKey `ObQu8oMQ0cEGbONMXgpuLU`): nenhuma biblioteca gov.br/ds está anexada nem disponível no workspace Figma (só Material 3, Simple Design System, kits Apple). Como o piso **legal** é WCAG 2.2 AA/eMAG e não o kit específico ("o DS é meio, não obrigação" — 05-acessibilidade.md), este v1 reaproveita os tokens semânticos já auditados em AA (§1.2) em vez de importar uma biblioteca inexistente no ambiente; revisão futura se/quando o gov.br/ds for anexado ao Figma.
+
+Cobertura antes desta issue: ver §2 (20 componentes-núcleo numerados + shell §5). RAZ-278 acrescenta 5 componentes novos (shell público) + 5 telas + 1 frame de Documentation, todos numa página própria — não altera nenhum componente/página do back-office.
 
 ---
 
