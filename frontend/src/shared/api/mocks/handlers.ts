@@ -206,6 +206,211 @@ const TRILHA_POR_LIQUIDACAO: Record<string, { tipo: string; ator: string; quando
   ],
 };
 
+// Mock do Portal Público de Transparência (RAZ-290/ADR-0060) — rota própria fora do template
+// `/api/v1/entes/:enteId`, sem `Authorization`/CSRF (superfície pública, ver
+// `shared/api/transparenciaClient.ts`). Payloads seguem exatamente o shape real por estágio
+// (verificado em `PublicadorTransparenciaExecucao`): só `empenhado` carrega `numeroSequencial`/
+// `credorId`/`unidadeGestoraId`; `liquidado`/`pago` não têm nenhum dos três.
+const TRANSPARENCIA_DESPESAS_MOCK = [
+  {
+    tipoEvento: 'execucao.empenho.registrado.v1',
+    recurso: 'execucao:empenho:11111111-1111-4111-8111-000000000001',
+    sequencia: 1,
+    publicadoEm: '2026-07-27T09:05:00Z',
+    publicarAte: '2026-07-28T23:59:59Z',
+    payload: {
+      estagio: 'empenhado',
+      tipoEvento: 'execucao.empenho.registrado.v1',
+      numeroSequencial: '1024',
+      exercicio: '2026',
+      tipo: 'ORDINARIO',
+      dotacaoId: '33333333-3333-4333-8333-000000000001',
+      credorId: '44444444-4444-4444-8444-000000000001',
+      unidadeGestoraId: '11111111-1111-4111-8111-111111111111',
+      contratoId: null,
+      dataFato: '2026-07-27',
+      valor: '4200.00',
+      historico: 'Pavimentação asfáltica — Rua das Flores, trecho 2',
+    },
+  },
+  {
+    tipoEvento: 'execucao.empenho.registrado.v1',
+    recurso: 'execucao:empenho:11111111-1111-4111-8111-000000000002',
+    sequencia: 2,
+    publicadoEm: '2026-07-29T11:20:00Z',
+    publicarAte: '2026-07-30T23:59:59Z',
+    payload: {
+      estagio: 'empenhado',
+      tipoEvento: 'execucao.empenho.registrado.v1',
+      numeroSequencial: '1031',
+      exercicio: '2026',
+      tipo: 'ORDINARIO',
+      dotacaoId: '33333333-3333-4333-8333-000000000002',
+      credorId: '44444444-4444-4444-8444-000000000002',
+      unidadeGestoraId: '22222222-2222-4222-8222-222222222222',
+      contratoId: '66666666-6666-4666-8666-000000000001',
+      dataFato: '2026-07-29',
+      valor: '1850.90',
+      historico: 'Aquisição de material escolar — lote 3',
+    },
+  },
+  {
+    tipoEvento: 'execucao.liquidacao.registrada.v1',
+    recurso: 'execucao:liquidacao:22222222-2222-4222-8222-000000000001',
+    sequencia: 3,
+    publicadoEm: '2026-07-30T14:40:00Z',
+    publicarAte: '2026-07-31T23:59:59Z',
+    payload: {
+      estagio: 'liquidado',
+      tipoEvento: 'execucao.liquidacao.registrada.v1',
+      empenhoId: '11111111-1111-4111-8111-000000000001',
+      dataCompetencia: '2026-07-30',
+      valor: '4200.00',
+      historico: 'Medição 1 — pavimentação Rua das Flores',
+      documentosSuporte: [{ tipo: 'nota_fiscal', numero: 'NF-9981', dataEmissao: '2026-07-29', referenciaExterna: null }],
+    },
+  },
+  {
+    tipoEvento: 'execucao.pagamento.registrado.v1',
+    recurso: 'execucao:pagamento:33333333-3333-4333-8333-000000000001',
+    sequencia: 4,
+    publicadoEm: '2026-07-31T16:05:00Z',
+    publicarAte: '2026-08-01T23:59:59Z',
+    payload: {
+      estagio: 'pago',
+      tipoEvento: 'execucao.pagamento.registrado.v1',
+      liquidacaoId: '22222222-2222-4222-8222-000000000001',
+      dataCompetencia: '2026-07-31',
+      valor: '4200.00',
+      natureza: 'FORNECEDOR',
+      historico: 'Pagamento da medição 1 — pavimentação Rua das Flores',
+      beneficiario: { nome: 'Construtora Alfa Ltda', documento: '12.345.678/0001-99' },
+    },
+  },
+  {
+    tipoEvento: 'execucao.pagamento.registrado.v1',
+    recurso: 'execucao:pagamento:33333333-3333-4333-8333-000000000002',
+    sequencia: 5,
+    publicadoEm: '2026-08-01T09:14:00Z',
+    publicarAte: '2026-08-02T23:59:59Z',
+    payload: {
+      estagio: 'pago',
+      tipoEvento: 'execucao.pagamento.registrado.v1',
+      liquidacaoId: '22222222-2222-4222-8222-000000000002',
+      dataCompetencia: '2026-08-01',
+      valor: '980.50',
+      natureza: 'FORNECEDOR',
+      historico: 'Diária de fiscalização de obra pública',
+      beneficiario: { nome: 'João da Silva', documento: '***.456.***-**' },
+    },
+  },
+  {
+    tipoEvento: 'execucao.pagamento.registrado.v1',
+    recurso: 'execucao:pagamento:33333333-3333-4333-8333-000000000003',
+    sequencia: 6,
+    publicadoEm: '2026-08-02T10:30:00Z',
+    publicarAte: '2026-08-03T23:59:59Z',
+    payload: {
+      estagio: 'pago',
+      tipoEvento: 'execucao.pagamento.registrado.v1',
+      liquidacaoId: '22222222-2222-4222-8222-000000000003',
+      dataCompetencia: '2026-08-02',
+      valor: '15320.00',
+      natureza: 'FOLHA_CONSOLIDADA',
+      historico: 'Folha de pagamento consolidada — julho/2026',
+      beneficiario: null,
+    },
+  },
+];
+
+const TRANSPARENCIA_DICIONARIO_DADOS_MOCK = `# Dicionário de dados da transparência ativa
+
+A API lê somente o read model público \`transparencia_publicacao\`.
+
+## Campos principais
+
+- \`estagio\`: etapa estável da execução. Exemplos: \`empenhado\`, \`liquidado\`, \`pago\`.
+- \`valor\`: valor monetário decimal com duas casas. Exemplo: \`1520.35\`.
+- \`data\`: data do fato ou competência. Exemplo: \`2026-08-01\`.
+- \`credorId\`: identificador público do credor no ente.
+- \`orgaoId\`: órgão ou unidade gestora responsável.
+- \`numeroEmpenho\`: número sequencial do empenho.
+- \`contratoId\`: contrato relacionado, quando houver.
+- \`beneficiario.documento\`: CPF mascarado como \`***.456.***-**\`; CNPJ pode aparecer inteiro.
+
+RG, endereço e conta bancária não são publicados. Remuneração nominal e CNPJ são permitidos quando existirem fonte legal e estruturante próprio.
+
+## Filtros
+
+Detalhe e totalização aceitam os mesmos parâmetros: \`estagio\`, \`credorId\`, \`orgaoId\`, \`dataInicio\`, \`dataFim\`, \`funcao\`, \`numeroEmpenho\`, \`contratoId\`.
+
+## Ordenação
+
+O padrão é \`ordenarPor=publicadoEm&direcao=desc\`, ou seja, mais recente primeiro por data de publicação. Campos ordenáveis: \`publicadoEm\`, \`data\`, \`valor\`, \`numeroEmpenho\`.
+
+## Paginação
+
+A paginação é keyset por \`cursor\`. A resposta informa \`haMais\`, \`proximoCursor\` e \`contagemAproximada\`.
+`;
+
+function transparenciaParametros(url: URL) {
+  return {
+    estagio: url.searchParams.get('estagio') ?? '',
+    credorId: url.searchParams.get('credorId') ?? '',
+    orgaoId: url.searchParams.get('orgaoId') ?? '',
+    dataInicio: url.searchParams.get('dataInicio') ?? '',
+    dataFim: url.searchParams.get('dataFim') ?? '',
+    funcao: url.searchParams.get('funcao') ?? '',
+    numeroEmpenho: url.searchParams.get('numeroEmpenho') ?? '',
+    contratoId: url.searchParams.get('contratoId') ?? '',
+  };
+}
+
+function filtrarDespesasPublicas(url: URL) {
+  const estagio = url.searchParams.get('estagio');
+  const credorId = url.searchParams.get('credorId');
+  const orgaoId = url.searchParams.get('orgaoId');
+  const numeroEmpenho = url.searchParams.get('numeroEmpenho');
+  const contratoId = url.searchParams.get('contratoId');
+  const dataInicio = url.searchParams.get('dataInicio');
+  const dataFim = url.searchParams.get('dataFim');
+
+  return TRANSPARENCIA_DESPESAS_MOCK.filter((item) => {
+    const payload = item.payload as Record<string, unknown>;
+    if (estagio && payload['estagio'] !== estagio) return false;
+    if (credorId && payload['credorId'] !== credorId) return false;
+    if (orgaoId && payload['orgaoId'] !== orgaoId && payload['unidadeGestoraId'] !== orgaoId) return false;
+    if (numeroEmpenho && String(payload['numeroSequencial'] ?? '') !== numeroEmpenho) return false;
+    if (contratoId && payload['contratoId'] !== contratoId) return false;
+    const data = (payload['dataFato'] ?? payload['dataCompetencia']) as string | undefined;
+    if (dataInicio && (!data || data < dataInicio)) return false;
+    if (dataFim && (!data || data > dataFim)) return false;
+    return true;
+  });
+}
+
+function ordenarDespesasPublicas(itens: typeof TRANSPARENCIA_DESPESAS_MOCK, ordenarPor: string, direcao: string) {
+  function chave(item: (typeof TRANSPARENCIA_DESPESAS_MOCK)[number]): string | number {
+    const payload = item.payload as Record<string, unknown>;
+    switch (ordenarPor) {
+      case 'valor':
+        return Number(payload['valor'] ?? 0);
+      case 'data':
+        return String(payload['dataFato'] ?? payload['dataCompetencia'] ?? '');
+      case 'numeroEmpenho':
+        return Number(payload['numeroSequencial'] ?? 0);
+      default:
+        return item.publicadoEm;
+    }
+  }
+  const ordenado = [...itens].sort((a, b) => {
+    const chaveA = chave(a);
+    const chaveB = chave(b);
+    return chaveA < chaveB ? -1 : chaveA > chaveB ? 1 : 0;
+  });
+  return direcao === 'asc' ? ordenado : ordenado.reverse();
+}
+
 export const handlers = [
   // GET /sessao/atual (RAZ-203/RAZ-205) — fora do template /api/v1/entes/:enteId. Neste
   // ambiente de mock nao ha cookie de sessao do BFF de login real (ADR-0035) pra simular, so
@@ -521,6 +726,117 @@ export const handlers = [
     return HttpResponse.json({
       itens: pagina,
       proximoCursor,
+    });
+  }),
+
+  // Portal Público de Transparência (RAZ-290/ADR-0060) — SEM `exigirBearer`: rota pública,
+  // sem sessão, path `/transparencia/:enteId/...` (fora do template `/api/v1/entes/:enteId`).
+  http.get('/transparencia/:enteId/despesas', ({ request }) => {
+    const url = new URL(request.url);
+    const ordenarPor = url.searchParams.get('ordenarPor') || 'publicadoEm';
+    const direcao = url.searchParams.get('direcao') || 'desc';
+    const filtrados = ordenarDespesasPublicas(filtrarDespesasPublicas(url), ordenarPor, direcao);
+
+    const formato = url.searchParams.get('formato');
+    const accept = request.headers.get('Accept');
+    if (formato === 'csv' || accept?.includes('text/csv')) {
+      const cabecalho =
+        'sequencia,tipo_evento,recurso,estagio,publicado_em,publicar_ate,data,valor,numero_empenho,credor_id,orgao_id,contrato_id,historico,beneficiario_nome,beneficiario_documento';
+      const linhas = filtrados.map((item) => {
+        const payload = item.payload as Record<string, unknown>;
+        const beneficiario = (payload['beneficiario'] ?? null) as { nome?: string; documento?: string } | null;
+        const campos = [
+          item.sequencia,
+          item.tipoEvento,
+          item.recurso,
+          payload['estagio'],
+          item.publicadoEm,
+          item.publicarAte,
+          payload['dataFato'] ?? payload['dataCompetencia'] ?? '',
+          payload['valor'],
+          payload['numeroSequencial'] ?? '',
+          payload['credorId'] ?? '',
+          payload['orgaoId'] ?? payload['unidadeGestoraId'] ?? '',
+          payload['contratoId'] ?? '',
+          payload['historico'] ?? '',
+          beneficiario?.nome ?? '',
+          beneficiario?.documento ?? '',
+        ];
+        return campos.map((campo) => `"${String(campo ?? '').replace(/"/g, '""')}"`).join(',');
+      });
+      return new HttpResponse([cabecalho, ...linhas].join('\n') + '\n', {
+        headers: { 'Content-Type': 'text/csv; charset=UTF-8' },
+      });
+    }
+
+    const cursor = url.searchParams.get('cursor');
+    const limit = Number(url.searchParams.get('limit')) || 3;
+    const offset = cursor ? Number(cursor) : 0;
+    const pagina = filtrados.slice(offset, offset + limit);
+    const proximoOffset = offset + pagina.length;
+    const haMais = proximoOffset < filtrados.length;
+
+    return HttpResponse.json({
+      itens: pagina,
+      proximoCursor: haMais ? String(proximoOffset) : null,
+      haMais,
+      contagemAproximada: filtrados.length,
+      ultimaAtualizacao: '2026-08-02T12:00:00Z',
+      parametros: transparenciaParametros(url),
+      ordenacao: { campo: ordenarPor, direcao, padraoDocumentado: 'mais recente primeiro por data de publicação' },
+      camposOrdenaveis: ['data', 'numeroEmpenho', 'publicadoEm', 'valor'],
+    });
+  }),
+
+  http.get('/transparencia/:enteId/despesas/totalizacoes', ({ request }) => {
+    const url = new URL(request.url);
+    const filtrados = filtrarDespesasPublicas(url);
+    const ordemEstagios = ['empenhado', 'liquidado', 'pago'] as const;
+    const linhas = ordemEstagios.flatMap((estagio) => {
+      const doEstagio = filtrados.filter((item) => (item.payload as Record<string, unknown>)['estagio'] === estagio);
+      if (doEstagio.length === 0) return [];
+      return [
+        {
+          estagio,
+          valor: somarMoney(...doEstagio.map((item) => String((item.payload as Record<string, unknown>)['valor']))),
+          quantidade: doEstagio.length,
+        },
+      ];
+    });
+
+    const totalGeral = somarMoney(...linhas.map((linha) => linha.valor));
+
+    // `valor`/`totalGeral` viajam como NÚMERO JSON cru no backend real (`BigDecimal` sem
+    // `@JsonFormat(shape=STRING)`, ver `TotalizacaoTransparenciaPublica`/
+    // `TransparenciaPublicaController.TotalizacaoResponse`) — a soma decimal acima usa
+    // `somarMoney` (BigInt/centavos, nunca `Number()`) e só na fronteira de serialização vira
+    // `Number(...)`, para o mock exercitar de verdade o caminho de `parseJsonPreservingMoney`
+    // no client (em vez de sempre entregar uma string já entre aspas).
+    return HttpResponse.json({
+      linhas: linhas.map((linha) => ({ ...linha, valor: Number(linha.valor) })),
+      totalGeral: Number(totalGeral),
+      contagemAproximada: filtrados.length,
+      ultimaAtualizacao: '2026-08-02T12:00:00Z',
+      parametros: transparenciaParametros(url),
+    });
+  }),
+
+  http.get('/transparencia/:enteId/despesas/bulk', ({ params }) => {
+    const enteId = params['enteId'] as string;
+    const versao = '20260801091400000';
+    return HttpResponse.json({
+      formato: 'csv',
+      versao,
+      arquivoCdn: `/cdn/transparencia/${enteId}/despesas/${versao}.csv`,
+      contagemAproximada: TRANSPARENCIA_DESPESAS_MOCK.length,
+      ultimaAtualizacao: '2026-08-02T12:00:00Z',
+      parametros: {},
+    });
+  }),
+
+  http.get('/transparencia/:enteId/dicionario-dados', () => {
+    return new HttpResponse(TRANSPARENCIA_DICIONARIO_DADOS_MOCK, {
+      headers: { 'Content-Type': 'text/markdown; charset=UTF-8' },
     });
   }),
 ];
