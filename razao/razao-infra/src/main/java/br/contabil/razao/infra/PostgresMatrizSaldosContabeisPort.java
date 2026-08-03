@@ -1,8 +1,13 @@
 package br.contabil.razao.infra;
 
+import java.sql.Array;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -15,101 +20,114 @@ import br.contabil.razao.domain.ContaContabilId;
 import br.contabil.razao.domain.ExecucaoOrcamentaria;
 import br.contabil.razao.domain.FonteRecurso;
 import br.contabil.razao.domain.FuncaoSubfuncao;
+import br.contabil.razao.domain.InformacaoComplementar;
 import br.contabil.razao.domain.InformacoesComplementares;
-import br.contabil.razao.domain.LinhaMatrizSaldos;
+import br.contabil.razao.domain.LinhaMatrizSaldosContabeis;
+import br.contabil.razao.domain.LinhaMatrizSaldosContabeisDerivada;
+import br.contabil.razao.domain.MatrizSaldosContabeis;
 import br.contabil.razao.domain.NaturezaDespesa;
 import br.contabil.razao.domain.NaturezaReceita;
 import br.contabil.razao.domain.PoderOrgao;
 import br.contabil.razao.domain.repository.MatrizSaldosContabeisPort;
 
 /**
- * Deriva a MSC (Matriz de Saldos Contábeis) direto dos lançamentos, estendendo o
- * mesmo motor de saldo por período de {@link PostgresBalancetePort} (ADR-0056)
- * pela dimensão das informações complementares (IC): {@code execucao_orcamentaria,
- * natureza_receita, natureza_despesa, funcao_subfuncao, ano_inscricao_rp,
- * fonte_recurso} (colunas de partida, {@code lancamento}) e {@code poder_orgao}
- * (fato-wide, {@code fato_contabil}) — colunas nascidas na RAZ-267/RAZ-225 (ADR-0057/
- * ADR-0054). Cada combinação distinta de conta×IC vira uma linha própria; como
- * {@code NULL} agrupa junto no Postgres, contas sem nenhuma IC capturada (a maioria
- * do plano — patrimoniais/orçamentárias fora da DDR) caem numa única linha "sem IC",
- * preservando o comportamento de {@link PostgresBalancetePort} para o caso comum.
+ * Deriva a Matriz de Saldos Contábeis (MSC) de um período direto dos lançamentos
+ * (razao-contabil-schema.md §Saldos), extensão de {@link PostgresBalancetePort} pela
+ * dimensão das informações complementares (IC, ADR-0056/ADR-0057): mesma máquina de
+ * saldo anterior/movimento D/movimento C/saldo atual por período, agora agrupada também
+ * por {@code fonte_recurso, execucao_orcamentaria, natureza_receita, natureza_despesa,
+ * funcao_subfuncao, ano_inscricao_rp} (dimensão de partida, {@code lancamento}) e
+ * {@code poder_orgao} (dimensão de fato, {@code fato_contabil}). Só contas escrituráveis
+ * com algum valor não-zero aparecem, mesmo princípio de {@link PostgresBalancetePort}.
  *
- * <p>As CTEs {@code movimento}/{@code anterior} agregam por período (mesma
- * comparação lexicográfica {@code (exercicio, mes)} do balancete — o mês 13 de
- * encerramento fica depois do mês 12 e antes do mês 1 seguinte); {@code chaves}
- * une as combinações vistas em qualquer um dos dois lados (uma conta×IC pode ter
- * saldo anterior sem movimento no período, ou vice-versa); o join final usa
- * {@code IS NOT DISTINCT FROM} porque as colunas de IC são nullable e a igualdade
- * SQL comum (`=`) nunca casa `NULL = NULL`. Só contas escrituráveis com algum
- * valor não-zero aparecem (mesmo filtro do balancete, para não poluir a MSC com o
- * plano de contas inteiro).
+ * <p><b>FP (superávit financeiro)</b> é DERIVADO reusando a DDR "Recursos Disponíveis"
+ * por {@link FonteRecurso} ({@code 8.2.1.1.1.01.00}/{@code .02.00}, os mesmos códigos de
+ * {@link ParametrosTransposicaoDdrAberturaOficiais} — IPC 03/STN §96) — não ganha coluna
+ * própria (ADR-0007/ADR-0057): é rótulo sobre um saldo que já aparece como linha capturada
+ * da conta DDR de origem, por isso {@link MatrizSaldosContabeis#confere()} não soma as
+ * linhas derivadas. Contas FP ainda não cadastradas no ente resolvem para "sem FP" (esta é
+ * uma leitura, {@code Acao.LER} — diferente de {@code ParametrosEncerramentoDdrOficiais},
+ * que EXIGE a conta por ser usada num encerramento de escrita).
+ *
+ * <p><b>DC (dívida consolidada)</b> ainda não é derivada — nenhuma conta PCASP de dívida
+ * consolidada está mapeada no MCASP vigente pela documentação do produto
+ * (docs/16-prestacao-de-contas.md item 1); ao contrário da FP, DC não é um saldo DDR
+ * (classes 7/8) e sim patrimonial (LRF art. 29), o que exige pesquisa própria de fonte
+ * antes de inventar um código PCASP. {@code [REVALIDAR]} — rastreado como issue filha.
  */
 @Component
 public class PostgresMatrizSaldosContabeisPort implements MatrizSaldosContabeisPort {
 
-    private static final String SQL_MATRIZ =
+    /**
+     * DDR "Recursos Disponíveis para o Exercício" / "Recursos de Exercícios Anteriores"
+     * (IPC 03/STN rev. 2017 §96) — mesmos códigos de
+     * {@link ParametrosTransposicaoDdrAberturaOficiais}. É o saldo que a MSC rotula
+     * {@code FP} por fonte. {@code [REVALIDAR]} contra o MCASP edição vigente.
+     */
+    private static final List<String> CODIGOS_FP = List.of("8.2.1.1.1.01.00", "8.2.1.1.1.02.00");
+
+    private static final String SQL_BASE =
             """
             with periodo as (
               select id, exercicio, mes from periodo_contabil where ente_id = ? and exercicio = ? and mes = ?
             ),
-            movimento as (
-              select l.conta_id, l.execucao_orcamentaria, l.natureza_receita, l.natureza_despesa,
-                     l.funcao_subfuncao, l.ano_inscricao_rp, l.fonte_recurso, f.poder_orgao,
-                     sum(l.valor) filter (where l.natureza = 'D') as debito,
-                     sum(l.valor) filter (where l.natureza = 'C') as credito
-                from lancamento l
-                join fato_contabil f on f.ente_id = l.ente_id and f.id = l.fato_id
-               where l.ente_id = ? and f.periodo_id = (select id from periodo)
-               group by l.conta_id, l.execucao_orcamentaria, l.natureza_receita, l.natureza_despesa,
-                        l.funcao_subfuncao, l.ano_inscricao_rp, l.fonte_recurso, f.poder_orgao
-            ),
-            anterior as (
-              select l.conta_id, l.execucao_orcamentaria, l.natureza_receita, l.natureza_despesa,
-                     l.funcao_subfuncao, l.ano_inscricao_rp, l.fonte_recurso, f.poder_orgao,
-                     sum(case when l.natureza = 'D' then l.valor else -l.valor end) as saldo
+            base as (
+              select l.conta_id,
+                     l.fonte_recurso, l.execucao_orcamentaria, l.natureza_receita,
+                     l.natureza_despesa, l.funcao_subfuncao, l.ano_inscricao_rp,
+                     f.poder_orgao,
+                     sum(l.valor) filter (where l.natureza = 'D' and f.periodo_id = (select id from periodo)) as movimento_debito,
+                     sum(l.valor) filter (where l.natureza = 'C' and f.periodo_id = (select id from periodo)) as movimento_credito,
+                     sum(case when l.natureza = 'D' then l.valor else -l.valor end)
+                       filter (where (p.exercicio, p.mes) < (select exercicio, mes from periodo)) as saldo_anterior
                 from lancamento l
                 join fato_contabil f on f.ente_id = l.ente_id and f.id = l.fato_id
                 join periodo_contabil p on p.ente_id = f.ente_id and p.id = f.periodo_id
-               where l.ente_id = ? and (p.exercicio, p.mes) < (select exercicio, mes from periodo)
-               group by l.conta_id, l.execucao_orcamentaria, l.natureza_receita, l.natureza_despesa,
-                        l.funcao_subfuncao, l.ano_inscricao_rp, l.fonte_recurso, f.poder_orgao
-            ),
-            chaves as (
-              select conta_id, execucao_orcamentaria, natureza_receita, natureza_despesa,
-                     funcao_subfuncao, ano_inscricao_rp, fonte_recurso, poder_orgao from movimento
-              union
-              select conta_id, execucao_orcamentaria, natureza_receita, natureza_despesa,
-                     funcao_subfuncao, ano_inscricao_rp, fonte_recurso, poder_orgao from anterior
+               where l.ente_id = ?
+               group by l.conta_id, l.fonte_recurso, l.execucao_orcamentaria, l.natureza_receita,
+                        l.natureza_despesa, l.funcao_subfuncao, l.ano_inscricao_rp, f.poder_orgao
             )
             select c.id as conta_id, c.codigo, c.descricao, c.natureza_saldo,
-                   k.execucao_orcamentaria, k.natureza_receita, k.natureza_despesa,
-                   k.funcao_subfuncao, k.ano_inscricao_rp, k.fonte_recurso, k.poder_orgao,
-                   coalesce(a.saldo, 0) as saldo_anterior,
-                   coalesce(m.debito, 0) as movimento_debito,
-                   coalesce(m.credito, 0) as movimento_credito
-              from chaves k
-              join conta_pcasp c on c.id = k.conta_id
-              left join movimento m
-                on m.conta_id = k.conta_id
-               and m.execucao_orcamentaria is not distinct from k.execucao_orcamentaria
-               and m.natureza_receita is not distinct from k.natureza_receita
-               and m.natureza_despesa is not distinct from k.natureza_despesa
-               and m.funcao_subfuncao is not distinct from k.funcao_subfuncao
-               and m.ano_inscricao_rp is not distinct from k.ano_inscricao_rp
-               and m.fonte_recurso is not distinct from k.fonte_recurso
-               and m.poder_orgao is not distinct from k.poder_orgao
-              left join anterior a
-                on a.conta_id = k.conta_id
-               and a.execucao_orcamentaria is not distinct from k.execucao_orcamentaria
-               and a.natureza_receita is not distinct from k.natureza_receita
-               and a.natureza_despesa is not distinct from k.natureza_despesa
-               and a.funcao_subfuncao is not distinct from k.funcao_subfuncao
-               and a.ano_inscricao_rp is not distinct from k.ano_inscricao_rp
-               and a.fonte_recurso is not distinct from k.fonte_recurso
-               and a.poder_orgao is not distinct from k.poder_orgao
-             where c.ente_id = ? and c.escrituravel = true
-               and (coalesce(a.saldo, 0) <> 0 or coalesce(m.debito, 0) <> 0 or coalesce(m.credito, 0) <> 0)
+                   b.fonte_recurso, b.execucao_orcamentaria, b.natureza_receita,
+                   b.natureza_despesa, b.funcao_subfuncao, b.ano_inscricao_rp, b.poder_orgao,
+                   coalesce(b.saldo_anterior, 0) as saldo_anterior,
+                   coalesce(b.movimento_debito, 0) as movimento_debito,
+                   coalesce(b.movimento_credito, 0) as movimento_credito
+              from base b
+              join conta_pcasp c on c.id = b.conta_id and c.ente_id = ?
+             where c.escrituravel = true
+               and (coalesce(b.saldo_anterior, 0) <> 0 or coalesce(b.movimento_debito, 0) <> 0 or coalesce(b.movimento_credito, 0) <> 0)
              order by c.codigo
+            """;
+
+    private static final String SQL_RESOLVER_CONTA_FP =
+            "select id from conta_pcasp where ente_id = ? and codigo = ?";
+
+    private static final String SQL_FP =
+            """
+            with periodo as (
+              select id, exercicio, mes from periodo_contabil where ente_id = ? and exercicio = ? and mes = ?
+            ),
+            base as (
+              select l.fonte_recurso,
+                     sum(l.valor) filter (where l.natureza = 'D' and f.periodo_id = (select id from periodo)) as movimento_debito,
+                     sum(l.valor) filter (where l.natureza = 'C' and f.periodo_id = (select id from periodo)) as movimento_credito,
+                     sum(case when l.natureza = 'D' then l.valor else -l.valor end)
+                       filter (where (p.exercicio, p.mes) < (select exercicio, mes from periodo)) as saldo_anterior
+                from lancamento l
+                join fato_contabil f on f.ente_id = l.ente_id and f.id = l.fato_id
+                join periodo_contabil p on p.ente_id = f.ente_id and p.id = f.periodo_id
+               where l.ente_id = ?
+                 and l.conta_id = any(?)
+                 and l.fonte_recurso is not null
+               group by l.fonte_recurso
+            )
+            select fonte_recurso,
+                   coalesce(saldo_anterior, 0) as saldo_anterior,
+                   coalesce(movimento_debito, 0) as movimento_debito,
+                   coalesce(movimento_credito, 0) as movimento_credito
+              from base
+             where coalesce(saldo_anterior, 0) <> 0 or coalesce(movimento_debito, 0) <> 0 or coalesce(movimento_credito, 0) <> 0
             """;
 
     private final JdbcTemplate jdbcTemplate;
@@ -119,69 +137,92 @@ public class PostgresMatrizSaldosContabeisPort implements MatrizSaldosContabeisP
     }
 
     @Override
-    public List<LinhaMatrizSaldos> matriz(TenantId enteId, int exercicio, int mes) {
-        return jdbcTemplate.query(
-                SQL_MATRIZ,
-                PostgresMatrizSaldosContabeisPort::mapearLinha,
-                enteId.valor(),
-                exercicio,
-                mes,
-                enteId.valor(),
-                enteId.valor(),
-                enteId.valor());
+    public MatrizSaldosContabeis matriz(TenantId enteId, int exercicio, int mes) {
+        List<LinhaMatrizSaldosContabeis> linhas = jdbcTemplate.query(
+                SQL_BASE,
+                (rs, rowNum) -> mapearLinha(rs),
+                enteId.valor(), exercicio, mes, enteId.valor(), enteId.valor());
+
+        List<LinhaMatrizSaldosContabeisDerivada> derivadas = derivarFp(enteId, exercicio, mes);
+
+        return new MatrizSaldosContabeis(enteId, exercicio, mes, linhas, derivadas);
     }
 
-    private static LinhaMatrizSaldos mapearLinha(ResultSet rs, int rowNum) throws SQLException {
+    private LinhaMatrizSaldosContabeis mapearLinha(ResultSet rs) throws SQLException {
+        String fonteRecurso = rs.getString("fonte_recurso");
+        String execucaoOrcamentaria = rs.getString("execucao_orcamentaria");
+        String naturezaReceita = rs.getString("natureza_receita");
+        String naturezaDespesa = rs.getString("natureza_despesa");
+        String funcaoSubfuncao = rs.getString("funcao_subfuncao");
+        int anoInscricaoRp = rs.getInt("ano_inscricao_rp");
+        boolean temAnoInscricaoRp = !rs.wasNull();
+        String poderOrgao = rs.getString("poder_orgao");
+
         Dinheiro saldoAnterior = new Dinheiro(rs.getBigDecimal("saldo_anterior"));
         Dinheiro movimentoDebito = new Dinheiro(rs.getBigDecimal("movimento_debito"));
         Dinheiro movimentoCredito = new Dinheiro(rs.getBigDecimal("movimento_credito"));
         Dinheiro saldoAtual = saldoAnterior.somar(movimentoDebito).subtrair(movimentoCredito);
-        InformacoesComplementares ic = InformacoesComplementares.de(
-                fonteRecurso(rs.getString("fonte_recurso")),
-                execucaoOrcamentaria(rs.getString("execucao_orcamentaria")),
-                naturezaReceita(rs.getString("natureza_receita")),
-                naturezaDespesa(rs.getString("natureza_despesa")),
-                funcaoSubfuncao(rs.getString("funcao_subfuncao")),
-                anoInscricaoRp(rs));
-        return new LinhaMatrizSaldos(
+
+        return new LinhaMatrizSaldosContabeis(
                 new ContaContabilId(rs.getObject("conta_id", UUID.class)),
                 rs.getString("codigo"),
                 rs.getString("descricao"),
                 rs.getString("natureza_saldo"),
-                ic,
-                poderOrgao(rs.getString("poder_orgao")),
+                poderOrgao == null ? null : PoderOrgao.de(poderOrgao),
+                InformacoesComplementares.de(
+                        fonteRecurso == null ? null : FonteRecurso.de(fonteRecurso),
+                        execucaoOrcamentaria == null ? null : ExecucaoOrcamentaria.de(execucaoOrcamentaria),
+                        naturezaReceita == null ? null : NaturezaReceita.de(naturezaReceita),
+                        naturezaDespesa == null ? null : NaturezaDespesa.de(naturezaDespesa),
+                        funcaoSubfuncao == null ? null : FuncaoSubfuncao.de(funcaoSubfuncao),
+                        temAnoInscricaoRp ? AnoInscricaoRp.de(anoInscricaoRp) : null),
                 saldoAnterior,
                 movimentoDebito,
                 movimentoCredito,
                 saldoAtual);
     }
 
-    private static PoderOrgao poderOrgao(String codigo) {
-        return codigo == null ? null : PoderOrgao.de(codigo);
+    private List<LinhaMatrizSaldosContabeisDerivada> derivarFp(TenantId enteId, int exercicio, int mes) {
+        UUID[] contasFp = CODIGOS_FP.stream()
+                .map(codigo -> resolverContaFp(enteId, codigo))
+                .filter(Objects::nonNull)
+                .toArray(UUID[]::new);
+        if (contasFp.length == 0) {
+            return List.of();
+        }
+
+        return jdbcTemplate.execute(
+                (Connection conn) -> conn.prepareStatement(SQL_FP),
+                (PreparedStatement ps) -> {
+                    ps.setObject(1, enteId.valor());
+                    ps.setInt(2, exercicio);
+                    ps.setInt(3, mes);
+                    ps.setObject(4, enteId.valor());
+                    Array array = ps.getConnection().createArrayOf("uuid", contasFp);
+                    ps.setArray(5, array);
+                    List<LinhaMatrizSaldosContabeisDerivada> resultado = new ArrayList<>();
+                    try (ResultSet rs = ps.executeQuery()) {
+                        while (rs.next()) {
+                            Dinheiro saldoAnterior = new Dinheiro(rs.getBigDecimal("saldo_anterior"));
+                            Dinheiro movimentoDebito = new Dinheiro(rs.getBigDecimal("movimento_debito"));
+                            Dinheiro movimentoCredito = new Dinheiro(rs.getBigDecimal("movimento_credito"));
+                            Dinheiro saldoAtual = saldoAnterior.somar(movimentoDebito).subtrair(movimentoCredito);
+                            resultado.add(new LinhaMatrizSaldosContabeisDerivada(
+                                    InformacaoComplementar.FP,
+                                    FonteRecurso.de(rs.getString("fonte_recurso")),
+                                    saldoAnterior,
+                                    movimentoDebito,
+                                    movimentoCredito,
+                                    saldoAtual));
+                        }
+                    }
+                    return resultado;
+                });
     }
 
-    private static FonteRecurso fonteRecurso(String codigo) {
-        return codigo == null ? null : FonteRecurso.de(codigo);
-    }
-
-    private static ExecucaoOrcamentaria execucaoOrcamentaria(String codigo) {
-        return codigo == null ? null : ExecucaoOrcamentaria.de(codigo);
-    }
-
-    private static NaturezaReceita naturezaReceita(String codigo) {
-        return codigo == null ? null : NaturezaReceita.de(codigo);
-    }
-
-    private static NaturezaDespesa naturezaDespesa(String codigo) {
-        return codigo == null ? null : NaturezaDespesa.de(codigo);
-    }
-
-    private static FuncaoSubfuncao funcaoSubfuncao(String codigo) {
-        return codigo == null ? null : FuncaoSubfuncao.de(codigo);
-    }
-
-    private static AnoInscricaoRp anoInscricaoRp(ResultSet rs) throws SQLException {
-        int ano = rs.getInt("ano_inscricao_rp");
-        return rs.wasNull() ? null : AnoInscricaoRp.de(ano);
+    private UUID resolverContaFp(TenantId enteId, String codigoPcasp) {
+        List<UUID> ids = jdbcTemplate.query(
+                SQL_RESOLVER_CONTA_FP, (rs, rowNum) -> rs.getObject("id", UUID.class), enteId.valor(), codigoPcasp);
+        return ids.isEmpty() ? null : ids.get(0);
     }
 }

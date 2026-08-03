@@ -5,28 +5,31 @@ import java.util.Objects;
 import br.contabil.plataforma.domain.Dinheiro;
 
 /**
- * Uma linha da {@code MatrizSaldosContabeisPort}: o {@link LinhaBalancete}
- * estendido pela dimensão das informações complementares (IC) da MSC —
- * conta PCASP último nível × IC × NATUREZA × VALOR (ADR-0056/ADR-0057).
- * {@code ic} carrega as IC de partida capturadas no lançamento (FR/CO/NR/ND/FS/AI,
- * nunca nula como um todo — {@link InformacoesComplementares#nenhuma()} quando a
- * partida não carrega nenhuma); {@code poderOrgao} é a IC fato-wide (PO), nula
- * quando o fato não a capturou. FP/DC ({@code Origem.DERIVADA}) não aparecem
- * aqui — ver o javadoc de {@code MatrizSaldosContabeisPort}.
+ * Uma linha CAPTURADA da {@link MatrizSaldosContabeis}: saldo anterior/movimento a
+ * débito/movimento a crédito/saldo atual de uma conta PCASP último nível, agregado
+ * também pelas informações complementares (IC) de origem {@code LANCAMENTO}
+ * ({@code FR/CO/NR/ND/FS/AI}, via {@link #informacoesComplementares()}) e {@code FATO}
+ * ({@code PO}, via {@link #poderOrgao()}) — extensão de {@link LinhaBalancete} pela
+ * dimensão IC (ADR-0056/ADR-0057). As IC {@code DERIVADA} ({@code FP/DC}) não aparecem
+ * aqui — ver {@link LinhaMatrizSaldosContabeisDerivada}.
+ *
+ * <p>Mesma convenção de sinal de {@link LinhaBalancete}: saldos são o valor bruto
+ * ΣD-ΣC; a interpretação segue {@code naturezaSaldo} (a natureza natural da conta),
+ * não é recalculada a partir do sinal do saldo.
  */
-public record LinhaMatrizSaldos(
+public record LinhaMatrizSaldosContabeis(
         ContaContabilId contaId,
         String codigo,
         String descricao,
         String naturezaSaldo,
-        InformacoesComplementares ic,
         PoderOrgao poderOrgao,
+        InformacoesComplementares informacoesComplementares,
         Dinheiro saldoAnterior,
         Dinheiro movimentoDebito,
         Dinheiro movimentoCredito,
         Dinheiro saldoAtual) {
 
-    public LinhaMatrizSaldos {
+    public LinhaMatrizSaldosContabeis {
         Objects.requireNonNull(contaId, "contaId não pode ser nulo");
         Objects.requireNonNull(codigo, "codigo não pode ser nulo");
         Objects.requireNonNull(descricao, "descricao não pode ser nula");
@@ -35,8 +38,8 @@ public record LinhaMatrizSaldos(
             throw new IllegalArgumentException(
                     "naturezaSaldo deve ser 'D' (devedora) ou 'C' (credora): " + naturezaSaldo);
         }
-        ic = ic == null ? InformacoesComplementares.nenhuma() : ic;
-        // poderOrgao pode ser nulo: IC fato-wide ausente quando o fato não a capturou.
+        informacoesComplementares =
+                informacoesComplementares == null ? InformacoesComplementares.nenhuma() : informacoesComplementares;
         Objects.requireNonNull(saldoAnterior, "saldoAnterior não pode ser nulo");
         Objects.requireNonNull(movimentoDebito, "movimentoDebito não pode ser nulo");
         Objects.requireNonNull(movimentoCredito, "movimentoCredito não pode ser nulo");
