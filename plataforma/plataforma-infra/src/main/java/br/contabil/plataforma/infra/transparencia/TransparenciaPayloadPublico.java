@@ -20,9 +20,15 @@ import com.fasterxml.jackson.databind.node.TextNode;
  */
 public final class TransparenciaPayloadPublico {
 
-    private static final Pattern CPF_PONTUADO =
-            Pattern.compile("(?<!\\d)(\\d{3})\\.(\\d{3})\\.(\\d{3})-(\\d{2})(?!\\d)");
-    private static final Pattern CPF_NUMERICO = Pattern.compile("(?<!\\d)(\\d{11})(?!\\d)");
+    /**
+     * Casa CPF em qualquer separador usual entre os grupos 3-3-3-2 (ponto, hífen,
+     * espaço ou nenhum) — não só o formato canônico {@code XXX.XXX.XXX-XX}. Campos
+     * de texto livre (ex.: {@code historico}) são digitados por humanos e variam a
+     * pontuação; um regex que só reconhece o formato pontuado padrão deixa passar
+     * CPF sem pontos (ex.: {@code 123456789-01}) ou separado por espaço.
+     */
+    private static final Pattern CPF_QUALQUER_FORMATO =
+            Pattern.compile("(?<!\\d)(\\d{3})[.\\s-]?(\\d{3})[.\\s-]?(\\d{3})[.\\s-]?(\\d{2})(?!\\d)");
 
     private TransparenciaPayloadPublico() {}
 
@@ -100,15 +106,12 @@ public final class TransparenciaPayloadPublico {
     }
 
     private static String maskCpf(String valor) {
-        Matcher pontuado = CPF_PONTUADO.matcher(valor);
-        String mascarado = pontuado.replaceAll("***.$2.***-**");
-        Matcher numerico = CPF_NUMERICO.matcher(mascarado);
-        StringBuffer buffer = new StringBuffer();
-        while (numerico.find()) {
-            String digitos = numerico.group(1);
-            numerico.appendReplacement(buffer, "***." + digitos.substring(3, 6) + ".***-**");
+        Matcher cpf = CPF_QUALQUER_FORMATO.matcher(valor);
+        StringBuilder buffer = new StringBuilder();
+        while (cpf.find()) {
+            cpf.appendReplacement(buffer, "***." + cpf.group(2) + ".***-**");
         }
-        numerico.appendTail(buffer);
+        cpf.appendTail(buffer);
         return buffer.toString();
     }
 
