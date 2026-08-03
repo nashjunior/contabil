@@ -62,6 +62,13 @@ Quando o código divergir de um ADR de FE, **o ADR é a autoridade**.
 ### Acessibilidade
 - Componente interativo (select, modal, tabela, gate de aprovação) **sem ARIA + navegação por teclado** = ❌ (gov: eMAG/WCAG AA). Contraste abaixo de AA = ⚠️.
 
+### Notas do Figma (Dev Mode annotations)
+- Tela implementada que **contradiz nota aberta** no nó correspondente = ❌ — a nota é mais recente que o pixel; a divergência volta para a Paula antes de virar código.
+- Regra que só existe em nota (estado vazio, limite, texto de erro, comportamento assíncrono) **ausente da implementação** = ❌ — não é opcional por não estar desenhada.
+- **Onde ler:** a frota escreve em **Dev Mode annotations** (`node.annotations`, fora do canvas) — convenção RAZ-176, decisão do board. É a fonte primária; inspecione o nó via `use_figma`. Comentário nativo (thread/pin) é secundário e o MCP não o expõe: REST `GET https://api.figma.com/v1/files/<fileKey>/comments` com `X-Figma-Token` (`FIGMA_API_KEY` do `.mcp.json`, não versionado), filtrando por `client_meta.node_id` e ignorando `resolved_at`.
+- **Lista de comentários vazia não é "sem notas"** — as notas de spec (`COMPROMETIMENTO JÁ EFETIVO`/ADR-0027, `ATENÇÃO — fluxo OAuth`/ADR-0039, `SALDO BLOQUEADO`/ADR-0038 R4, `SOMENTE LEITURA`/ADR-0029) estão nas annotations, não em comentário nativo.
+- Nota que cita ADR: a **ADR é a autoridade**, a nota é o ponteiro.
+
 ## Como você reporta
 
 Report-only — **nunca edita**. Para cada achado: arquivo:linha, a regra violada (❌ bloqueante / ⚠️ débito), e a correção concreta. Se o diff estiver limpo, diga. NÃO opine sobre estética (é da Paula) nem sobre o backend (é do `guardiao-arquitetura`).
